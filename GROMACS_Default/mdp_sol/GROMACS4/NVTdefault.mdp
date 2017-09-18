@@ -1,0 +1,71 @@
+; STANDARD MD INPUT OPTIONS FOR MARTINI 2.x
+; Updated 02 feb 2013 by DdJ
+;
+; for use with GROMACS 4.5/4.6
+;
+
+title                    = Martini
+
+
+ ; RUN CONTROL PARAMETERS = 
+integrator               = md
+dt                       = 0.03
+nsteps                   = 50000
+
+ ; OPTIONS FOR CENTER OF MASS REMOVAL
+comm-mode               = Linear
+nstcomm                 = 100
+comm-grps               = 
+
+ ; OUTPUT CONTROL OPTIONS = 
+  ; Output frequency for coords (x), velocities (v) and forces (f) = 
+nstxout                  = 0
+nstvout                  = 0
+nstfout                  = 0
+nstlog                   = 100
+nstenergy                = 100
+nstxtcout                = 100
+xtc-precision            = 100
+xtc-grps                 = System 
+energygrps                = System
+
+; NEIGHBORSEARCHING PARAMETERS = 
+cutoff-scheme            = Verlet
+nstlist                  = 10
+ns-type                  = grid
+pbc                      = xyz
+verlet-buffer-drift      = 0.005
+
+
+
+ ; OPTIONS FOR ELECTROSTATICS AND VDW =
+ ; Method for doing electrostatics =
+coulombtype              = cutoff
+coulomb-modifier         = Potential-shift-verlet
+rcoulomb                 = 1.1
+epsilon-r                = 15	; 2.5 (with polarizable water)
+vdwtype                 = cutoff
+vdw-modifier             = Potential-shift-verlet
+rvdw                     = 1.1
+DispCorr                 = no
+
+ ; OPTIONS FOR WEAK COUPLING ALGORITHMS =
+tcoupl                   = v-rescale
+tc-grps                  = System
+tau-t                    = 2.0
+ref-t                    = 323
+Pcoupl                   = no
+
+
+
+ ; GENERATE VELOCITIES FOR STARTUP RUN =
+gen-vel                  = no
+gen-temp                 = 323
+gen-seed                 = 473529
+
+ ; OPTIONS FOR BONDS     =
+constraints              = none
+constraint-algorithm     = Lincs
+unconstrained-start      = no 
+lincs-order              = 4
+lincs-warnangle          = 30

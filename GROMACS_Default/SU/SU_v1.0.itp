@@ -1,0 +1,81 @@
+[ atomtypes ]
+SU 72.0 0.000 A 0.0 0.0
+#####################################################################
+[ nonbond_params ]
+SU  SU  1    0.0 0.0                                          ; DELETED, previously : 0.15091E-00     0.16267E-02 ; intermediate 
+P5  SU  1    0.15091E-00     0.16267E-02 ; intermediate
+P4  SU  1    0.0 0.0                                          ; NO MORE WATER ATTRACTION ! ALREADY IN THE ADSORBED WATER LAYER
+SU  P3  1    0.15091E-00     0.16267E-02 ; intermediate 
+SU  P2  1    0.15091E-00     0.16267E-02 ; intermediate
+SU  P1  1    0.15091E-00     0.16267E-02 ; intermediate
+SU  Nd  1    0.15091E-00     0.16267E-02 ; intermediate
+SU  Nda 1    0.15091E-00     0.16267E-02 ; intermediate
+SU  Na  1    0.15091E-00     0.16267E-02 ; intermediate
+SU  N0  1    0.15091E-00     0.16267E-02 ; intermediate 
+SU  C5  1    0.15091E-00     0.16267E-02 ; intermediate
+SU  C4  1    0.15091E-00     0.16267E-02 ; intermediate
+SU  C3  1    0.15091E-00     0.16267E-02 ; intermediate
+SU  C2  1    0.15091E-00     0.16267E-02 ; intermediate
+SU  C1  1    0.15091E-00     0.16267E-02 ; intermediate
+SU  Qda 1    0.15091E-00     0.16267E-02 ; intermediate
+SU  Q0  1    0.15091E-00     0.16267E-02 ; intermediate
+SU  Qa  1    0.15091E-00     0.16267E-02 ; intermediate
+#####################################################################
+[ moleculetype ]
+; molname    nrexcl
+  SUI       1
+                                                                                
+[ atoms ]
+;id   type  resnr   residu  atom  cgnr  charge
+ 1  SU   1   SUI  SUI  1   0
+
+[ moleculetype ]
+; molname    nrexcl
+  SUP1       1
+                                                                                
+[ atoms ]
+;id   type  resnr   residu  atom  cgnr  charge
+ 1  P1   1   SUP1  SUP1  1   0
+
+
+[ moleculetype ]
+; molname    nrexcl
+  SUP2       1
+                                                                                
+[ atoms ]
+;id   type  resnr   residu  atom  cgnr  charge
+ 1  P2   1   SUP2  SUP2  1   0
+
+ [ moleculetype ]
+; molname    nrexcl
+  SUP3       1
+                                                                                
+[ atoms ]
+;id   type  resnr   residu  atom  cgnr  charge
+ 1  P3   1   SUP3  SUP3  1   0
+
+
+ [ moleculetype ]
+; molname    nrexcl
+  SUP4       1
+                                                                                
+[ atoms ]
+;id   type  resnr   residu  atom  cgnr  charge
+ 1  P4   1   SUP4  SUP4  1   0
+
+
+ [ moleculetype ]
+; molname    nrexcl
+  SUP5       1
+                                                                                
+[ atoms ]
+;id   type  resnr   residu  atom  cgnr  charge
+ 1  P5   1   SUP5  SUP5  1   0
+
+ [ moleculetype ]
+; molname    nrexcl
+  SNda       1
+                                                                                
+[ atoms ]
+ 1  Nda   1   SUNda  SUNda  1   0
+#####################################################################

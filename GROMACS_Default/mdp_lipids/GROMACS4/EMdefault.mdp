@@ -1,0 +1,50 @@
+; STANDARD MD INPUT OPTIONS FOR MARTINI 2.x
+; Updated 02 feb 2013 by DdJ
+;
+; for use with GROMACS 4.5/4.6
+;
+
+ ; RUN CONTROL PARAMETERS = 
+integrator               = steep
+nsteps                   = 50000
+
+ ; OPTIONS FOR CENTER OF MASS REMOVAL
+comm-grps               = System
+
+
+ ; OUTPUT CONTROL OPTIONS = 
+nstxout                  = 0
+nstvout                  = 0
+nstfout                  = 0
+nstlog                   = 100
+nstenergy                = 100
+nstxtcout                = 100
+xtc-precision            = 100
+xtc-grps                 = System 
+energygrps               = System
+
+
+ ; NEIGHBORSEARCHING PARAMETERS =
+cutoff-scheme            = Verlet
+nstlist                  = 10
+ns-type                  = grid
+pbc                      = xyz
+verlet-buffer-drift      = 0.005
+
+
+ ; OPTIONS FOR ELECTROSTATICS AND VDW = 
+coulombtype              = cutoff 
+coulomb-modifier         = Potential-shift-verlet
+rcoulomb                 = 1.1
+epsilon-r                = 15	; 2.5 (with polarizable water)
+vdwtype                 = cutoff  
+vdw-modifier             = Potential-shift-verlet
+rvdw                     = 1.1
+
+
+ ; OPTIONS FOR BONDS     = 
+constraints              = none 
+constraint-algorithm     = Lincs
+continuation             = no
+lincs-order              = 4
+lincs-warnangle          = 30
