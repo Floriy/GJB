@@ -671,6 +671,7 @@ if(sys.argv[1] == '--local'):
 	#**********************************************#
 	for i in range(1,len(Jobs)+1):
 		sampleNumber = str("""SAMPLE{0}""").format(i)
+		sampleNumber = i #added by Claire
 		name = Jobs[sampleNumber]['JOBID']
 		print("===============\n===============\nSample "+name+"\n===============\n===============\n")
 		#Creates the sample directory
