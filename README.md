@@ -24,6 +24,9 @@ Basic format Rules :
 
 => DEFO 
 
+Some problem with the fact that the parameters_defo.cvs has the priority of Parameters.cvs, 
+the variables are added to T323K_v1.0 instead of replaced by..
+
 
 => SUPPORT 
 
