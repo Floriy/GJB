@@ -27,6 +27,13 @@ Basic format Rules :
 Some problem with the fact that the parameters_defo.cvs has the priority of Parameters.cvs, 
 the variables are added to T323K_v1.0 instead of replaced by..
 
+Some problem with the format of PROTOCOL for the defo, the , are interpretated as field separator when importing with libreoffice. TODO  change these to '+' for example
+
+I have changed the number of defo beads per line, no +1 is automatically added, and if the number chosen is 1, 
+then there is no crown around it.
+
+
+
 
 => SUPPORT 
 
