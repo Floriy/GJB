@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/home/cloison/anaconda3/bin/python3
 # -*- coding: utf-8 -*-
 
 
@@ -34,6 +34,8 @@ Softwares = {}
 Jobs = {}
 #Dictionnary holding the data for PBS
 PBS = {}
+#Dictionnary holding the data for TGCC
+TGCC = {}
 
 #**********************************************#
 #**********************************************#
@@ -301,7 +303,11 @@ with open('Parameters.csv','r') as Input_Params:
 #**********************************************#
 
 #Finding the software version. If not found ask the user.
+
+print('Gromacs local :', Softwares['GROMACS_LOC'])
+
 SoftwareVersion = re.sub("[^0-9]","",Softwares['GROMACS_LOC'].split('/')[-2])
+
 if not SoftwareVersion:
 	SoftwareVersion = input('No version detected in path. Please select the version you want between 4, 5 or 2016: ')
 
@@ -326,6 +332,382 @@ else:
 #Dictionnary to perform sample copy
 InitForCopy={}
 
+
+
+#*******************************************************************************#
+#*******************************************************************************#
+#***********************								    ************************#
+#********************** Generates files for use with TGCC ***********************#
+#***********************								    ************************#
+#*******************************************************************************#
+#*******************************************************************************#
+
+### MEMORY SHEET FOR TGCC SLURM, TO INCLUDE INTO the ccc_msub file
+### ccc_msub to submit a job
+### ccc_mpinfo displays info on utilisation of queues
+### ccc_mqinfo displays info on queue definition
+### ccc_mpp -u user to display all jobs from a user
+### ccc_mpeek gives information about a job during its run.
+### ccc_mdel kills jobs
+### ccc_myproject give global info on time consumption of the group
+
+#Slurm Variable Name 	Description 	                     Example values            	                    PBS/Torque analog
+#$SLURM_JOBID       	Job ID             	                 5741192                	                    $PBS_JOBID
+#$SLURM_JOB_NAME    	Job Name           	                 myjob                  	                    $PBS_JOBNAME
+#$SLURM_SUBMIT_DIR  	Submit Directory           	         /lustre/payerle/work 	                        $PBS_O_WORKDIR
+#$SLURM_JOB_NODELIST  	Nodes assigned to job    	         compute-b24-[1-3,5-9],compute-b25-[1,4,8] 	    cat $PBS_NODEFILE
+#$SLURM_SUBMIT_HOST 	Host submitted from 	             login-1.deepthought2.umd.edu 	                $PBS_O_HOST
+#$SLURM_JOB_NUM_NODES 	Number of nodes allocated to job 	  2 	                                        $PBS_NUM_NODES
+#$SLURM_CPUS_ON_NODE 	Number of cores/node 	              8,3 	                                        $PBS_NUM_PPN
+#$SLURM_NTASKS  	    Total number of cores for job??? 	  11 	                                        $PBS_NP
+#$SLURM_NODEID 	        Index to node running on
+#relative to nodes assigned to job 	                           0 	                                        $PBS_O_NODENUM
+#$PBS_O_VNODENUM 	    Index to core running on
+#within node 	  4 	$SLURM_LOCALID
+#$SLURM_PROCID 	        Index to task relative to job 	     0 	                                             $PBS_O_TASKNUM - 1
+
+#####################EXAMPLE FROM TGCC WEB SITE
+
+##!/bin/bash
+##MSUB -r MyJob_Para          # Request name
+##MSUB -n 32                  # Number of tasks to use
+##MSUB -T 1800                # Elapsed time limit in seconds
+##MSUB -o example_%I.o        # Standard output. %I is the job id
+##MSUB -e example_%I.e        # Error output. %I is the job id
+##MSUB -A paxxxx              # Project ID
+
+#set -x
+#cd ${BRIDGE_MSUB_PWD}
+#ccc_mprun ./a.out
+##or
+## ccc_mprun -n 32 ./a.out
+##or
+## ccc_mprun -n ${BRIDGE_MSUB_NPROC} ./a.out
+## BRIDGE_MSUB_NPROC represents the number of tasks
+#####################EXAMPLE FROM TGCC WEB SITE
+
+
+
+if(sys.argv[1] == '--tgcc'):
+	#Read informations provided in TGCCinfo.csv if the option --tgcc is used
+	with open('TGCCinfo.csv','r') as TGCCinfo:
+		Reader = csv.reader(TGCCinfo, delimiter='|',skipinitialspace=True)
+		for row in Reader:
+			if Reader.line_num == 1:
+				continue
+			else:
+				TGCC.update( {row[0]: row[1] } )
+				
+	
+	#**********************************************#
+	#*****      Generating MDrun files        *****#
+	#**********************************************#
+	for sampleNumber in range(1, len(Jobs)+1):
+		name = Jobs[sampleNumber]['JOBID']
+		print("===============\n===============\nSample : "+name+"\n===============\n===============\n")
+		#Creates the sample directory
+		if(not os.path.isdir(ProjectName+'/'+name)):
+			os.mkdir(ProjectName+'/'+name)
+
+		ScriptFile = open(ProjectName+'/'+name+'/run.sh','w')
+		ScriptFile.truncate()
+		CopyToScratch = str("""
+						#!/bin/bash +x
+						
+						# ADDAPT AUTOMATICALLY TO GROMACS VERSION ?
+						# OR AT LEAST VERIFY THAT THE TWO VERSION INFORMATION
+						# IN Parameters.csv and TGCCinfo.csv ARE CONSISTENT  ?
+						
+						module load {3}
+						alias gmx="gmx_mpi"
+						
+						""").format(ProjectName,name,TGCC['username'],TGCC['GMXversion'])
+		ScriptFile.write(Utility.RemoveUnwantedIndent(CopyToScratch))
+
+		PrevCmdFiles={}
+		
+		#**********************************************#
+		# Read the default files for EM, NVT, NVP, NVE #
+		#**********************************************#
+		#**********************************************#
+		# Lipids files #
+		if( Jobs[sampleNumber]['TYPE'] == 'BILAYER' or Jobs[sampleNumber]['TYPE'] == 'TRILAYER'):
+			if SoftwareVersion.startswith('4'):
+				EMdefault = open(PathToDefault+'/mdp_lipids/GROMACS4/EMdefault.mdp','r')
+				NVTdefault = open(PathToDefault+'/mdp_lipids/GROMACS4/NVTdefault.mdp','r')
+				NPTdefault = open(PathToDefault+'/mdp_lipids/GROMACS4/NPTdefault.mdp','r')
+				NVEdefault = open(PathToDefault+'/mdp_lipids/GROMACS4/NVEdefault.mdp','r')
+
+				GROMACS_REM_prefixPath = Softwares['GROMACS_REM']+'/'
+				GROMACS_LOC_prefixPath = Softwares['GROMACS_LOC']+'/'
+				
+			else:
+				EMdefault = open(PathToDefault+'/mdp_lipids/GROMACS2016/EMdefault.mdp','r')
+				NVTdefault = open(PathToDefault+'/mdp_lipids/GROMACS2016/NVTdefault.mdp','r')
+				NPTdefault = open(PathToDefault+'/mdp_lipids/GROMACS2016/NPTdefault.mdp','r')
+				NVEdefault = open(PathToDefault+'/mdp_lipids/GROMACS2016/NVEdefault.mdp','r')
+
+				GROMACS_REM_prefixPath = Softwares['GROMACS_REM']+'/gmx '
+				GROMACS_LOC_prefixPath = Softwares['GROMACS_LOC']+'/gmx '
+		
+		# Solvent files #
+		if( Jobs[sampleNumber]['TYPE'] == 'SOLVENT'):
+			if SoftwareVersion.startswith('4'):
+				EMdefault = open(PathToDefault+'/mdp_sol/GROMACS4/EMdefault.mdp','r')
+				NVTdefault = open(PathToDefault+'/mdp_sol/GROMACS4/NVTdefault.mdp','r')
+				NPTdefault = open(PathToDefault+'/mdp_sol/GROMACS4/NPTdefault.mdp','r')
+				NVEdefault = open(PathToDefault+'/mdp_sol/GROMACS4/NVEdefault.mdp','r')
+
+				GROMACS_REM_prefixPath = Softwares['GROMACS_REM']+'/'
+				GROMACS_LOC_prefixPath = Softwares['GROMACS_LOC']+'/'
+				
+			else:
+				EMdefault = open(PathToDefault+'/mdp_sol/GROMACS2016/EMdefault.mdp','r')
+				NVTdefault = open(PathToDefault+'/mdp_sol/GROMACS2016/NVTdefault.mdp','r')
+				NPTdefault = open(PathToDefault+'/mdp_sol/GROMACS2016/NPTdefault.mdp','r')
+				NVEdefault = open(PathToDefault+'/mdp_sol/GROMACS2016/NVEdefault.mdp','r')
+
+				GROMACS_REM_prefixPath = Softwares['GROMACS_REM']+'/gmx '
+				GROMACS_LOC_prefixPath = Softwares['GROMACS_LOC']+'/gmx '
+		#**********************************************#
+		#**********************************************#
+		
+		
+		
+		#**********************************************#
+		#Go into the corresponding directory
+		#**********************************************#
+		with Utility.cd(ProjectName+'/'+name):
+			OutputFilename=''
+			ScriptFile = open('run.sh','a+')
+			ScriptFile.write('mkdir -p mdrun_out\n')
+			ScriptFile.write('mkdir -p grompp_out\n')
+			SoFarFile = str("""{0}_SoFar.txt""").format(name)
+			SoFar = open(SoFarFile, 'w')
+			
+			#**********************************************#
+			#Prepare the steps **************************#
+			#**********************************************#
+			for step in range(0, len(Jobs[sampleNumber]['PROTOCOL'])):
+
+				step = str(step)
+				
+				
+				#============================================================
+				#					STEP IS INITIALIZATION
+				#============================================================
+				if(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'].startswith('INIT')):
+					if(Jobs[sampleNumber]['TYPE'] == 'BILAYER'):
+						InitForCopy = Prepare.InitBilayer(Jobs[sampleNumber], Softwares, GROMACS_LOC_prefixPath, PathToDefault)
+					if(Jobs[sampleNumber]['TYPE'] == 'SOLVENT'):
+						InitForCopy = Prepare.InitSolvent(Jobs[sampleNumber], Softwares, GROMACS_LOC_prefixPath, PathToDefault)
+					SoFar.write(str("""{0} done""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType']))
+					PrevCmdFiles = copy.deepcopy(InitForCopy)
+					continue
+
+				#============================================================
+				#					STEP IS SAMPLE COPY
+				#============================================================
+				if(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'].startswith('COPY')):
+#					CopyFrom = Jobs[ 'SAMPLE'+str(Jobs[sampleNumber]['PROTOCOL'][step]['samplenumber']) ]['JOBID']
+					CopyFrom = Jobs[ str(Jobs[sampleNumber]['PROTOCOL'][step]['samplenumber']) ]['JOBID']
+					Prepare.CopySample(CopyFrom)
+					SoFar.write(  str("""{0} {1} done""").format( Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], CopyFrom) )
+					PrevCmdFiles = copy.deepcopy(InitForCopy)
+					continue
+
+				#============================================================
+				#						STEP IS EM
+				#============================================================
+				if(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'].startswith('EM')):
+
+					Prepare.WriteMDP(Jobs[sampleNumber], step, EMdefault, SoftwareVersion)
+
+					Comment = str("""#Energy Minimization using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}_out.gro \n\n""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['OUTPUT'], PrevCmdFiles['SYSTEM'], Jobs[sampleNumber]['JOBNUM'])
+					ScriptFile.write(Comment)
+
+					cmd = str("""gmx_mpi grompp -f {1}.mdp -po {2}-{1}_out.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} &> grompp_out/grompp_{5}_{1}.output\n\n""").format(GROMACS_REM_prefixPath, Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['SYSTEM'], PrevCmdFiles['OUTPUT'], PrevCmdFiles['INDEX'],Jobs[sampleNumber]['JOBNUM'])
+					ScriptFile.write(cmd)
+
+					cmd = str("""ccc_mprun gmx_mpi mdrun {4} -deffnm {2}_{3}-{1} -c {2}_{3}-{1}_out.gro &> mdrun_out/mdrun_{3}_{1}.output \n\n""").format(GROMACS_REM_prefixPath, Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['SYSTEM'], Jobs[sampleNumber]['JOBNUM'], Jobs[sampleNumber]['MDRUN_OPT'])
+					ScriptFile.write(cmd)
+
+					cmd = str("""echo '{0} done' >> {1}_SoFar.txt\n\n\n""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'],name)
+					ScriptFile.write(cmd)
+
+					OutputFilename = str("""{1}_{2}-{0}_out.gro""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['SYSTEM'], Jobs[sampleNumber]['JOBNUM'])
+					PrevCmdFiles['OUTPUT'] = OutputFilename
+					continue
+
+				#============================================================
+				#						STEP IS NVE
+				#============================================================
+				if(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'].startswith('NVE')):
+
+					Prepare.WriteMDP(Jobs[sampleNumber], step, NVEdefault, SoftwareVersion)
+
+					Comment = str("""#NVE using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}_out.gro \n\n""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['OUTPUT'], PrevCmdFiles['SYSTEM'], Jobs[sampleNumber]['JOBNUM'])
+					ScriptFile.write(Comment)
+
+					cmd = str("""gmx_mpi grompp -f {1}.mdp -po {2}-{1}_out.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} &> grompp_out/grompp_{5}_{1}.output\n\n""").format(GROMACS_REM_prefixPath, Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['SYSTEM'], PrevCmdFiles['OUTPUT'], PrevCmdFiles['INDEX'],Jobs[sampleNumber]['JOBNUM'])
+					ScriptFile.write(cmd)
+
+					cmd = str("""ccc_mdrun gmx_mpi mdrun {4} -deffnm {2}_{3}-{1}  -c {2}_{3}-{1}_out.gro &> mdrun_out/mdrun_{3}_{1}.output \n\n""").format(GROMACS_REM_prefixPath, Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['SYSTEM'], Jobs[sampleNumber]['JOBNUM'], Jobs[sampleNumber]['MDRUN_OPT'])
+					ScriptFile.write(cmd)
+
+					cmd = str("""echo '{0} done' >> {1}_SoFar.txt\n\n\n""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'],name)
+					ScriptFile.write(cmd)
+
+					OutputFilename = str("""{1}_{2}-{0}_out.gro""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['SYSTEM'], Jobs[sampleNumber]['JOBNUM'])
+					PrevCmdFiles['OUTPUT'] = OutputFilename
+					continue
+
+				#============================================================
+				#						STEP IS NVT
+				#============================================================
+				if(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'].startswith('NVT')):
+
+					Prepare.WriteMDP(Jobs[sampleNumber], step, NVTdefault, SoftwareVersion)
+
+					Comment = str("""#NVT using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}_out.gro \n\n""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['OUTPUT'], PrevCmdFiles['SYSTEM'], Jobs[sampleNumber]['JOBNUM'])
+					ScriptFile.write(Comment)
+
+					cmd = str("""gmx_mpi grompp -f {1}.mdp -po {2}-{1}_out.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} &> grompp_out/grompp_{5}_{1}.output\n\n""").format(GROMACS_REM_prefixPath, Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['SYSTEM'], PrevCmdFiles['OUTPUT'], PrevCmdFiles['INDEX'],Jobs[sampleNumber]['JOBNUM'])
+					ScriptFile.write(cmd)
+
+					cmd = str("""ccc_mdrun gmx_mpi mdrun {4} -deffnm {2}_{3}-{1}  -c {2}_{3}-{1}_out.gro &> mdrun_out/mdrun_{3}_{1}.output \n\n""").format(GROMACS_REM_prefixPath, Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['SYSTEM'], Jobs[sampleNumber]['JOBNUM'], Jobs[sampleNumber]['MDRUN_OPT'])
+					ScriptFile.write(cmd)
+
+					cmd = str("""echo '{0} done' >> {1}_SoFar.txt\n\n\n""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'],name)
+					ScriptFile.write(cmd)
+
+					OutputFilename = str("""{1}_{2}-{0}_out.gro""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['SYSTEM'], Jobs[sampleNumber]['JOBNUM'])
+
+					PrevCmdFiles['OUTPUT'] = OutputFilename
+
+					continue
+
+				#============================================================
+				#						STEP IS NPT
+				#============================================================
+				if(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'].startswith('NPT')):
+
+					Prepare.WriteMDP(Jobs[sampleNumber], step, NPTdefault, SoftwareVersion)
+
+					Comment = str("""#NPT using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}_out.gro \n\n""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['OUTPUT'], PrevCmdFiles['SYSTEM'], Jobs[sampleNumber]['JOBNUM'])
+					ScriptFile.write(Comment)
+
+					cmd = str("""gmx_mpi grompp -f {1}.mdp -po {2}-{1}_out.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} &> grompp_out/grompp_{5}_{1}.output\n\n""").format(GROMACS_REM_prefixPath, Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['SYSTEM'], PrevCmdFiles['OUTPUT'], PrevCmdFiles['INDEX'],Jobs[sampleNumber]['JOBNUM'])
+					ScriptFile.write(cmd)
+
+					cmd = str("""ccc_mdrun gmx_mpi mdrun {4} -deffnm {2}_{3}-{1}  -c {2}_{3}-{1}_out.gro &> mdrun_out/mdrun_{3}_{1}.output \n\n""").format(GROMACS_REM_prefixPath, Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['SYSTEM'], Jobs[sampleNumber]['JOBNUM'], Jobs[sampleNumber]['MDRUN_OPT'])
+					ScriptFile.write(cmd)
+
+					cmd = str("""echo '{0} done' >> {1}_SoFar.txt\n\n\n""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'],name)
+					ScriptFile.write(cmd)
+
+					OutputFilename = str("""{1}_{2}-{0}_out.gro""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['SYSTEM'], Jobs[sampleNumber]['JOBNUM'])
+					PrevCmdFiles['OUTPUT'] = OutputFilename
+					continue
+			
+			#**********************************************#
+			# End for prepare the steps **************#
+			#**********************************************#
+			
+			#**********************************************#
+			# Creating TGCC files  **************#
+			#**********************************************#
+			sub.call("""chmod a+x run.sh""",shell=True)
+			SoFar.close()
+			TGCCfile = str("""
+						#! /bin/sh -x
+						#MSUB -q {2}      # queue = standard, test, long (in Parameters.csv, key "node")
+						#MSUB -n {3}      # total number of cores, 16 cores per nodes (32 logical cores ) (in Parameters.cvs, key "ppn")
+						#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s")
+						#MSUB -r {0}	  # job name (automatically generated)
+						#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
+						#MSUB -V          # transfer the variable of ENVIRONNEMENT
+						#MSUB -m be       # email at begin and at end
+						#MSUB -M {1}      # email address
+						#MSUB -oe %I.eo   # input and output of JOB
+						
+						# the number of nodes is deduced automatically from the number of cores (fixed nb core/node = 16 on curie noeud fin)
+						# ccc_mprun gives this information to gmx_mpi (seems to work !?)
+						
+						echo "===================== BEGIN JOB $SLURM_JOBID =============================== "
+						
+						JOBINFO=$SLURM_SUBMIT_DIR/$SLURM_JOB_NAME-$SLURM_JOBID.jobinfo"
+						printf "Time =  `date`\\n" > $JOBINFO
+						printf "SLURM submit directory = $SLURM_SUBMIT_DIR\\n" >> $JOBINFO
+						printf "TGCC queue = {2}, user {4}, max time = {5} seconds \\n" >> $JOBINFO
+						printf "SLURM job ID = $SLURM_JOBID \\n" >> $JOBINFO
+						printf "SLURM job name = $SLURM_JOB_NAME \\n" >> $JOBINFO
+						printf "This job will run on {3} processors\\n" >> $JOBINFO
+						printf "List of nodes : $SLURM_NODEID \\n\\n" >> $JOBINFO
+						
+						
+						export MYTMPDIR="$SCRATCHDIR/JOB_$SLURM_JOBID"
+						export OUTPUTDIR="$SLURM_SUBMIT_DIR/JOB_$SLURM_JOBID_OUTPUT
+						
+						mkdir -p $MYTMPDIR
+						mkdir -p $OUTPUTDIR
+						
+						rsync $SLURM_SUBMIT_DIR/* $MYTMPDIR 
+						cd $MYTMPDIR ./run.sh  > $OUTPUTDIR/JOB_$SLURM_JOBID.out
+						rsync -r ./* $OUTPUTDIR/.
+						cd $SLURM_SUBMIT_DIR
+						rm -rf $MYTMPDIR
+						
+						echo "===================== END  JOB $SLURM_JOBID =============================== "
+						""").format(ProjectName+'_'+name+'__'+PrevCmdFiles['SYSTEM']+'__'+SoftwareVersion, TGCC['mail'], TGCC['queue'], Jobs[sampleNumber]['ppn'],TGCC['group'],TGCC['time_s'])
+			f = open(name+'.ccc_msub','w')
+			f.write( Utility.RemoveUnwantedIndent(TGCCfile) )
+			f.close()
+			
+			#**********************************************#
+			# End Creating PBS files  **************#
+			#**********************************************#
+			#
+			## ALREADY DONE IN THE MSUB SCRIPT
+			#
+			#CopyToScratch = str("""
+							#echo "End of run for {1}"
+							#cp -r /scratch/{2}/gromacs/{0}/{1} ${{LOCALDIR}}/{1}_OUTPUT
+							#rm -r /scratch/{2}/gromacs/{0}
+							#""").format(ProjectName, name, TGCC['username'])
+			#ScriptFile.write(Utility.RemoveUnwantedIndent(CopyToScratch) )
+		ScriptFile.close()
+		
+		EMdefault.close()
+		NVTdefault.close()
+		NPTdefault.close()
+		NVEdefault.close()
+	
+	#**********************************************#
+	# Creating scripts for starting jobs  *****#
+	#**********************************************#
+	with Utility.cd(ProjectName):
+		#Creates a script for sending all samples to queue
+		ScriptForJobs = open('SendToSLURM.sh','w')
+		ScriptForJobs.truncate()
+		ScriptForJobs.write("""#!/bin/bash\n\n""")
+		ScriptForJobs.close()
+
+		ScriptForJobs = open('SendToSLURM.sh','a+')
+
+		for sampleNumber in Jobs:
+			name = Jobs[sampleNumber]['JOBID']
+			qsubCmd = str("""cd {0} \n ccc_msub {0}.ccc_msub \n cd .. \n""").format(name)
+			ScriptForJobs.write(qsubCmd)
+
+		ScriptForJobs.write( str("""ccc_mpp -u {0}""").format(TGCC['username']) )
+		ScriptForJobs.close()
+		sub.call("""chmod a+x SendToSLURM.sh""",shell=True)
+	
+	#**********************************************#
+	# Copy Parameters.csv to project dir  *****#
+	#**********************************************#
+	sub.call('cp Parameters.csv '+ ProjectName, shell=True)
 
 
 
@@ -456,6 +838,7 @@ if(sys.argv[1] == '--pbs'):
 				#					STEP IS SAMPLE COPY
 				#============================================================
 				if(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'].startswith('COPY')):
+# TRY FOR CLAIRE ? ERROR					CopyFrom = Jobs[ str(Jobs[sampleNumber]['PROTOCOL'][step]['samplenumber']) ]['JOBID']
 					CopyFrom = Jobs[ 'SAMPLE'+str(Jobs[sampleNumber]['PROTOCOL'][step]['samplenumber']) ]['JOBID']
 					Prepare.CopySample(CopyFrom)
 					SoFar.write(  str("""{0} {1} done""").format( Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], CopyFrom) )
@@ -671,7 +1054,7 @@ if(sys.argv[1] == '--local'):
 	#**********************************************#
 	for i in range(1,len(Jobs)+1):
 		sampleNumber = str("""SAMPLE{0}""").format(i)
-		sampleNumber = i #added by Claire
+		sampleNumber = i
 		name = Jobs[sampleNumber]['JOBID']
 		print("===============\n===============\nSample "+name+"\n===============\n===============\n")
 		#Creates the sample directory
@@ -926,3 +1309,4 @@ if(sys.argv[1] == '--local'):
 	# Copy Parameters.csv to project dir  *****#
 	#**********************************************#
 	sub.call('cp Parameters.csv '+ProjectName,shell=True)
+
