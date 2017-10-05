@@ -509,7 +509,7 @@ if(sys.argv[1] == '--tgcc'):
 				#					STEP IS SAMPLE COPY
 				#============================================================
 				if(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'].startswith('COPY')):
-#					CopyFrom = Jobs[ 'SAMPLE'+str(Jobs[sampleNumber]['PROTOCOL'][step]['samplenumber']) ]['JOBID']
+#? ERROR ?				CopyFrom = Jobs[ 'SAMPLE'+str(Jobs[sampleNumber]['PROTOCOL'][step]['samplenumber']) ]['JOBID']
 					CopyFrom = Jobs[ str(Jobs[sampleNumber]['PROTOCOL'][step]['samplenumber']) ]['JOBID']
 					Prepare.CopySample(CopyFrom)
 					SoFar.write(  str("""{0} {1} done""").format( Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], CopyFrom) )
@@ -665,7 +665,7 @@ if(sys.argv[1] == '--tgcc'):
 			f.close()
 			
 			#**********************************************#
-			# End Creating PBS files  **************#
+			# End Creating TGCC files  **************#
 			#**********************************************#
 			#
 			## ALREADY DONE IN THE MSUB SCRIPT
