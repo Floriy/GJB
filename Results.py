@@ -328,7 +328,10 @@ with Utility.cd(ProjectName):
 									Utility.do_order(trajfiles[0],RunsToStudy[RunName], 10 ,[0,0,1] , Nblipids, lipid, GROMACS_LOC_prefixPath)
 									shutil.copyfile('order.dat', """../Analysis/{0}__{1}_order.dat""".format(samplename+'_'+RunName, lipid))
 							os.remove('order.dat')
-							
+					
+					# AJOUTER ICI L'ANALYSE LOCALE DES MEMBRANES SI LIPIDE (NVE, NVT, NPT)
+					
+					# AJOUTER 
 			
 			#for RF in RunsFound:
 					
