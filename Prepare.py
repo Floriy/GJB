@@ -5,6 +5,7 @@ import numpy as np
 import math
 import Utility
 import os
+import glob
 
 #List of Lipids and Solvents:
 LipidsList = ['DSPC','DPPC','DLPC']
@@ -100,7 +101,7 @@ DLPC_PDB = """
 		
 SU_PDB = """
 		CRYST1   04.000   04.000   04.000  90.00  90.00  90.00 P1           1
-		ATOM      1  SU  SU     1      00.000  00.000  00.000 0.00  0.00
+		ATOM      1  TEMPSU  S   1      00.000  00.000  00.000 0.00  0.00
 		END
 		"""
 		
@@ -220,16 +221,16 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		#Radius for the hole
 		radiusDefo = float(Sample['DEFO']['Radius'])
 		#Number of Solvent inside the hole
-		NbSolvIn = 0
-		if SolventType == 'W':
-			# Density x Volume
-			NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.))
-		if SolventType == 'OCO':
-			# Density x Volume
-			NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.)/2.)
-		if SolventType == 'PW':
-			# Density x Volume
-			NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.)/3.)
+		#NbSolvIn = 0
+		#if SolventType == 'W':
+			## Density x Volume
+			#NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.))
+		#if SolventType == 'OCO':
+			## Density x Volume
+			#NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.)/2.)
+		#if SolventType == 'PW':
+			## Density x Volume
+			#NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.)/3.)
 		
 		#Creating and Writing the defos configuration
 		DefoXYZ_filename = 'defo.xyz'
@@ -490,7 +491,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 							
 							structure {20}
 								chain C
-								number {22:g}
+								number {12:g}
 								inside box 0. 0. 0.  {3} {4} {2}
 							end structure
 							
@@ -500,19 +501,11 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 								inside box 0. 0. {9}  {3} {4} {13}
 							end structure
 							
-							structure {20}
-								chain E
-								number {21:g}
-								inside cylinder  {15} {16}  {2}  0.  0.  1.  {18}  {17}
-								inside box 0. 0. {6} {3} {4} {9}
-								radius 0.
-							end structure
-							
 							structure {14}
 								chain X
 								number 1
 								resnumbers 3
-								fixed {15} {16} {23} 0.0 0.0 0.0
+								fixed {15} {16} {21} 0.0 0.0 0.0
 								radius 0.
 							end structure
 							
@@ -523,8 +516,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 								DefoXYZ_filename.replace('xyz','pdb'), 
 								LXS/2.0, LYS/2.0, L_defo, radiusDefo, 
 								PDBfileList[LipidType], 
-								PDBfileList[SolventType], NbSolvIn, 
-								NSOLM[SolventType]-NbSolvIn, 
+								PDBfileList[SolventType], 
 								M1headMIN)
 						
 			f = open('packmol_'+System+'.input','w')
@@ -602,10 +594,8 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 				name 7 low{1}
 				chain D
 				name 8 up{1}
-				chain E
-				name 9 in{1}
 				chain X
-				name 10 defo
+				name 9 defo
 				q
 				
 				""").format(LipidType,SolventType)
@@ -621,50 +611,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		#=======================================================================
 		# the topology file
 		#=======================================================================
-		Headings = ["atomtypes","nonbond_params","moleculetype","atoms"]
-		Itopology = {}
-		DefoAtomtype = ""
-		DefoNonBondParams = ""
-		DefoMolType = ""
-		DefoAtoms = ""
-		
-		IncludeTopologyFile = PathToDefault+"""/DEFO/DEFO_{0}.itp""".format(Sample['DEFO']['Version'])
-		
-		with open(IncludeTopologyFile,'r') as ITPDefo:
-			for Head in Headings:
-				for heading_and_lines in Utility.group_by_heading( ITPDefo, Head):
-					lines = []
-					if Head is not 'moleculetype':
-						if Head is not 'atoms':
-							lines.extend([';;;;;;; DEFO_{0}\n'.format(Sample['DEFO']['Version'])])
-					lines.extend(heading_and_lines[2:])
-					Itopology.update({Head:''.join(lines)})
-		
-		if os.path.isfile("""martini_v2.2_DEFO_{0}.itp""".format(Sample['DEFO']['Version'])):
-			os.remove("""martini_v2.2_DEFO_v{0}.itp""".format(Sample['DEFO']['Version']))
-				
-		Output = open("""martini_v2.2_DEFO_{0}.itp""".format(Sample['DEFO']['Version']),'a')
-		with open(PathToDefault+"""/martini_v2.2.itp""",'r') as DefMartini:
-			
-			for line in DefMartini:
-				if 'nonbond_params' in line:
-					Output.write(Itopology['atomtypes'])
-					#Output.write('[ nonbond_params ]')
-				if 'PLACE_FOR_DEFO' in line:
-					Output.write(Itopology['nonbond_params'])
-					Output.write('')
-				else:
-					Output.write(line)
-			
-		Output.write(";;;;;;; DEFO_{0}\n".format(Sample['DEFO']['Version']))
-		Output.write("[ moleculetype ]\n"+Itopology['moleculetype']+'\n')
-		Output.write("[ atoms ]\n"+Itopology['atoms'])
-		Output.write(Utility.RemoveUnwantedIndent("""
-												#ifdef DEFO_POSRES
-												#include "defo_posres.itp"
-												#endif
-												"""))
-		Output.close()
+		TopologyDefo(Sample, PathToDefault)
 		
 		Topology = str("""
 					#include "martini_v2.2_DEFO_{0}.itp"
@@ -680,11 +627,11 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		f = open(System+'.top','a')
 		f.write("""\n[ system ]\n""")
 
-		Topology = str("""{0}_{1}_WITH_DEFECT_{2}\n""").format(LipidType, Sample['TYPE'], Sample['DEFO']['Version'])
+		Topology = str("""{0}_{1}_WITH_DEFO_{2}\n""").format(LipidType, Sample['TYPE'], Sample['DEFO']['Version'])
 		f.write(Topology)
 
 		f.write("""\n[ molecules ]\n""")
-		Topology = str("""{0} {1}\n{2} {3}\n{4} {5}\n""").format(LipidType, Sample[LipidType],SolventType, Sample[SolventType],'DEFO',nbDefo)
+		Topology = str("""{0} {1}\n{2} {3}\n{4} {5}\n""").format(LipidType, Sample[LipidType], SolventType, Sample[SolventType],'DEFO',nbDefo)
 		f.write(Topology)
 		f.close()
 		
@@ -1100,7 +1047,10 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 			f.close()
 			
 		# pdb file for su
-		suPdb = SU_PDB.replace("SU", SU_TYPE)
+		suType = SU_TYPE
+		if len(SU_TYPE) < 4:
+			suType = SU_TYPE + (4 - len(SU_TYPE))*' '
+		suPdb = SU_PDB.replace("TEMP", suType)
 		f = open(PDBfileList['SU'],'w')
 		f.write(Utility.RemoveUnwantedIndent(suPdb))
 		f.close()
@@ -1169,55 +1119,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		#=======================================================================
 		# the topology file
 		#=======================================================================
-		Headings = ["atomtypes","nonbond_params","moleculetype","atoms"]
-		IsuTopology = {}
-		DefoAtomtype = ""
-		DefoNonBondParams = ""
-		DefoMolType = ""
-		DefoAtoms = ""
-		
-		IncludeSuTopologyFile = PathToDefault+"""/SU/SU_{0}.itp""".format(Sample['SU']['Version'])
-		
-		with open(IncludeSuTopologyFile,'r') as ITPSu:
-			for Head in Headings:
-				for heading_and_lines in Utility.group_by_heading( ITPSu, Head):
-					lines = []
-					if Head is not 'moleculetype':
-						if Head is not 'atoms':
-							lines.extend([';;;;;;; SU_{0}\n'.format(Sample['SU']['Version'])])
-					lines.extend(heading_and_lines[2:])
-					IsuTopology.update({Head:''.join(lines)})
-		
-		PosResSu = Utility.RemoveUnwantedIndent("""
-											#ifdef SU_POSRES
-											#include "su_posres.itp"
-											#endif
-											
-											""")
-		
-		if '[ moleculetype ]' in IsuTopology['moleculetype'] or '[moleculetype]' in IsuTopology['moleculetype']:
-			IsuTopology['moleculetype'] = IsuTopology['moleculetype'].replace('[ moleculetype ]', PosResSu+'[ moleculetype ]' )
-		IsuTopology['moleculetype'] = '[ moleculetype ]\n'+IsuTopology['moleculetype']+'\n'+PosResSu
-		
-		if os.path.isfile("""martini_v2.2_{1}_{0}.itp""".format(Sample['SU']['Version'], SU_TYPE)):
-			os.remove(""""martini_v2.2_{1}_{0}.itp""".format(Sample['SU']['Version'], SU_TYPE))
-				
-		Output = open("""martini_v2.2_{1}_{0}.itp""".format(Sample['SU']['Version'], SU_TYPE),'a')
-		with open(PathToDefault+"""/martini_v2.2.itp""",'r') as DefMartini:
-			
-			for line in DefMartini:
-				if 'nonbond_params' in line:
-					Output.write(IsuTopology['atomtypes'])
-					#Output.write('[ nonbond_params ]')
-				if 'PLACE_FOR_SU' in line:
-					Output.write(IsuTopology['nonbond_params'])
-					Output.write('')
-				else:
-					Output.write(line)
-			
-		Output.write(";;;;;;; SU_{0}\n".format(Sample['SU']['Version']))
-		Output.write(IsuTopology['moleculetype']+'\n')
-		Output.close()
+		TopologySu(Sample, PathToDefault)
 		
 		Topology = """
 					#include "martini_v2.2_{1}_{0}.itp"
@@ -1238,7 +1140,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		f.write(Topology)
 
 		f.write("""\n[ molecules ]\n""")
-		Topology = str("""{0} {1}\n{2} {3}\n{4} {5}\n""").format(LipidType, Sample[LipidType],SolventType, Sample[SolventType], SU_TYPE, nbSu)
+		Topology = str("""{0} {1}\n{2} {3}\n{4} {5}\n""").format(LipidType, Sample[LipidType]+NBLIPIDS_MONO, SolventType, Sample[SolventType], SU_TYPE, nbSu)
 		f.write(Topology)
 		f.close()
 			
@@ -1372,16 +1274,16 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		#Radius for the hole
 		radiusDefo = float(Sample['DEFO']['Radius'])
 		#Number of Solvent inside the hole
-		NbSolvIn = 0
-		if SolventType == 'W':
-			# Density x Volume
-			NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.))
-		if SolventType == 'OCO':
-			# Density x Volume
-			NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.)/2.)
-		if SolventType == 'PW':
-			# Density x Volume
-			NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.)/3.)
+		#NbSolvIn = 0
+		#if SolventType == 'W':
+			## Density x Volume
+			#NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.))
+		#if SolventType == 'OCO':
+			## Density x Volume
+			#NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.)/2.)
+		#if SolventType == 'PW':
+			## Density x Volume
+			#NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.)/3.)
 		
 		#Creating and Writing the defos configuration
 		DefoXYZ_filename = 'defo.xyz'
@@ -1701,16 +1603,8 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 						
 						structure {14}
 							chain E
-							number {23:g}
+							number {12:g}
 							inside box 0. 0. {9}  {3} {4} {13}
-						end structure
-						
-						structure {14}
-							chain F
-							number {22:g}
-							inside cylinder  {18} {19}  {16}  0.  0.  1.  {21}  {20}
-							inside box 0. 0. {6} {3} {4} {9}
-							radius 0.
 						end structure
 						
 						structure {17}
@@ -1726,8 +1620,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 								M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
 								NSOLM[SolventType], LZM, PDBfileList[SolventType], M1headMIN, 
 								THICKNESS, DefoXYZ_filename.replace('xyz','pdb'), 
-								LXS/2.0, LYS/2.0, L_defo, radiusDefo, NbSolvIn, 
-								NSOLM[SolventType]-NbSolvIn)
+								LXS/2.0, LYS/2.0, L_defo, radiusDefo)
 						
 		
 		
@@ -1780,7 +1673,10 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 			f.close()
 			
 		# pdb file for su
-		suPdb = SU_PDB.replace("SU", SU_TYPE)
+		suType = SU_TYPE
+		if len(SU_TYPE) < 4:
+			suType = SU_TYPE + (4 - len(SU_TYPE))*' '
+		suPdb = SU_PDB.replace("TEMP", suType)
 		f = open(PDBfileList['SU'],'w')
 		f.write(Utility.RemoveUnwantedIndent(suPdb))
 		f.close()
@@ -1851,96 +1747,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		#=======================================================================
 		# the topology file
 		#=======================================================================
-		Headings = ["atomtypes","nonbond_params","moleculetype","atoms"]
-		IsuTopology = {}
-		IdefoTopology = {}
-		DefoAtomtype = ""
-		DefoNonBondParams = ""
-		DefoMolType = ""
-		DefoAtoms = ""
-		
-		IncludeSuTopologyFile = PathToDefault+"""/SU/SU_{0}.itp""".format(Sample['SU']['Version'])
-		
-		IncludeDefoTopologyFile = PathToDefault+"""/DEFO/DEFO_{0}.itp""".format(Sample['DEFO']['Version'])
-		
-		with open(IncludeSuTopologyFile,'r') as ITPSu:
-			for Head in Headings:
-				for heading_and_lines in Utility.group_by_heading( ITPSu, Head):
-					lines = []
-					if Head is not 'moleculetype':
-						if Head is not 'atoms':
-							lines.extend([';;;;;;; SU_{0}\n'.format(Sample['SU']['Version'])])
-					lines.extend(heading_and_lines[2:])
-					IsuTopology.update({Head:''.join(lines)})
-		
-		PosResSu = Utility.RemoveUnwantedIndent("""
-											#ifdef SU_POSRES
-											#include "su_posres.itp"
-											#endif
-											
-											""")
-		
-		if '[ moleculetype ]' in IsuTopology['moleculetype'] or '[moleculetype]' in IsuTopology['moleculetype']:
-			IsuTopology['moleculetype'] = IsuTopology['moleculetype'].replace('[ moleculetype ]', PosResSu+'[ moleculetype ]' )
-		IsuTopology['moleculetype'] = '[ moleculetype ]\n'+IsuTopology['moleculetype']+'\n'+PosResSu
-				
-			
-		with open(IncludeDefoTopologyFile,'r') as ITPDefo:
-			for Head in Headings:
-				for heading_and_lines in Utility.group_by_heading(ITPDefo, Head):
-					lines = []
-					if Head is not 'moleculetype':
-						if Head is not 'atoms':
-							lines.extend([';;;;;;; SU_{0}\n'.format(Sample['DEFO']['Version'])])
-					lines.extend(heading_and_lines[2:])
-					IdefoTopology.update({Head:''.join(lines)})
-		
-		if os.path.isfile("""martini_v2.2_{2}_{0}_DEFO_{1}.itp""".format(Sample['SU']['Version'], Sample['DEFO']['Version'],SU_TYPE)):
-			os.remove("""martini_v2.2_{2}_{0}_DEFO_{1}.itp""".format(Sample['SU']['Version'], Sample['DEFO']['Version'],SU_TYPE))
-		
-		TempOut = ''
-		
-		Output = open("""martini_v2.2_{2}_{0}_DEFO_{1}.itp""".format(Sample['SU']['Version'], Sample['DEFO']['Version'],SU_TYPE),'a+')
-		
-		with open(PathToDefault+"""/martini_v2.2.itp""",'r') as DefMartini:
-			
-			for line in DefMartini:
-				if 'nonbond_params' in line:
-					TempOut += IsuTopology['atomtypes']
-					TempOut += '\n'
-				if 'PLACE_FOR_SU' in line:
-					TempOut += IsuTopology['nonbond_params']
-					TempOut += '\n'
-				else:
-					TempOut += line
-			
-			
-			for line in TempOut.splitlines():
-				if 'nonbond_params' in line:
-					Output.write(IdefoTopology['atomtypes'])
-					Output.write('\n')
-				if 'PLACE_FOR_DEFO' in line:
-					Output.write(IdefoTopology['nonbond_params'])
-					Output.write('\n')
-				else:
-					Output.write(line)
-					Output.write('\n')
-		
-		print(IsuTopology)
-		Output.write("\n;;;;;;; DEFO_{0}\n".format(Sample['DEFO']['Version']))
-		Output.write("[ moleculetype ]\n"+IdefoTopology['moleculetype']+'\n')
-		Output.write("[ atoms ]\n"+IdefoTopology['atoms'])
-		Output.write(Utility.RemoveUnwantedIndent("""
-			
-												#ifdef DEFO_POSRES
-												#include "defo_posres.itp"
-												#endif
-												
-												"""))
-		
-		Output.write("\n;;;;;;; SU_{0}\n".format(Sample['SU']['Version']))
-		Output.write(IsuTopology['moleculetype']+'\n')
-		Output.close()
+		TopologyDefoSu(Sample, PathToDefault)
 		
 		Topology = """
 						#include "martini_v2.2_{2}_{0}_DEFO_{1}.itp"
@@ -1951,17 +1758,18 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		#Copy the topology files for martini forcefield
 		sub.call("""cp {0}/martini_v2.0_lipids.itp  .""".format(PathToDefault), shell= True)
 		sub.call("""cp {0}/DEFO/defo_posres.itp  .""".format(PathToDefault), shell= True)
+		sub.call("""cp {0}/SU/su_posres.itp  .""".format(PathToDefault), shell= True)
 		f = open(System+'.top','w')
 		f.write(Utility.RemoveUnwantedIndent(Topology))
 
 		f = open(System+'.top','a')
 		f.write("""\n[ system ]\n""")
 
-		Topology = str("""{0}_{1}_WITH_DEFECT_{2}_AND_{4}_{3}\n""").format(LipidType, Sample['TYPE'], Sample['DEFO']['Version'], Sample['SU']['Version'], SU_TYPE)
+		Topology = str("""{0}_{1}_WITH_DEFO_{2}_AND_{4}_{3}\n""").format(LipidType, Sample['TYPE'], Sample['DEFO']['Version'], Sample['SU']['Version'], SU_TYPE)
 		f.write(Topology)
 
 		f.write("""\n[ molecules ]\n""")
-		Topology = str("""{0} {1}\n{2} {3}\n{4} {5}\n{6} {7}\n""").format(LipidType, Sample[LipidType],SolventType, Sample[SolventType],'DEFO', nbDefo, SU_TYPE, nbSu)
+		Topology = str("""{0} {1}\n{2} {3}\n{4} {5}\n{6} {7}\n""").format(LipidType, Sample[LipidType]+NBLIPIDS_MONO,SolventType, Sample[SolventType],'DEFO', nbDefo, SU_TYPE, nbSu)
 		f.write(Topology)
 		f.close()
 			
@@ -2473,9 +2281,196 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 
 
 
+def TopologyDefoSu(Sample, PathToDefault):
+	Headings = ["atomtypes","nonbond_params","moleculetype","atoms"]
+	IsuTopology = {}
+	IdefoTopology = {}
+	DefoAtomtype = ""
+	DefoNonBondParams = ""
+	DefoMolType = ""
+	DefoAtoms = ""
+	
+	IncludeSuTopologyFile = PathToDefault+"""/SU/SU_{0}.itp""".format(Sample['SU']['Version'])
+	
+	IncludeDefoTopologyFile = PathToDefault+"""/DEFO/DEFO_{0}.itp""".format(Sample['DEFO']['Version'])
+	
+	with open(IncludeSuTopologyFile,'r') as ITPSu:
+		for Head in Headings:
+			for heading_and_lines in Utility.group_by_heading(ITPSu, Head):
+				lines = []
+				if Head is not 'moleculetype':
+					if Head is not 'atoms':
+						lines.extend([';;;;;;; SU_{0}\n'.format(Sample['SU']['Version'])])
+				lines.extend(heading_and_lines[2:])
+				IsuTopology.update({Head:''.join(lines)})
+	
+	PosResSu = Utility.RemoveUnwantedIndent("""
+										#ifdef SU_POSRES
+										#include "su_posres.itp"
+										#endif
+										
+										""")
+	
+	if '[ moleculetype ]' in IsuTopology['moleculetype'] or '[moleculetype]' in IsuTopology['moleculetype']:
+		IsuTopology['moleculetype'] = IsuTopology['moleculetype'].replace('[ moleculetype ]', PosResSu+'[ moleculetype ]' )
+	IsuTopology['moleculetype'] = '[ moleculetype ]\n'+IsuTopology['moleculetype']+'\n'+PosResSu
+			
+		
+	with open(IncludeDefoTopologyFile,'r') as ITPDefo:
+		for Head in Headings:
+			for heading_and_lines in Utility.group_by_heading(ITPDefo, Head):
+				lines = []
+				if Head is not 'moleculetype':
+					if Head is not 'atoms':
+						lines.extend([';;;;;;; SU_{0}\n'.format(Sample['DEFO']['Version'])])
+				lines.extend(heading_and_lines[2:])
+				IdefoTopology.update({Head:''.join(lines)})
+	
+	if os.path.isfile("""martini_v2.2_{2}_{0}_DEFO_{1}.itp""".format(Sample['SU']['Version'], Sample['DEFO']['Version'],Sample['SU']['SuType'])):
+		os.remove("""martini_v2.2_{2}_{0}_DEFO_{1}.itp""".format(Sample['SU']['Version'], Sample['DEFO']['Version'], Sample['SU']['SuType']))
+	
+	TempOut = ''
+	
+	Output = open("""martini_v2.2_{2}_{0}_DEFO_{1}.itp""".format(Sample['SU']['Version'], Sample['DEFO']['Version'], Sample['SU']['SuType']),'a+')
+	
+	with open(PathToDefault+"""/martini_v2.2.itp""",'r') as DefMartini:
+		
+		for line in DefMartini:
+			if 'nonbond_params' in line:
+				TempOut += IsuTopology['atomtypes']
+				TempOut += '\n'
+			if 'PLACE_FOR_SU' in line:
+				TempOut += IsuTopology['nonbond_params']
+				TempOut += '\n'
+			else:
+				TempOut += line
+		
+		
+		for line in TempOut.splitlines():
+			if 'nonbond_params' in line:
+				Output.write(IdefoTopology['atomtypes'])
+				Output.write('\n')
+			if 'PLACE_FOR_DEFO' in line:
+				Output.write(IdefoTopology['nonbond_params'])
+				Output.write('\n')
+			else:
+				Output.write(line)
+				Output.write('\n')
+	
+	
+	Output.write("\n;;;;;;; DEFO_{0}\n".format(Sample['DEFO']['Version']))
+	Output.write("[ moleculetype ]\n"+IdefoTopology['moleculetype']+'\n')
+	Output.write("[ atoms ]\n"+IdefoTopology['atoms'])
+	Output.write(Utility.RemoveUnwantedIndent("""
+		
+											#ifdef DEFO_POSRES
+											#include "defo_posres.itp"
+											#endif
+											
+											"""))
+	
+	Output.write("\n;;;;;;; SU_{0}\n".format(Sample['SU']['Version']))
+	Output.write(IsuTopology['moleculetype']+'\n')
+	Output.close()
 
 
+def TopologyDefo(Sample, PathToDefault):
+	Headings = ["atomtypes","nonbond_params","moleculetype","atoms"]
+	Itopology = {}
+	DefoAtomtype = ""
+	DefoNonBondParams = ""
+	DefoMolType = ""
+	DefoAtoms = ""
+	
+	IncludeTopologyFile = PathToDefault+"""/DEFO/DEFO_{0}.itp""".format(Sample['DEFO']['Version'])
+	
+	with open(IncludeTopologyFile,'r') as ITPDefo:
+		for Head in Headings:
+			for heading_and_lines in Utility.group_by_heading( ITPDefo, Head):
+				lines = []
+				if Head is not 'moleculetype':
+					if Head is not 'atoms':
+						lines.extend([';;;;;;; DEFO_{0}\n'.format(Sample['DEFO']['Version'])])
+				lines.extend(heading_and_lines[2:])
+				Itopology.update({Head:''.join(lines)})
+	
+	if os.path.isfile("""martini_v2.2_DEFO_{0}.itp""".format(Sample['DEFO']['Version'])):
+		os.remove("""martini_v2.2_DEFO_v{0}.itp""".format(Sample['DEFO']['Version']))
+			
+	Output = open("""martini_v2.2_DEFO_{0}.itp""".format(Sample['DEFO']['Version']),'a')
+	with open(PathToDefault+"""/martini_v2.2.itp""",'r') as DefMartini:
+		
+		for line in DefMartini:
+			if 'nonbond_params' in line:
+				Output.write(Itopology['atomtypes'])
+				#Output.write('[ nonbond_params ]')
+			if 'PLACE_FOR_DEFO' in line:
+				Output.write(Itopology['nonbond_params'])
+				Output.write('')
+			else:
+				Output.write(line)
+		
+	Output.write(";;;;;;; DEFO_{0}\n".format(Sample['DEFO']['Version']))
+	Output.write("[ moleculetype ]\n"+Itopology['moleculetype']+'\n')
+	Output.write("[ atoms ]\n"+Itopology['atoms'])
+	Output.write(Utility.RemoveUnwantedIndent("""
+											#ifdef DEFO_POSRES
+											#include "defo_posres.itp"
+											#endif
+											"""))
+	Output.close()
 
+
+def TopologySu(Sample, PathToDefault):
+	Headings = ["atomtypes","nonbond_params","moleculetype","atoms"]
+	IsuTopology = {}
+	DefoAtomtype = ""
+	DefoNonBondParams = ""
+	DefoMolType = ""
+	DefoAtoms = ""
+	
+	IncludeSuTopologyFile = PathToDefault+"""/SU/SU_{0}.itp""".format(Sample['SU']['Version'])
+	
+	with open(IncludeSuTopologyFile,'r') as ITPSu:
+		for Head in Headings:
+			for heading_and_lines in Utility.group_by_heading( ITPSu, Head):
+				lines = []
+				if Head is not 'moleculetype':
+					if Head is not 'atoms':
+						lines.extend([';;;;;;; SU_{0}\n'.format(Sample['SU']['Version'])])
+				lines.extend(heading_and_lines[2:])
+				IsuTopology.update({Head:''.join(lines)})
+	
+	PosResSu = Utility.RemoveUnwantedIndent("""
+										#ifdef SU_POSRES
+										#include "su_posres.itp"
+										#endif
+										
+										""")
+	
+	if '[ moleculetype ]' in IsuTopology['moleculetype'] or '[moleculetype]' in IsuTopology['moleculetype']:
+		IsuTopology['moleculetype'] = IsuTopology['moleculetype'].replace('[ moleculetype ]', PosResSu+'[ moleculetype ]' )
+	IsuTopology['moleculetype'] = '[ moleculetype ]\n'+IsuTopology['moleculetype']+'\n'+PosResSu
+	
+	if os.path.isfile("""martini_v2.2_{1}_{0}.itp""".format(Sample['SU']['Version'], Sample['SU']['SuType'])):
+		os.remove(""""martini_v2.2_{1}_{0}.itp""".format(Sample['SU']['Version'], Sample['SU']['SuType']))
+			
+	Output = open("""martini_v2.2_{1}_{0}.itp""".format(Sample['SU']['Version'], Sample['SU']['SuType']),'a')
+	with open(PathToDefault+"""/martini_v2.2.itp""",'r') as DefMartini:
+		
+		for line in DefMartini:
+			if 'nonbond_params' in line:
+				Output.write(IsuTopology['atomtypes'])
+				#Output.write('[ nonbond_params ]')
+			if 'PLACE_FOR_SU' in line:
+				Output.write(IsuTopology['nonbond_params'])
+				Output.write('')
+			else:
+				Output.write(line)
+		
+	Output.write(";;;;;;; SU_{0}\n".format(Sample['SU']['Version']))
+	Output.write(IsuTopology['moleculetype']+'\n')
+	Output.close()
 
 
 
@@ -2853,7 +2848,6 @@ def InitSolvent(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 						
 						""".format(System)))
 		
-		###add a for loop for multiple types (Later)
 		f.write("""\n[ molecules ]\n""")
 		for Sol in Solvents:
 			Topology = str("""{0} {1} \n""").format(Sol, Sample[Sol])
@@ -2891,20 +2885,277 @@ def InitSolvent(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 
 
 
-def CopySample(SampleToCopy):
-	sub.call('cp ../'+SampleToCopy+'/*.pdb .', shell= True)
-	sub.call('cp ../'+SampleToCopy+'/*.itp .', shell= True)
-	sub.call('cp ../'+SampleToCopy+'/*.ndx .', shell= True)
-	sub.call('cp ../'+SampleToCopy+'/*.top .', shell= True)
-
-
-
-
-
-
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# Modify to take into account the Parameters_defo.csv !!!!!!!!!!!!!!!!!!!!
-# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+def CopySample(Jobs, currentJob, step, PathToDefault):
+	
+	SampleToCopy = Jobs[ currentJob['PROTOCOL'][step]['samplenumber'] ]
+	SampleToCopyName = Jobs[ currentJob['PROTOCOL'][step]['samplenumber'] ]['JOBID']
+	currentJobName = currentJob['JOBID']
+	
+	copyMethod = currentJob['PROTOCOL'][step]['method']
+	
+	PDBfilepath = glob.glob('../'+SampleToCopyName+'/*.withbox.pdb')[0]
+	TOPfilepath = glob.glob('../'+SampleToCopyName+'/*.top')[0]
+	NDXfilepath = glob.glob('../'+SampleToCopyName+'/*.ndx')[0]
+	
+	if copyMethod:
+		if copyMethod == "structure":
+			
+			if 'DEFO' in SampleToCopy or 'DEFO' in currentJob:
+				if not ('DEFO' in SampleToCopy and 'DEFO' in currentJob):
+					if 'SU' in SampleToCopy:
+						print("DEFO is in {0} but not in {1}. Please check your Parameters.csv .".format(SampleToCopyName, currentJobName))
+					else:
+						print("DEFO is in {0} but not in {1}. Please check your Parameters.csv .".format(currentJobName, SampleToCopyName))
+					return -1
+				
+			if 'SU' in SampleToCopy or 'SU' in currentJob:
+				if not ('SU' in SampleToCopy and 'SU' in currentJob):
+					if 'SU' in SampleToCopy:
+						print("SU is in {0} but not in {1}. Please check your Parameters.csv .".format(SampleToCopyName, currentJobName))
+					else:
+						print("SU is in {0} but not in {1}. Please check your Parameters.csv .".format(currentJobName, SampleToCopyName))
+					return -1
+			
+			if 'DEFO' in currentJob and 'SU' in currentJob:
+				defoVersionBefore = SampleToCopy['DEFO']['Version']
+				defoVersionCurrent = currentJob['DEFO']['Version']
+				
+				suVersionBefore = SampleToCopy['SU']['Version']
+				suTypeBefore = SampleToCopy['SU']['SuType']
+				
+				suVersionCurrent = currentJob['SU']['Version']
+				suTypeCurrent = currentJob['SU']['SuType']
+				
+				#Add columns for pdb format
+				nbCols = len(suTypeBefore) - len(suTypeCurrent)
+				if nbCols < 0:
+					suTypeBefore += (-nbCols)*' '
+				elif nbCols > 0:
+					suTypeCurrent += nbCols*' '
+					
+				# If copy pdb file when modifying SuType, the pdb file should be changed with the correct SuType
+				# The name should also be changed with the correct version and SuType, the number of SU being the same
+				
+				PDBfile = open(PDBfilepath,'r')
+				PDBfileCurrent = PDBfile.read().replace(suTypeBefore, suTypeCurrent)
+				PDBfile.close()
+				
+				
+				PDBfilenameBefore = PDBfilepath.split('/')[-1]
+				
+				fixedPart = PDBfilenameBefore.split('_')[:-3]
+				defoPart = PDBfilenameBefore.split('_')[-2]
+				suPart = PDBfilenameBefore.split('_')[-1]
+				
+				suPart = suPart.replace(suTypeBefore.strip(' '), suTypeCurrent.strip(' '))
+				suPart = suPart.replace(suVersionBefore, suVersionCurrent)
+				
+				defoPart = defoPart.replace(defoVersionBefore, defoVersionCurrent)
+				
+				PDBfilenameCurrent = fixedPart
+				PDBfilenameCurrent.extend([defoPart, suPart])
+				PDBfilenameCurrent = '_'.join(PDBfilenameCurrent)
+				
+				PDBfile = open(PDBfilenameCurrent, 'w')
+				PDBfile.write(PDBfileCurrent)
+				PDBfile.close()
+				
+				#Topology ##########################################################
+				TOPfile = open(TOPfilepath, 'r')
+				
+				suTypeNVersionBefore = suTypeBefore+'_'+suVersionBefore
+				suTypeNVersionCurrent = suTypeCurrent.strip(' ')+'_'+suVersionCurrent
+				
+				defoTypeNVersionBefore = 'DEFO_'+defoVersionBefore
+				defoTypeNVersionCurrent = 'DEFO_'+defoVersionCurrent
+				
+				#Replacing for new .top file
+				#For headers and [system]
+				TOPfileCurrent = TOPfile.read().replace(suTypeNVersionBefore, suTypeNVersionCurrent)
+				
+				TOPfileCurrent = TOPfileCurrent.replace(defoTypeNVersionBefore, defoTypeNVersionCurrent)
+				
+				#For [molecules]
+				TOPfileCurrent = TOPfileCurrent.replace(suTypeBefore, suTypeCurrent.strip(' '))
+				
+				TOPfile.close()
+				TOPfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.top')
+				TOPfile = open(TOPfilenameCurrent,'w')
+				TOPfile.write(TOPfileCurrent)
+				TOPfile.close()
+				
+				#Topology ITP ##########################################################
+				TopologyDefoSu(currentJob, PathToDefault)
+				
+				#Index #########################################################
+				NDXfile = open(NDXfilepath,'r')
+				NDXfileCurrent = NDXfile.read()
+				NDXfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.ndx')
+				NDXfile.close()
+				
+				NDXfile = open(NDXfilenameCurrent,'w')
+				NDXfile.write(NDXfileCurrent)
+				NDXfile.close()
+				
+				#POSRES ########################################################
+				sub.call('cp ../'+SampleToCopyName+'/*posres.itp .', shell= True)
+			
+			
+			elif 'DEFO' not in currentJob and 'SU' in currentJob:
+				suVersionBefore = SampleToCopy['SU']['Version']
+				suTypeBefore = SampleToCopy['SU']['SuType']
+				
+				suVersionCurrent = currentJob['SU']['Version']
+				suTypeCurrent = currentJob['SU']['SuType']
+				
+				#Add columns for pdb format
+				nbCols = len(suTypeBefore) - len(suTypeCurrent)
+				if nbCols < 0:
+					suTypeBefore += (-nbCols)*' '
+				elif nbCols > 0:
+					suTypeCurrent += nbCols*' '
+				
+				PDBfile = open(PDBfilepath,'r')
+				PDBfileCurrent = PDBfile.read().replace(suTypeBefore, suTypeCurrent)
+				PDBfile.close()
+				
+				PDBfilenameBefore = PDBfilepath.split('/')[-1]
+				
+				fixedPart = PDBfilenameBefore.split('_')[:-2]
+				suPart = PDBfilenameBefore.split('_')[-1]
+				
+				suPart = suPart.replace(suTypeBefore.strip(' '), suTypeCurrent.strip(' '))
+				suPart = suPart.replace(suVersionBefore, suVersionCurrent)
+				
+				PDBfilenameCurrent = fixedPart
+				PDBfilenameCurrent.append(suPart)
+				PDBfilenameCurrent = '_'.join(PDBfilenameCurrent)
+				
+				PDBfile = open(PDBfilenameCurrent, 'w')
+				PDBfile.write(PDBfileCurrent)
+				PDBfile.close()
+				
+				#Topology ##########################################################
+				TOPfile = open(TOPfilepath, 'r')
+				
+				suTypeNVersionBefore = suTypeBefore.strip(' ')+'_'+suVersionBefore
+				suTypeNVersionCurrent = suTypeCurrent.strip(' ')+'_'+suVersionCurrent
+				
+				#Replacing for new .top file
+				#For headers and [system]
+				TOPfileCurrent = TOPfile.read().replace(suTypeNVersionBefore, suTypeNVersionCurrent)
+				
+				#For [molecules]
+				TOPfileCurrent = TOPfileCurrent.replace(suTypeBefore, suTypeCurrent.strip(' '))
+				
+				TOPfile.close()
+				TOPfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.top')
+				TOPfile = open(TOPfilenameCurrent,'w')
+				TOPfile.write(TOPfileCurrent)
+				TOPfile.close()
+				
+				#Topology ITP ##########################################################
+				TopologySu(currentJob, PathToDefault)
+				
+				#Index #########################################################
+				NDXfile = open(NDXfilepath,'r')
+				NDXfileCurrent = NDXfile.read()
+				NDXfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.ndx')
+				NDXfile.close()
+				
+				NDXfile = open(NDXfilenameCurrent,'w')
+				NDXfile.write(NDXfileCurrent)
+				NDXfile.close()
+				
+				#POSRES ########################################################
+				sub.call('cp ../'+SampleToCopyName+'/*posres.itp .', shell= True)
+			
+			
+			elif 'DEFO' in currentJob and 'SU' not in currentJob:
+				defoVersionBefore = SampleToCopy['DEFO']['Version']
+				defoVersionCurrent = currentJob['DEFO']['Version']
+				
+				# If copy pdb file when modifying SuType, the pdb file should be changed with the correct SuType
+				# The name should also be changed with the correct version and SuType, the number of SU being the same
+				
+				PDBfile = open(PDBfilepath,'r')
+				PDBfileCurrent = PDBfile.read()
+				PDBfile.close()
+				
+				
+				PDBfilenameBefore = PDBfilepath.split('/')[-1]
+				
+				fixedPart = PDBfilenameBefore.split('_')[:-2]
+				defoPart = PDBfilenameBefore.split('_')[-1]
+				
+				defoPart = defoPart.replace(defoVersionBefore, defoVersionCurrent)
+				
+				PDBfilenameCurrent = fixedPart
+				PDBfilenameCurrent.append(defoPart)
+				PDBfilenameCurrent = '_'.join(PDBfilenameCurrent)
+				
+				PDBfile = open(PDBfilenameCurrent, 'w')
+				PDBfile.write(PDBfileCurrent)
+				PDBfile.close()
+				
+				#Topology ##########################################################
+				TOPfile = open(TOPfilepath, 'r')
+				
+				defoTypeNVersionBefore = 'DEFO_'+defoVersionBefore
+				defoTypeNVersionCurrent = 'DEFO_'+defoVersionCurrent
+				
+				#Replacing for new .top file
+				#For headers and [system]
+				TOPfileCurrent = TOPfile.read().replace(defoTypeNVersionBefore, defoTypeNVersionCurrent)
+				
+				TOPfile.close()
+				TOPfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.top')
+				
+				TOPfile = open(TOPfilenameCurrent,'w')
+				TOPfile.write(TOPfileCurrent)
+				TOPfile.close()
+				
+				#Topology ITP ##########################################################
+				TopologyDefo(currentJob, PathToDefault)
+				
+				#Index #########################################################
+				NDXfile = open(NDXfilepath,'r')
+				NDXfileCurrent = NDXfile.read()
+				NDXfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.ndx')
+				NDXfile.close()
+				
+				NDXfile = open(NDXfilenameCurrent,'w')
+				NDXfile.write(NDXfileCurrent)
+				NDXfile.close()
+				
+				#POSRES ########################################################
+				sub.call('cp ../'+SampleToCopyName+'/*posres.itp .', shell= True)
+			
+			
+			else:
+				sub.call('cp ../'+SampleToCopyName+'/*.pdb .', shell= True)
+				sub.call('cp ../'+SampleToCopyName+'/*.itp .', shell= True)
+				sub.call('cp ../'+SampleToCopyName+'/*.ndx .', shell= True)
+				sub.call('cp ../'+SampleToCopyName+'/*.top .', shell= True)
+				
+				
+				
+		elif copyMethod == "all" :
+			sub.call('cp ../'+SampleToCopyName+'/*.pdb .', shell= True)
+			sub.call('cp ../'+SampleToCopyName+'/*.itp .', shell= True)
+			sub.call('cp ../'+SampleToCopyName+'/*.ndx .', shell= True)
+			sub.call('cp ../'+SampleToCopyName+'/*.top .', shell= True)
+	
+	
+	
+	else:
+		sub.call('cp ../'+SampleToCopyName+'/*.pdb .', shell= True)
+		sub.call('cp ../'+SampleToCopyName+'/*.itp .', shell= True)
+		sub.call('cp ../'+SampleToCopyName+'/*.ndx .', shell= True)
+		sub.call('cp ../'+SampleToCopyName+'/*.top .', shell= True)
+	
+	System = PDBfilenameCurrent.strip('.withbox.pdb')
+	return { 'SYSTEM': System, 'OUTPUT': PDBfilenameCurrent, 'INDEX':NDXfilenameCurrent}
 
 
 
@@ -3137,7 +3388,5 @@ def WriteMDP(Sample, step, defaultMDP, Version):
 	
 	
 	defaultMDP.seek(0)
-	print(OUTPUT.read())
 
-	defaultMDP.seek(0)
 	OUTPUT.close()

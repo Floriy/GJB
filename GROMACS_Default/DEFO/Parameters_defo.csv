@@ -1,4 +1,4 @@
-G2016|pull|pull-coord1-type|pull-coord1-geometry|pull-coord1-vec|pull-coord1-k|pull-coord1-groups|tau-t|ref-t|posres
-|yes|umbrella|direction|0 0 1|1000|DEFO|10|323|on
-G4|pull|pull-geometry|pull-vec1|pull-k1|pull-group0|tau-t |ref-t|posres
-|umbrella|direction|0 0 1|1000|DEFO|10|323|on
+G2016,pull,pull-coord1-type,pull-coord1-geometry,pull-coord1-vec,pull-coord1-k,pull-coord1-groups,tau-t,ref-t,posres
+,yes,umbrella,direction,0 0 1,1000,DEFO,10,323,on
+G4,pull,pull-geometry,pull-vec1,pull-k1,pull-group0,tau-t ,ref-t,posres,
+,umbrella,direction,0 0 1,1000,DEFO,10,323,on,
