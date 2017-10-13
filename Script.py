@@ -500,7 +500,14 @@ if(sys.argv[1] == '--tgcc'):
 				#============================================================
 				if(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'].startswith('COPY')):
 					CopyFrom = Jobs[ Jobs[sampleNumber]['PROTOCOL'][step]['samplenumber']]['JOBID'] 
-					CopiedJob = Prepare.CopySample(Jobs, Jobs[sampleNumber], step, PathToDefault)
+					try:
+						CopiedJob = Prepare.CopySample(Jobs, Jobs[sampleNumber], step, PathToDefault)
+						if CopiedJob == -1:
+							raise ValueError("Please Check your Parameters.csv .")
+					except ValueError as error:
+						print(error)
+						sys.exit(1)
+						
 					SoFar.write(  str("""{0} {1} done""").format( Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], CopyFrom) )
 					PrevCmdFiles = copy.deepcopy(CopiedJob)
 					continue
@@ -818,7 +825,14 @@ if(sys.argv[1] == '--pbs'):
 				#============================================================
 				if(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'].startswith('COPY')):
 					CopyFrom = Jobs[ Jobs[sampleNumber]['PROTOCOL'][step]['samplenumber']]['JOBID'] 
-					CopiedJob = Prepare.CopySample(Jobs, Jobs[sampleNumber], step, PathToDefault)
+					try:
+						CopiedJob = Prepare.CopySample(Jobs, Jobs[sampleNumber], step, PathToDefault)
+						if CopiedJob == -1:
+							raise ValueError("Please Check your Parameters.csv .")
+					except ValueError as error:
+						print(error)
+						sys.exit(1)
+						
 					SoFar.write(  str("""{0} {1} done""").format( Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], CopyFrom) )
 					PrevCmdFiles = copy.deepcopy(CopiedJob)
 					continue
@@ -1127,7 +1141,14 @@ if(sys.argv[1] == '--local'):
 				#============================================================
 				if(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'].startswith('COPY')):
 					CopyFrom = Jobs[ Jobs[sampleNumber]['PROTOCOL'][step]['samplenumber']]['JOBID'] 
-					CopiedJob = Prepare.CopySample(Jobs, Jobs[sampleNumber], step, PathToDefault)
+					try:
+						CopiedJob = Prepare.CopySample(Jobs, Jobs[sampleNumber], step, PathToDefault)
+						if CopiedJob == -1:
+							raise ValueError("Please Check your Parameters.csv .")
+					except ValueError as error:
+						print(error)
+						sys.exit(1)
+						
 					SoFar.write(  str("""{0} {1} done""").format( Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], CopyFrom) )
 					PrevCmdFiles = copy.deepcopy(CopiedJob)
 					continue

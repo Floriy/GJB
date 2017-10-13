@@ -2903,17 +2903,17 @@ def CopySample(Jobs, currentJob, step, PathToDefault):
 			if 'DEFO' in SampleToCopy or 'DEFO' in currentJob:
 				if not ('DEFO' in SampleToCopy and 'DEFO' in currentJob):
 					if 'SU' in SampleToCopy:
-						print("DEFO is in {0} but not in {1}. Please check your Parameters.csv .".format(SampleToCopyName, currentJobName))
+						print("DEFO is in {0} but not in {1} while using structure copy method.".format(SampleToCopyName, currentJobName))
 					else:
-						print("DEFO is in {0} but not in {1}. Please check your Parameters.csv .".format(currentJobName, SampleToCopyName))
+						print("DEFO is in {0} but not in {1} while using structure copy method.".format(currentJobName, SampleToCopyName))
 					return -1
 				
 			if 'SU' in SampleToCopy or 'SU' in currentJob:
 				if not ('SU' in SampleToCopy and 'SU' in currentJob):
 					if 'SU' in SampleToCopy:
-						print("SU is in {0} but not in {1}. Please check your Parameters.csv .".format(SampleToCopyName, currentJobName))
+						print("SU is in {0} but not in {1} while using structure copy method.".format(SampleToCopyName, currentJobName))
 					else:
-						print("SU is in {0} but not in {1}. Please check your Parameters.csv .".format(currentJobName, SampleToCopyName))
+						print("SU is in {0} but not in {1} while using structure copy method.".format(currentJobName, SampleToCopyName))
 					return -1
 			
 			if 'DEFO' in currentJob and 'SU' in currentJob:
