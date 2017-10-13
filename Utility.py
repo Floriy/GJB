@@ -5,6 +5,13 @@ import subprocess as sub
 import textwrap
 import numpy as np
 
+def is_number(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
 class cd:
 	"""Context manager for changing the current working directory"""
 	def __init__(self, newPath):

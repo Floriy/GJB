@@ -1,0 +1,34 @@
+[ atomtypes ]
+DEF 45.0 0.000 A 0.0 0.0 
+#####################################################################
+[ nonbond_params ]
+DEF  DEF  1    0.0 0.0 ;
+P5  DEF  1     0.0 0.0 ; 
+P4  DEF  1     0.0 0.0 ; 
+DEF  P3  1     0.0 0.0 ;  
+DEF  P2  1     0.0 0.0 ;   
+DEF  P1  1     0.0 0.0 ;   
+DEF  Nda   1   0.0 0.0 ; 
+DEF  Nd  1     0.0 0.0 ;   
+DEF  Na  1     0.0 0.0 ; 
+DEF  N0  1     0.0 0.0 ; 
+DEF  C5  1     0.0 0.0 ; 
+DEF  C4  1     0.0 0.0 ;
+DEF  C3  1     0.0 0.0 ; 
+DEF  C2  1     0.0 0.0 ;  
+DEF  C1  1     16.0 16.0 ; only repulsive ! epsilon=2.0;  s = 1.0 nm (so that the cutoff at 1.1nm almost corresponds to the minimim of the 6-12 LJ) 
+DEF  Qda   1   0.0 0.0 ; 
+DEF  Qd  1     0.0 0.0 ;  
+DEF  Q0  1     0.0 0.0 ;
+DEF  Qa  1     0.0 0.0 ;
+;DEF  SU  1     0.0 0.0 ;
+#####################################################################
+[ moleculetype ]
+; molname 	 nrexcl
+  DEFO   	 1
+#####################################################################
+[ atoms ]
+;id 	type 	resnr 	residu 	atom 	cgnr 	charge
+ 1 	DEF 	1 	DEFO	DEF     1        0
+#####################################################################
+
