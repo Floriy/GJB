@@ -2998,6 +2998,8 @@ def CopySample(Jobs, currentJob, step, PathToDefault):
 				
 				#POSRES ########################################################
 				sub.call('cp ../'+SampleToCopyName+'/*posres.itp .', shell= True)
+				#LIPIDS ITP ####################################################
+				sub.call('cp ../'+SampleToCopyName+'/*lipids.itp .', shell= True)
 			
 			
 			elif 'DEFO' not in currentJob and 'SU' in currentJob:
@@ -3068,6 +3070,8 @@ def CopySample(Jobs, currentJob, step, PathToDefault):
 				
 				#POSRES ########################################################
 				sub.call('cp ../'+SampleToCopyName+'/*posres.itp .', shell= True)
+				#LIPIDS ITP ####################################################
+				sub.call('cp ../'+SampleToCopyName+'/*lipids.itp .', shell= True)
 			
 			
 			elif 'DEFO' in currentJob and 'SU' not in currentJob:
@@ -3129,38 +3133,40 @@ def CopySample(Jobs, currentJob, step, PathToDefault):
 				
 				#POSRES ########################################################
 				sub.call('cp ../'+SampleToCopyName+'/*posres.itp .', shell= True)
+				#LIPIDS ITP ####################################################
+				sub.call('cp ../'+SampleToCopyName+'/*lipids.itp .', shell= True)
 			
 			
 			else:
-				sub.call('cp ../'+SampleToCopyName+'/*.pdb .', shell= True)
+				sub.call('cp '+PDBfilepath+' .', shell= True)
+				sub.call('cp '+TOPfilepath+' .', shell= True)
+				sub.call('cp '+NDXfilepath+' .', shell= True)
 				sub.call('cp ../'+SampleToCopyName+'/*.itp .', shell= True)
-				sub.call('cp ../'+SampleToCopyName+'/*.ndx .', shell= True)
-				sub.call('cp ../'+SampleToCopyName+'/*.top .', shell= True)
 				
-				PDBfilenameCurrent = SampleToCopyName+'.withbox.pdb'
+				PDBfilenameCurrent = PDBfilepath.split('/')[-1]
 				NDXfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.ndx')
 				
 			
 				
 				
 		elif copyMethod == "all" :
-			sub.call('cp ../'+SampleToCopyName+'/*.pdb .', shell= True)
+			sub.call('cp '+PDBfilepath+' .', shell= True)
+			sub.call('cp '+TOPfilepath+' .', shell= True)
+			sub.call('cp '+NDXfilepath+' .', shell= True)
 			sub.call('cp ../'+SampleToCopyName+'/*.itp .', shell= True)
-			sub.call('cp ../'+SampleToCopyName+'/*.ndx .', shell= True)
-			sub.call('cp ../'+SampleToCopyName+'/*.top .', shell= True)
 			
-			PDBfilenameCurrent = SampleToCopyName+'.withbox.pdb'
+			PDBfilenameCurrent = PDBfilepath.split('/')[-1]
 			NDXfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.ndx')
 	
 	
 	
 	else:
-		sub.call('cp ../'+SampleToCopyName+'/*.pdb .', shell= True)
+		sub.call('cp '+PDBfilepath+' .', shell= True)
+		sub.call('cp '+TOPfilepath+' .', shell= True)
+		sub.call('cp '+NDXfilepath+' .', shell= True)
 		sub.call('cp ../'+SampleToCopyName+'/*.itp .', shell= True)
-		sub.call('cp ../'+SampleToCopyName+'/*.ndx .', shell= True)
-		sub.call('cp ../'+SampleToCopyName+'/*.top .', shell= True)
 		
-		PDBfilenameCurrent = SampleToCopyName+'.withbox.pdb'
+		PDBfilenameCurrent = PDBfilepath.split('/')[-1]
 		NDXfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.ndx')
 	
 	System = PDBfilenameCurrent.strip('.withbox.pdb')
