@@ -1,7 +1,7 @@
-TGCC INFO|
-group|genXXX
-times_s|80000
-queue|standard
-mail|blabla@blabla.fr
-user|blabla
-GMXversion|gromacs/X.X.X
+TGCC INFO,
+group,genXXX
+time_s,80000
+queue,standard
+mail,blabla@blabla.fr
+username,blabla
+GMXversion,gromacs/X.X.X

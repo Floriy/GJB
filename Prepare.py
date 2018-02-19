@@ -2899,7 +2899,6 @@ def CopySample(Jobs, currentJob, step, PathToDefault):
 	
 	if copyMethod:
 		if copyMethod == "structure":
-			
 			if 'DEFO' in SampleToCopy or 'DEFO' in currentJob:
 				if not ('DEFO' in SampleToCopy and 'DEFO' in currentJob):
 					if 'SU' in SampleToCopy:
@@ -3138,6 +3137,10 @@ def CopySample(Jobs, currentJob, step, PathToDefault):
 				sub.call('cp ../'+SampleToCopyName+'/*.ndx .', shell= True)
 				sub.call('cp ../'+SampleToCopyName+'/*.top .', shell= True)
 				
+				PDBfilenameCurrent = SampleToCopyName+'.withbox.pdb'
+				NDXfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.ndx')
+				
+			
 				
 				
 		elif copyMethod == "all" :
@@ -3145,6 +3148,9 @@ def CopySample(Jobs, currentJob, step, PathToDefault):
 			sub.call('cp ../'+SampleToCopyName+'/*.itp .', shell= True)
 			sub.call('cp ../'+SampleToCopyName+'/*.ndx .', shell= True)
 			sub.call('cp ../'+SampleToCopyName+'/*.top .', shell= True)
+			
+			PDBfilenameCurrent = SampleToCopyName+'.withbox.pdb'
+			NDXfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.ndx')
 	
 	
 	
@@ -3153,6 +3159,9 @@ def CopySample(Jobs, currentJob, step, PathToDefault):
 		sub.call('cp ../'+SampleToCopyName+'/*.itp .', shell= True)
 		sub.call('cp ../'+SampleToCopyName+'/*.ndx .', shell= True)
 		sub.call('cp ../'+SampleToCopyName+'/*.top .', shell= True)
+		
+		PDBfilenameCurrent = SampleToCopyName+'.withbox.pdb'
+		NDXfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.ndx')
 	
 	System = PDBfilenameCurrent.strip('.withbox.pdb')
 	return { 'SYSTEM': System, 'OUTPUT': PDBfilenameCurrent, 'INDEX':NDXfilenameCurrent}
