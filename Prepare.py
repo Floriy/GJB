@@ -110,7 +110,6 @@ SU_PDB = """
 #***********************************************************#
 
 def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
-
 	if 'DEFO' in Sample and not 'SU' in Sample: #Bilayer + Hole
 		SHELL = 3.0
 		
@@ -139,26 +138,17 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		# Setting the bilayers  ================================================
 		#=======================================================================
 		
+		TMT = 0.0
+		DZ = 0.0
 		# DSPC bilayer =========================================================
 		if LipidType == "DSPC":
 			# Geometry to preprare the bilayer with packmol
-			
 			# total monolayer thickness (Angstrom)
 			TMT = 30.0
 
 			# deltaz : thickness in Z direction for
 			# the volume constraining the heads and tails beads
 			DZ = 7.0
-
-			M1headMIN = LZ2 - TMT
-			M1headMAX = LZ2 - TMT + DZ
-			M1tailMIN = LZ2 - DZ
-			M1tailMAX = LZ2
-
-			M2headMIN = LZ2 + TMT - DZ
-			M2headMAX = LZ2 + TMT
-			M2tailMIN = LZ2
-			M2tailMAX = LZ2 + DZ
 		
 		# DPPC bilayer =========================================================
 		if LipidType == "DPPC":
@@ -168,15 +158,6 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 			# deltaz : thickness in Z direction for
 			# the volume constraining the heads and tails beads
 			DZ = 10
-			M1headMIN = LZ2 - TMT
-			M1headMAX = LZ2 - TMT + DZ
-			M1tailMIN = LZ2 - DZ
-			M1tailMAX = LZ2
-
-			M2headMIN = LZ2 + TMT - DZ
-			M2headMAX = LZ2 + TMT
-			M2tailMIN = LZ2
-			M2tailMAX = LZ2 + DZ
 		
 		# DLPC bilayer =========================================================
 		if LipidType == "DLPC":
@@ -189,15 +170,15 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 			# the volume constraining the heads and tails beads
 			DZ = 10
 
-			M1headMIN = LZ2 - TMT
-			M1headMAX = LZ2 - TMT + DZ
-			M1tailMIN = LZ2 - DZ
-			M1tailMAX = LZ2
+		M1headMIN = LZ2 - TMT
+		M1headMAX = LZ2 - TMT + DZ
+		M1tailMIN = LZ2 - DZ
+		M1tailMAX = LZ2
 
-			M2headMIN = LZ2 + TMT - DZ
-			M2headMAX = LZ2 + TMT
-			M2tailMIN = LZ2
-			M2tailMAX = LZ2 + DZ
+		M2headMIN = LZ2 + TMT - DZ
+		M2headMAX = LZ2 + TMT
+		M2tailMIN = LZ2
+		M2tailMAX = LZ2 + DZ
 		
 		
 		#=======================================================================
@@ -210,8 +191,8 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		
 		if Sample['DEFO']['Height'] == 'box':
 			L_defo = LZS
-		if Sample['DEFO']['Height'] == 'bilayer':
-			L_defo = M2headMAX - M1headMIN
+		if Sample['DEFO']['Height'] == 'follow':
+			L_defo = 2*TMT
 		NbLayers = int(L_defo/float(Sample['DEFO']['DzDefo']))
 		
 		#Defo per Layer
@@ -321,6 +302,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 						output {0}.pdb
 						
 						structure {19}
+							chain A
 							resnumbers 3
 							number {1:g}
 							inside box 0. 0. {2}  {3} {4} {5}
@@ -334,6 +316,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 						end structure
 						
 						structure {19}
+							chain B
 							resnumbers 3
 							number {1:g}
 							inside box 0. 0.  {8}  {3} {4} {9}
@@ -380,6 +363,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 						output {0}.pdb
 						
 						structure {18}
+							chain A
 							resnumbers 3
 							number {1:g}
 							inside box 0. 0. {2}  {3} {4} {5}
@@ -389,6 +373,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 						end structure
 						
 						structure {18}
+							chain B
 							resnumbers 3
 							number {1:g}
 							inside box 0. 0.  {8}  {3} {4} {9}
@@ -424,6 +409,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 						output {0}.pdb
 						
 						structure {18}
+							chain A
 							resnumbers 3
 							number {1:g}
 							inside box 0. 0. {2}  {3} {4} {5}
@@ -433,6 +419,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 						end structure
 						
 						structure {18}
+							chain B
 							resnumbers 3
 							number {1:g}
 							inside box 0. 0.  {8}  {3} {4} {9}
@@ -455,6 +442,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 			PackmolInput += """
 			
 							structure {15}
+								chain C
 								number {12:g}
 								inside box 0. 0. 0.  {3} {4} {2}
 								atoms 2 3
@@ -464,6 +452,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 
 
 							structure {15}
+								chain D
 								number {12:g}
 								inside box 0. 0. {9}  {3} {4} {13}
 								atoms 2 3
@@ -474,6 +463,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 							structure {14}
 								chain X
 								number 1
+								center
 								resnumbers 3
 								fixed {15} {16} 0.0 0.0 0.0 0.0
 							end structure
@@ -485,7 +475,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 								DefoXYZ_filename.replace('xyz','pdb'), 
 								LXS/2.0, LYS/2.0, L_defo, 
 								PDBfileList[LipidType], 
-								PDBfileList[SolventType])
+								PDBfileList[SolventType],LZ2)
 		else:
 			PackmolInput += """
 							
@@ -504,6 +494,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 							structure {14}
 								chain X
 								number 1
+								center
 								resnumbers 3
 								fixed {15} {16} {21} 0.0 0.0 0.0
 								radius 0.
@@ -517,7 +508,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 								LXS/2.0, LYS/2.0, L_defo, radiusDefo, 
 								PDBfileList[LipidType], 
 								PDBfileList[SolventType], 
-								M1headMIN)
+								LZ2)
 						
 			f = open('packmol_'+System+'.input','w')
 			f.write(Utility.RemoveUnwantedIndent(PackmolInput))
@@ -587,13 +578,13 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		
 		MakeIndex = str("""
 				chain A
-				name 5 up{0}
+				name 5 bottom{0}
 				chain B
-				name 6 low{0}
+				name 6 top{0}
 				chain C
-				name 7 low{1}
+				name 7 bottom{1}
 				chain D
-				name 8 up{1}
+				name 8 top{1}
 				chain X
 				name 9 defo
 				q
@@ -657,9 +648,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		SHELL = 3.0
 		LXS = Sample['LX'] - SHELL
 		LYS = Sample['LY'] - SHELL
-		LZS = LZM + THICKNESS
 
-		LZ2 = LZS/2.0
 		
 
 		#Number of lipid and water per layer
@@ -679,33 +668,24 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 				NSOLM.update( {Sol:int(Sample[Sol]/2)} )
 				SolventType = Sol
 				
-		#Computing the number of SU
+		#Computing the number of SU Density is in CG/nm³ thus the divided by 1000 for Volume
 		nbSu = int( DENSITY * Sample['LX'] * Sample['LY'] * THICKNESS /1000 )
 		
 		#=======================================================================
 		# Setting the bilayers  ================================================
 		#=======================================================================
 		
+		TMT = 0.0
+		DZ = 0.0
 		# DSPC bilayer =========================================================
 		if LipidType == "DSPC":
 			# Geometry to preprare the bilayer with packmol
-			
 			# total monolayer thickness (Angstrom)
 			TMT = 30.0
 
 			# deltaz : thickness in Z direction for
 			# the volume constraining the heads and tails beads
 			DZ = 7.0
-
-			M1headMIN = LZ2 - TMT
-			M1headMAX = LZ2 - TMT + DZ
-			M1tailMIN = LZ2 - DZ
-			M1tailMAX = LZ2
-
-			M2headMIN = LZ2 + TMT - DZ
-			M2headMAX = LZ2 + TMT
-			M2tailMIN = LZ2
-			M2tailMAX = LZ2 + DZ
 		
 		# DPPC bilayer =========================================================
 		if LipidType == "DPPC":
@@ -715,37 +695,62 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 			# deltaz : thickness in Z direction for
 			# the volume constraining the heads and tails beads
 			DZ = 10
-			M1headMIN = LZ2 - TMT
-			M1headMAX = LZ2 - TMT + DZ
-			M1tailMIN = LZ2 - DZ
-			M1tailMAX = LZ2
-
-			M2headMIN = LZ2 + TMT - DZ
-			M2headMAX = LZ2 + TMT
-			M2tailMIN = LZ2
-			M2tailMAX = LZ2 + DZ
 		
 		# DLPC bilayer =========================================================
 		if LipidType == "DLPC":
 			# Geometry to preprare the bilayer with packmol
-
 			# total monolayer thickness (Angstrom)
 			TMT = 30.0
 
 			# deltaz : thickness in Z direction for
 			# the volume constraining the heads and tails beads
 			DZ = 10
-
-			M1headMIN = LZ2 - TMT
-			M1headMAX = LZ2 - TMT + DZ
-			M1tailMIN = LZ2 - DZ
-			M1tailMAX = LZ2
-
-			M2headMIN = LZ2 + TMT - DZ
-			M2headMAX = LZ2 + TMT
-			M2tailMIN = LZ2
-			M2tailMAX = LZ2 + DZ
 		
+		assert(TMT > 0.0 and DZ > 0.0),"Your Parameters.csv contains a lipid not yet defined in Prepare.py"
+		#Set the box height with the monolayer + shell for PBC
+		LZ = LZM + TMT + SHELL
+		LZS = 0.0
+		LBZ = (LZM-THICKNESS)/2.0 + THICKNESS
+		LZ2 = (LZM-THICKNESS)/2.0 + THICKNESS
+		NbParticlesToRelocate = 0
+		NbSolTop = NSOLM[SolventType]
+		NbSolBottom = NSOLM[SolventType]
+		if 'BilayerHeight' in Sample['SU']:
+			LZ2 = float(Sample['SU']['BilayerHeight'])
+			#Checking that the Bilayer lipids do not overlap with the Monolayer lipids and the substrate
+			if (LZ2 - TMT) < THICKNESS:
+				LZ2 -= LZ2 -TMT - THICKNESS
+			if (LZ2 +TMT) > LZM:
+				LZ2 += LZM - LZ2 - TMT
+			#Checking that the Solvent is not too dense
+			if (LZ2 -TMT) < (LBZ - TMT): #Too much Solvent below
+				DensitySol = NSOLM[SolventType]/LXS/LYS/(LBZ - TMT - THICKNESS)
+				VolToRemove = (LBZ - TMT) - (LZ2 - TMT)
+				VolToRemove *= LXS*LYS
+				NbParticlesToRelocate = int(DensitySol * VolToRemove)
+				
+				NbSolBottom -= NbParticlesToRelocate
+				NbSolTop += NbParticlesToRelocate
+				
+			if (LZ2 + TMT) > (LBZ + TMT): #Too much Solvent above
+				DensitySol = NSOLM[SolventType]/LXS/LYS/(LZM - LBZ - TMT)
+				VolToRemove = (LZ2 + TMT) - (LBZ + TMT)
+				VolToRemove *= LXS*LYS
+				NbParticlesToRelocate = int(DensitySol * VolToRemove)
+				
+				NbSolBottom += NbParticlesToRelocate
+				NbSolTop -= NbParticlesToRelocate
+				
+		
+		M1headMIN = LZ2 - TMT
+		M1headMAX = LZ2 - TMT + DZ
+		M1tailMIN = LZ2 - DZ
+		M1tailMAX = LZ2
+
+		M2headMIN = LZ2 + TMT - DZ
+		M2headMAX = LZ2 + TMT
+		M2tailMIN = LZ2
+		M2tailMAX = LZ2 + DZ
 		
 		#=======================================================================
 		#=======================================================================
@@ -829,7 +834,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 							end atoms
 						end structure
 						
-						""".format(LXS, LYS, M1tailMAX+LZM, LZM+DZ, TMT+LZM-DZ, PDBfileList[LipidType], NBLIPIDS_MONO , LZM)
+						""".format(LXS, LYS, TMT+LZM, LZM+DZ, TMT+LZM-DZ, PDBfileList[LipidType], NBLIPIDS_MONO , LZM)
 		
 		# DPPC bilayer =========================================================
 		if LipidType == 'DPPC':
@@ -979,25 +984,32 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 								M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
 								NSOLM[SolventType], LZS, PDBfileList[SolventType])
 		else:
-			PackmolInput += """
-						
-						structure {14}
-							chain D
-							number {12:g}
-							inside box 0. 0. {16}  {3} {4} {2}
-						end structure
-						
-						structure {14}
-							chain E
-							number {12:g}
-							inside box 0. 0. {9}  {3} {4} {13}
-						end structure
-						
-						
-						""".format(System, NLM[LipidType], M1headMIN, LXS, 
-								LYS, M1tailMAX, M1headMAX, M1tailMIN,
-								M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
-								NSOLM[SolventType], LZM, PDBfileList[SolventType], M1headMIN, THICKNESS)
+			if NbSolBottom:
+				PackmolInput += """
+							
+							structure {14}
+								chain D
+								number {17:g}
+								inside box 0. 0. {16}  {3} {4} {2}
+							end structure
+							""".format(System, NLM[LipidType], M1headMIN, LXS, 
+									LYS, M1tailMAX, M1headMAX, M1tailMIN,
+									M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
+									NSOLM[SolventType], LZM, PDBfileList[SolventType], M1headMIN, THICKNESS,
+									NbSolBottom, NbSolTop)
+			if NbSolTop:
+				PackmolInput += """
+							
+							structure {14}
+								chain E
+								number {18:g}
+								inside box 0. 0. {9}  {3} {4} {13}
+							end structure
+							""".format(System, NLM[LipidType], M1headMIN, LXS, 
+									LYS, M1tailMAX, M1headMAX, M1tailMIN,
+									M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
+									NSOLM[SolventType], LZM, PDBfileList[SolventType], M1headMIN, THICKNESS,
+									NbSolBottom, NbSolTop)
 						
 		
 			
@@ -1048,8 +1060,8 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 			
 		# pdb file for su
 		suType = SU_TYPE
-		if len(SU_TYPE) < 4:
-			suType = SU_TYPE + (4 - len(SU_TYPE))*' '
+		assert(len(SU_TYPE) <= 4),"The name of the SU should be 4 letters max (Otherwise problem with PDB file format)" 
+		suType = SU_TYPE + (4 - len(SU_TYPE))*' '
 		suPdb = SU_PDB.replace("TEMP", suType)
 		f = open(PDBfileList['SU'],'w')
 		f.write(Utility.RemoveUnwantedIndent(suPdb))
@@ -1079,7 +1091,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 				unset all
 
 				exit
-				""").format(System, Sample['LX'], Sample['LY'], Sample['LZ'])
+				""").format(System, Sample['LX'], Sample['LY'], LZ)
 
 		f = open('write_box.vmd','w+')
 		f.write(Utility.RemoveUnwantedIndent(WriteBox) )
@@ -1092,15 +1104,15 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		
 		MakeIndex = str("""
 				chain A
-				name 5 up{0}
+				name 5 bottom{0}
 				chain B
-				name 6 low{0}
+				name 6 top{0}
 				chain C
 				name 7 mono{0}
 				chain D
-				name 8 up{1}
+				name 8 bottom{1}
 				chain E
-				name 9 low{1}
+				name 9 top{1}
 				chain S
 				name 10 su
 				q
@@ -1173,6 +1185,8 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		LZS = LZM + THICKNESS
 
 		LZ2 = LZS/2.0
+		if 'BilayerHeight' in Sample['SU']:
+			LZ2 = float(Sample['SU']['BilayerHeight'])
 		
 
 		#Number of lipid and water per layer
@@ -1196,26 +1210,17 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		# Setting the bilayers  ================================================
 		#=======================================================================
 		
+		TMT = 0.0
+		DZ = 0.0
 		# DSPC bilayer =========================================================
 		if LipidType == "DSPC":
 			# Geometry to preprare the bilayer with packmol
-			
 			# total monolayer thickness (Angstrom)
 			TMT = 30.0
 
 			# deltaz : thickness in Z direction for
 			# the volume constraining the heads and tails beads
 			DZ = 7.0
-
-			M1headMIN = LZ2 - TMT
-			M1headMAX = LZ2 - TMT + DZ
-			M1tailMIN = LZ2 - DZ
-			M1tailMAX = LZ2
-
-			M2headMIN = LZ2 + TMT - DZ
-			M2headMAX = LZ2 + TMT
-			M2tailMIN = LZ2
-			M2tailMAX = LZ2 + DZ
 		
 		# DPPC bilayer =========================================================
 		if LipidType == "DPPC":
@@ -1225,46 +1230,73 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 			# deltaz : thickness in Z direction for
 			# the volume constraining the heads and tails beads
 			DZ = 10
-			M1headMIN = LZ2 - TMT
-			M1headMAX = LZ2 - TMT + DZ
-			M1tailMIN = LZ2 - DZ
-			M1tailMAX = LZ2
-
-			M2headMIN = LZ2 + TMT - DZ
-			M2headMAX = LZ2 + TMT
-			M2tailMIN = LZ2
-			M2tailMAX = LZ2 + DZ
 		
 		# DLPC bilayer =========================================================
 		if LipidType == "DLPC":
 			# Geometry to preprare the bilayer with packmol
-
 			# total monolayer thickness (Angstrom)
 			TMT = 30.0
 
 			# deltaz : thickness in Z direction for
 			# the volume constraining the heads and tails beads
 			DZ = 10
-
-			M1headMIN = LZ2 - TMT
-			M1headMAX = LZ2 - TMT + DZ
-			M1tailMIN = LZ2 - DZ
-			M1tailMAX = LZ2
-
-			M2headMIN = LZ2 + TMT - DZ
-			M2headMAX = LZ2 + TMT
-			M2tailMIN = LZ2
-			M2tailMAX = LZ2 + DZ
 		
+		assert(TMT > 0.0 and DZ > 0.0),"Your Parameters.csv contains a lipid not yet defined in Prepare.py"
+		#Set the box height with the monolayer + shell for PBC
+		LZ = LZM + TMT + SHELL
+		LZS = 0.0
+		LBZ = (LZM-THICKNESS)/2.0 + THICKNESS
+		LZ2 = (LZM-THICKNESS)/2.0 + THICKNESS
+		NbParticlesToRelocate = 0
+		NbSolTop = NSOLM[SolventType]
+		NbSolBottom = NSOLM[SolventType]
+		if 'BilayerHeight' in Sample['SU']:
+			LZ2 = float(Sample['SU']['BilayerHeight'])
+			#Checking that the Bilayer lipids do not overlap with the Monolayer lipids and the substrate
+			if (LZ2 - TMT) < THICKNESS:
+				LZ2 -= LZ2 -TMT - THICKNESS
+			if (LZ2 +TMT) > LZM:
+				LZ2 += LZM - LZ2 - TMT
+			#Checking that the Solvent is not too dense
+			if (LZ2 -TMT) < (LBZ - TMT): #Too much Solvent below
+				DensitySol = NSOLM[SolventType]/LXS/LYS/(LBZ - TMT - THICKNESS)
+				VolToRemove = (LBZ - TMT) - (LZ2 - TMT)
+				VolToRemove *= LXS*LYS
+				NbParticlesToRelocate = int(DensitySol * VolToRemove)
+				
+				NbSolBottom -= NbParticlesToRelocate
+				NbSolTop += NbParticlesToRelocate
+				
+			if (LZ2 + TMT) > (LBZ + TMT): #Too much Solvent above
+				DensitySol = NSOLM[SolventType]/LXS/LYS/(LZM - LBZ - TMT)
+				VolToRemove = (LZ2 + TMT) - (LBZ + TMT)
+				VolToRemove *= LXS*LYS
+				NbParticlesToRelocate = int(DensitySol * VolToRemove)
+				
+				NbSolBottom += NbParticlesToRelocate
+				NbSolTop -= NbParticlesToRelocate
+				
+		
+		M1headMIN = LZ2 - TMT
+		M1headMAX = LZ2 - TMT + DZ
+		M1tailMIN = LZ2 - DZ
+		M1tailMAX = LZ2
+
+		M2headMIN = LZ2 + TMT - DZ
+		M2headMAX = LZ2 + TMT
+		M2tailMIN = LZ2
+		M2tailMAX = LZ2 + DZ
 		
 		#=======================================================================
 		# Creating the defo ====================================================
 		#=======================================================================
 		
 		if Sample['DEFO']['Height'] == 'box':
-			L_defo = LZS + TMT
+			L_defo = LZM
 		if Sample['DEFO']['Height'] == 'bilayer':
-			L_defo = M2headMAX - M1headMIN
+			L_defo = LZ2 + TMT - THICKNESS
+		if Sample['DEFO']['Height'] == 'follow':
+			L_defo = 2*TMT
 		NbLayers = int(L_defo/float(Sample['DEFO']['DzDefo']))
 		
 		#Defo per Layer
@@ -1336,6 +1368,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		#=======================================================================
 		# Number of su particles ===============================================
 		#=======================================================================
+		#Computing the number of SU Density is in CG/nm³ thus the divided by 1000 for Volume
 		nbSu = int( DENSITY * Sample['LX'] * Sample['LY'] * THICKNESS /1000 )
 		
 		#=======================================================================
@@ -1593,34 +1626,64 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 								M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
 								NSOLM[SolventType], LZS, PDBfileList[SolventType])
 		else:
-			PackmolInput += """
-						
-						structure {14}
-							chain D
-							number {12:g}
-							inside box 0. 0. {16}  {3} {4} {2}
-						end structure
-						
+			if NbSolBottom:
+				PackmolInput += """
+							
+							structure {14}
+								chain D
+								number {12:g}
+								inside box 0. 0. {16}  {3} {4} {2}
+							end structure
+							""".format(System, NLM[LipidType], M1headMIN, LXS, 
+								LYS, M1tailMAX, M1headMAX, M1tailMIN,
+								M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
+								NSOLM[SolventType], LZM, PDBfileList[SolventType], M1headMIN, 
+								THICKNESS, DefoXYZ_filename.replace('xyz','pdb'), 
+								LXS/2.0, LYS/2.0, L_defo, radiusDefo)
+			if NbSolTop:
+				PackmolInput += """
 						structure {14}
 							chain E
 							number {12:g}
 							inside box 0. 0. {9}  {3} {4} {13}
 						end structure
-						
-						structure {17}
-							chain X
-							number 1
-							resnumbers 3
-							fixed {18} {19} {16} 0.0 0.0 0.0
-							radius 0.
-						end structure
-						
 						""".format(System, NLM[LipidType], M1headMIN, LXS, 
 								LYS, M1tailMAX, M1headMAX, M1tailMIN,
 								M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
 								NSOLM[SolventType], LZM, PDBfileList[SolventType], M1headMIN, 
 								THICKNESS, DefoXYZ_filename.replace('xyz','pdb'), 
 								LXS/2.0, LYS/2.0, L_defo, radiusDefo)
+			if Sample['DEFO']['Height'] != 'follow':
+				PackmolInput += """
+							structure {17}
+								chain X
+								number 1
+								resnumbers 3
+								fixed {18} {19} {16} 0.0 0.0 0.0
+								radius 0.
+							end structure
+							""".format(System, NLM[LipidType], M1headMIN, LXS, 
+									LYS, M1tailMAX, M1headMAX, M1tailMIN,
+									M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
+									NSOLM[SolventType], LZM, PDBfileList[SolventType], M1headMIN, 
+									THICKNESS, DefoXYZ_filename.replace('xyz','pdb'), 
+									LXS/2.0, LYS/2.0, L_defo, radiusDefo)
+			else:
+				PackmolInput += """
+							structure {17}
+								chain X
+								number 1
+								center
+								resnumbers 3
+								fixed {18} {19} {2} 0.0 0.0 0.0
+								radius 0.
+							end structure
+							""".format(System, NLM[LipidType], LZ2, LXS, 
+									LYS, M1tailMAX, M1headMAX, M1tailMIN,
+									M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
+									NSOLM[SolventType], LZM, PDBfileList[SolventType], M1headMIN, 
+									THICKNESS, DefoXYZ_filename.replace('xyz','pdb'), 
+									LXS/2.0, LYS/2.0, L_defo, radiusDefo)
 						
 		
 		
@@ -1674,8 +1737,8 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 			
 		# pdb file for su
 		suType = SU_TYPE
-		if len(SU_TYPE) < 4:
-			suType = SU_TYPE + (4 - len(SU_TYPE))*' '
+		assert(len(SU_TYPE) <= 4),"The name of the SU should be 4 letters max (Otherwise problem with PDB file format)" 
+		suType = SU_TYPE + (4 - len(SU_TYPE))*' '
 		suPdb = SU_PDB.replace("TEMP", suType)
 		f = open(PDBfileList['SU'],'w')
 		f.write(Utility.RemoveUnwantedIndent(suPdb))
@@ -1705,7 +1768,7 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 				unset all
 
 				exit
-				""").format(System, Sample['LX'], Sample['LY'], Sample['LZ'])
+				""").format(System, Sample['LX'], Sample['LY'], LZS)
 
 		f = open('write_box.vmd','w+')
 		f.write(Utility.RemoveUnwantedIndent(WriteBox) )
@@ -1718,15 +1781,15 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		
 		MakeIndex = str("""
 				chain A
-				name 5 up{0}
+				name 5 bottom{0}
 				chain B
-				name 6 low{0}
+				name 6 top{0}
 				chain C
 				name 7 mono{0}
 				chain D
-				name 8 up{1}
+				name 8 bottom{1}
 				chain E
-				name 9 low{1}
+				name 9 top{1}
 				chain S
 				name 10 su
 				chain X
@@ -3314,7 +3377,7 @@ def WriteMDP(Sample, step, defaultMDP, Version):
 				
 				else:
 					suMdpParams += suParam + '		= '+ str(suParamValue) + ' \n'
-		
+		suMdpParams += 'wall-atomtype' + '		= '+ str(Sample['SU']['SuType']) + ' \n'
 		if(NPT_or_NVT):
 			Sample['PROTOCOL'][step].update({ 'tc-grps': Tcgrps })
 			
@@ -3381,21 +3444,22 @@ def WriteMDP(Sample, step, defaultMDP, Version):
 		OUTPUT.write(defoMdpParams)
 	
 	# Options if DEFO
-	if 'DEFO' in Sample and Sample['TYPE'] == 'BILAYER' and 'SU' not in Sample:
-		if Version.startswith('4'):
-			#finding current lipid used
-			Lipid = ''
-			for lipid in LipidsList:
-				if lipid in Sample:
-					Lipid = lipid
-			OUTPUT.write('pull-group1		= {0}\n'.format(Lipid))
-		else:
-			#finding current lipid used
-			Lipid = ''
-			for lipid in LipidsList:
-				if lipid in Sample:
-					Lipid = lipid
-			OUTPUT.write('pull-group1-name		= {0}\n'.format(Lipid))
+	if 'DEFO' in Sample and Sample['TYPE'] == 'BILAYER':
+		if Sample['DEFO']['Height'] == 'follow':
+			if Version.startswith('4'):
+				#finding current lipid used
+				Lipid = ''
+				for lipid in LipidsList:
+					if lipid in Sample:
+						Lipid = lipid
+				OUTPUT.write('pull-group1		= {0}\n'.format(Lipid))
+			else:
+				#finding current lipid used
+				Lipid = ''
+				for lipid in LipidsList:
+					if lipid in Sample:
+						Lipid = lipid
+				OUTPUT.write('pull-group1-name		= {0}\n'.format(Lipid))
 		
 	# Writes parameters related to Su at the end
 	if 'SU' in Sample:
