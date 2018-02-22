@@ -129,7 +129,848 @@ SU_PDB = """
 
 
 def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
-	if 'DEFO' in Sample and not 'SU' in Sample: #Bilayer + Hole
+	if 'DEFO' in Sample and not 'SU' in Sample:
+		return InitBilayerWithHole(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault)
+
+	if 'SU' in Sample and not 'DEFO' in Sample: #Bilayer + Wall:
+		return InitBilayerWithWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault)
+
+	if 'DEFO' in Sample and 'SU' in Sample: #Bilayer + Hole + Wall:
+		return InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault)
+
+	else: #Default for Free Bilayer
+		return InitFreeBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault)
+		
+		
+		
+		
+def InitFreeBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
+	# packmol constraints are not strict !
+	# put the molecules in a smaller box to
+	# avoid initial crash because of PBC
+	# the SHELL parameter defines the shell in which
+	# packmol is not supposed to put particles
+	SHELL = 3.0
+	
+	LXS = Sample['LX']-SHELL
+	LYS = Sample['LY']-SHELL
+	LZS = Sample['LZ']-SHELL
+
+	LZ2 = LZS/2.0
+
+	#Number of lipid and water per layer
+	NLM = {}
+	NSOLM = {}
+	LipidType = ''
+	
+	for L in LipidsList:
+		if(L in Sample):
+			NLM.update( {L:int(Sample[L]/2)} )
+			LipidType = L
+	for Sol in SolventsList:
+		print(Sol,' is in sample:', Sol in Sample)
+		if Sol in Sample:
+			print(Sol)
+			NSOLM.update( {Sol:int(Sample[Sol]/2)} )
+			SolventType = Sol
+	
+	#If the number of lipids per Monolayer is high
+	# we cut the sample till we get a reasonnable amount
+	# of lipis per monolayer for packmol
+	NbMult = 0
+	NeedToExpand = False
+	while NLM[LipidType] > 512:
+		NLM[LipidType] /= 2
+		NSOLM[SolventType] /= 2
+		NbMult += 1
+		#diviser boîte
+		NeedToExpand = True
+		print(NLM[LipidType])
+	print(LipidType)
+	#==================================================================================
+	# creating the initial bilayer (lipids + water) using packmol
+	#==================================================================================
+
+	System = str('{0}_{1}{2}_{3}{4}').format(Sample['TYPE'],Sample[LipidType], LipidType, Sample[SolventType], SolventType)
+	
+	#=======================================================================
+	# Setting the bilayers  ================================================
+	#=======================================================================
+	
+	TMT = 0.0
+	DZ = 0.0
+	# DSPC bilayer =========================================================
+	if LipidType == "DSPC":
+		# Geometry to preprare the bilayer with packmol
+		# total monolayer thickness (Angstrom)
+		TMT = 30.0
+		# deltaz : thickness in Z direction for
+		# the volume constraining the heads and tails beads
+		DZ = 7.0
+	
+	# DPPC bilayer =========================================================
+	if LipidType == "DPPC":
+		TMT = 30
+		DZ = 10
+	
+	# DLPC bilayer =========================================================
+	if LipidType == "DLPC":
+		TMT = 30
+		DZ = 10
+
+	M1headMIN = LZ2 - TMT
+	M1headMAX = LZ2 - TMT + DZ
+	M1tailMIN = LZ2 - DZ
+	M1tailMAX = LZ2
+
+	M2headMIN = LZ2 + TMT - DZ
+	M2headMAX = LZ2 + TMT
+	M2tailMIN = LZ2
+	M2tailMAX = LZ2 + DZ
+	
+	#DSPC BILAYER
+	if( LipidType == "DSPC"):
+		PackmolInput = """
+						#
+						# Lipid bilayer with water, perpendicular to z axis
+						#
+
+						# Every atom from diferent molecules will be far from each other at
+						# least 3.0 Anstroms at the solution.
+
+						tolerance 3.0
+
+						# Coordinate file types will be in pdb format (keyword not required for
+						# pdb file format, but required for tinker, xyz or moldy)
+
+						filetype pdb
+
+						# The output pdb file
+
+						output {0}.pdb
+
+						structure {14}
+							chain A
+							resnumbers 3
+							number {1:g}
+							inside box 0. 0. {2}  {3} {4} {5}
+							atoms 1
+								below plane 0. 0. 1. {6}
+							end atoms
+							atoms 9 14
+								over plane 0. 0. 1. {7}
+							end atoms
+						end structure
+
+						structure {14}
+							chain B
+							resnumbers 3
+							number {1:g}
+							inside box 0. 0.  {8}  {3} {4} {9}
+							atoms 1
+								over plane 0. 0. 1. {10}
+							end atoms
+							atoms 9 14
+								below plane 0. 0. 1. {11}
+							end atoms
+						end structure
+
+						""".format(System, NLM[LipidType], M1headMIN, LXS, LYS, M1tailMAX, M1headMAX, M1tailMIN, M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, NSOLM[SolventType], LZS, PDBfileList[LipidType], PDBfileList[SolventType])
+	
+	# DPPC bilayer, DLPC bilayer =========================================================
+	if LipidType == "DPPC" or LipidType == "DLPC":
+		PackmolInput = """
+						#
+						# Lipid bilayer with water, perpendicular to z axis
+						#
+
+						# Every atom from diferent molecules will be far from each other at
+						# least 3.0 Anstroms at the solution.
+
+						tolerance 3.0
+
+						# Coordinate file types will be in pdb format (keyword not required for
+						# pdb file format, but required for tinker, xyz or moldy)
+
+						filetype pdb
+
+						# The output pdb file
+
+						output {0}.pdb
+
+						structure {14}
+							chain A
+							resnumbers 3
+							number {1:g}
+							inside box 0. 0. {2}  {3} {4} {5}
+							constrain_rotation x 180 10
+							constrain_rotation y 180 10
+						end structure
+
+						structure {14}
+							chain B
+							resnumbers 3
+							number {1:g}
+							inside box 0. 0.  {8}  {3} {4} {9}
+							constrain_rotation x 0 10
+							constrain_rotation y 0 10
+						end structure
+
+						""".format(System, NLM[LipidType], M1headMIN, LXS, LYS, M1tailMAX, M1headMAX, M1tailMIN, M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, NSOLM[SolventType], LZS, PDBfileList[LipidType], PDBfileList[SolventType])
+							
+	#=======================================================================
+	#=======================================================================
+	#=======================================================================
+	
+	#=======================================================================
+	# Setting the solvent for packmol ============================
+	#=======================================================================
+	if SolventType == 'PW':
+		PackmolInput += """
+		
+						structure {0}
+							chain C
+							number {1:g}
+							inside box 0. 0. 0.  {2} {3} {4}
+							atoms 2 3
+								radius 0.2
+							end atoms
+						end structure
+
+
+						structure {0}
+							chain D
+							number {1:g}
+							inside box 0. 0. {5}  {2} {3} {6}
+							atoms 2 3
+								radius 0.2
+							end atoms
+						end structure
+						""".format(PDBfileList[SolventType], NSOLM[SolventType], LXS, LYS,  M1headMIN,
+							M2headMAX, LZS)
+	else:
+		PackmolInput += """
+						
+						structure {0}
+							chain C
+							number {1:g}
+							inside box 0. 0. 0.  {2} {3} {4}
+						end structure
+						
+						structure {0}
+							chain D
+							number {1:g}
+							inside box 0. 0. {5}  {2} {3} {6}
+						end structure
+						""".format(PDBfileList[SolventType], NSOLM[SolventType], LXS, LYS,  M1headMIN,
+							M2headMAX, LZS)
+
+	f = open('packmol_'+System+'.input','w')
+	f.write(Utility.RemoveUnwantedIndent(PackmolInput))
+	f.close()
+	
+	# Lipids input pdb =====================================================
+	if( LipidType == "DSPC"):
+		f = open('dspc_single.pdb','w')
+		f.write(Utility.RemoveUnwantedIndent(DSPC_PDB))
+		f.close()
+	if( LipidType == "DPPC"):
+		f = open('dppc_single.pdb','w')
+		f.write(Utility.RemoveUnwantedIndent(DPPC_PDB))
+		f.close()
+	if( LipidType == "DLPC"):
+		f = open('dlpc_single.pdb','w')
+		f.write(Utility.RemoveUnwantedIndent(DLPC_PDB))
+		f.close()
+		
+	# Solvents input pdb ===================================================
+	if( SolventType == 'W'):
+		f = open('water_single.pdb','w')
+		f.write(Utility.RemoveUnwantedIndent(W_PDB))
+		f.close()
+	if( SolventType == 'PW'):
+		f = open('polwater_single.pdb','w')
+		f.write(Utility.RemoveUnwantedIndent(PW_PDB))
+		f.close()
+	if( SolventType == 'OCO'):
+		f = open('octanol_single.pdb','w')
+		f.write(Utility.RemoveUnwantedIndent(OCO_PDB))
+		f.close()
+	
+
+	#===============================================================================
+	#lauching packmol
+	#===============================================================================
+
+	cmd = str("""{0} < packmol_{1}.input > packmol_{1}.output """).format(Softwares['PACKMOL'],System)
+	sub.call(cmd, shell=True)
+
+	
+	#===============================================================================
+	# ensure the right box in pdb file
+	#===============================================================================
+
+	WriteBox = str("""
+			mol load pdb {0}.pdb
+			set all [atomselect top "all"]
+
+			package require pbctools
+			pbc set {{{1} {2} {3}}}
+
+			$all writepdb "{0}.withbox.pdb"
+			unset all
+
+			exit
+			""").format(System, Sample['LX'], Sample['LY'], Sample['LZ'])
+
+	f = open('write_box.vmd','w+')
+	f.write(Utility.RemoveUnwantedIndent(WriteBox) )
+	f.close()
+
+	## ======================================================================
+	cmd = str("""{0} -dispdev text -e write_box.vmd > write_box.log""" 
+				).format(Softwares['VMD'])
+	sub.call(cmd, shell=True)
+
+	
+	#===============================================================================
+	# For big samples
+	#===============================================================================
+	if NeedToExpand:
+		cmd = str("""{0}genconf -f {1}.withbox.pdb -nbox {2} {2} 1 -o {1}.withbox.pdb""").format(GROMACS_LOC_prefixPath, System, NbMult)
+		sub.call(cmd, shell=True)
+	## ======================================================================
+	ApL = Sample['LX']*Sample['LY']/NLM[LipidType]
+	print(Utility.RemoveUnwantedIndent(str("""
+			================================
+			================================
+			Packmol finished initial input file
+			{0} {1}, {2} {3}
+			box sizes : {4}, {5}, {6}
+			Area per lipid = {7} A**2
+			===============================
+			===============================
+			""").format(LipidType, Sample[LipidType],SolventType, Sample[SolventType], Sample['LX'],Sample['LY'],Sample['LZ'],ApL)))
+
+	#==================================================================================
+	# the topology file
+	#==================================================================================
+
+	Topology = str("""
+				#include "martini_v2.2.itp" ; modified with polarisable water
+				#include "martini_v2.0_lipids.itp"
+				""")
+	#Copy the topology files for martini forcefield
+	sub.call("""cp {0}/martini_v2.0_lipids.itp {0}/martini_v2.2.itp ./""".format(PathToDefault), shell= True)
+	f = open(System+'.top','w')
+	f.write(Utility.RemoveUnwantedIndent(Topology))
+
+	f = open(System+'.top','a')
+	f.write("""\n[ system ]\n""")
+
+	Topology = str("""{0} {1}\n""").format(LipidType, Sample['TYPE'])
+	f.write(Topology)
+
+	###add a for loop for multiple types (Later)
+	f.write("""\n[ molecules ]\n""")
+	Topology = str("""{0} {1}\n{2} {3}""").format(LipidType, Sample[LipidType],SolventType, Sample[SolventType])
+	f.write(Topology)
+	f.close()
+
+	#==================================================================================
+	# the index file
+	#==================================================================================
+
+	cmd = str("""echo q | {0}make_ndx -f {1}.withbox.pdb -o {1}.ndx""").format(GROMACS_LOC_prefixPath,System)
+	sub.call(cmd, shell=True)
+
+	#==================================================================================
+	# Output the files for other steps
+	#==================================================================================
+	Output = str("""{0}.withbox.pdb""").format(System)
+	Index = str("""{0}.ndx""").format(System)
+	return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
+
+
+
+def InitBilayerWithWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
+	THICKNESS = float(Sample['SU']['Thickness'])
+	DENSITY = float(Sample['SU']['Density'])
+	NBLIPIDS_MONO = int(Sample['SU']['NbLipidsM'])
+	SU_VERSION = Sample['SU']['Version']
+	SU_TYPE = Sample['SU']['SuType']
+	LZM = float(Sample['SU']['LzM'])
+	
+	
+	SHELL = 3.0
+	LXS = Sample['LX'] - SHELL
+	LYS = Sample['LY'] - SHELL
+
+	
+
+	#Number of lipid and water per layer
+	NLM = {}
+	NSOLM = {}
+	LipidType = ''
+	
+	for L in LipidsList:
+		if(L in Sample):
+			NLM.update( {L:int(Sample[L]/2)} )
+			LipidType = L
+			
+	for Sol in SolventsList:
+		if Sol in Sample:
+			NSOLM.update( {Sol:int(Sample[Sol]/2)} )
+			SolventType = Sol
+			
+	#Computing the number of SU using Density in CG/nm³ thus the divided by 1000 for Volume
+	nbSu = int( DENSITY * Sample['LX'] * Sample['LY'] * THICKNESS /1000 )
+	
+	#=======================================================================
+	# Setting the bilayers  ================================================
+	#=======================================================================
+	
+	TMT = 0.0
+	DZ = 0.0
+	# DSPC bilayer =========================================================
+	if LipidType == "DSPC":
+		# Geometry to preprare the bilayer with packmol
+		# total monolayer thickness (Angstrom)
+		TMT = 30.0
+		# deltaz : thickness in Z direction for
+		# the volume constraining the heads and tails beads
+		DZ = 7.0
+	
+	# DPPC bilayer =========================================================
+	if LipidType == "DPPC":
+		TMT = 30.0
+		DZ = 10
+	
+	# DLPC bilayer =========================================================
+	if LipidType == "DLPC":
+		TMT = 30.0
+		DZ = 10
+	
+	assert(TMT > 0.0 and DZ > 0.0),"Your Parameters.csv contains a lipid not yet defined in Prepare.py"
+	#Set the box height with the monolayer + shell for PBC
+	LZ = LZM + TMT + SHELL
+	LBZ = (LZM-THICKNESS)/2.0 + THICKNESS
+	LZ2 = 0.0
+	NbParticlesToRelocate = 0
+	NbSolTop = NSOLM[SolventType]
+	NbSolBottom = NSOLM[SolventType]
+	if 'BilayerHeight' in Sample['SU']:
+		LZ2 = float(Sample['SU']['BilayerHeight'])
+		#Checking that the Bilayer lipids do not overlap with the Monolayer lipids and the substrate
+		if (LZ2 - TMT) < THICKNESS:
+			LZ2 -= LZ2 -TMT - THICKNESS
+		if (LZ2 +TMT) > LZM:
+			LZ2 += LZM - LZ2 - TMT
+		#Checking that the Solvent is not too dense
+		if LZ2 < LBZ: #Too much Solvent below
+			DensitySol = NSOLM[SolventType]/Sample['LX']/Sample['LY']/(LBZ - TMT - THICKNESS)
+			VolToRemove = LBZ - LZ2
+			VolToRemove *= LXS*LYS
+			NbParticlesToRelocate = int(DensitySol * VolToRemove)
+			
+			NbSolBottom -= NbParticlesToRelocate
+			NbSolTop += NbParticlesToRelocate
+			
+		if LZ2 > LBZ: #Too much Solvent above
+			DensitySol = NSOLM[SolventType]/LXS/LYS/(LZM - LBZ - TMT)
+			VolToRemove = LZ2 - LBZ
+			VolToRemove *= LXS*LYS
+			NbParticlesToRelocate = int(DensitySol * VolToRemove)
+			
+			NbSolBottom += NbParticlesToRelocate
+			NbSolTop -= NbParticlesToRelocate
+	else:
+		LZ2 = LBZ
+	
+	#Set the Geometry
+	M1headMIN = LZ2 - TMT
+	M1headMAX = LZ2 - TMT + DZ
+	M1tailMIN = LZ2 - DZ
+	M1tailMAX = LZ2
+
+	M2headMIN = LZ2 + TMT - DZ
+	M2headMAX = LZ2 + TMT
+	M2tailMIN = LZ2
+	M2tailMAX = LZ2 + DZ
+	
+	#=======================================================================
+	#=======================================================================
+	#=======================================================================
+
+	System = str('{0}_{1}{2}_{3}M{2}_{4}{5}_{7}{6}{8}').format(Sample['TYPE'], Sample[LipidType],
+											LipidType, NBLIPIDS_MONO , 
+											Sample[SolventType], SolventType, SU_TYPE, nbSu, SU_VERSION)
+	
+	#=======================================================================
+	# Setting the bilayers for packmol =====================================
+	#=======================================================================
+	
+	# DLPC bilayer =========================================================
+	if LipidType == "DSPC":
+		PackmolInput = """
+					#
+					# Lipid bilayer with water, perpendicular to z axis
+					#
+					
+					# Every atom from diferent molecules will be far from each other at
+					# least 3.0 Anstroms at the solution.
+					
+					tolerance 3.0
+					
+					# Coordinate file types will be in pdb format (keyword not required for
+					# pdb file format, but required for tinker, xyz or moldy)
+					
+					filetype pdb
+					
+					# do not avoid the fixed molecules
+					#avoid_overlap no
+					
+					# The output pdb file
+					
+					output {0}.pdb
+					
+					structure {12}
+						chain A
+						resnumbers 3
+						number {1:g}
+						inside box 0. 0. {2}  {3} {4} {5}
+						atoms 1
+							below plane 0. 0. 1. {6}
+						end atoms
+						atoms 9 14
+							over plane 0. 0. 1. {7}
+						end atoms
+					end structure
+					
+					structure {12}
+						chain B
+						resnumbers 3
+						number {1:g}
+						inside box 0. 0.  {8}  {3} {4} {9}
+						atoms 1
+							over plane 0. 0. 1. {10}
+						end atoms
+						atoms 9 14
+							below plane 0. 0. 1. {11}
+						end atoms
+					end structure
+					
+					""".format(System, NLM[LipidType], M1headMIN, LXS,
+								LYS, M1tailMAX, M1headMAX, M1tailMIN, 
+								M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
+								PDBfileList[LipidType])
+					
+		PackmolInput += """
+					
+					structure {0}
+						chain C
+						resnumbers 3
+						number {1:g}
+						inside box 0. 0.  {2}  {3} {4} {5}
+						atoms 1
+							below plane 0. 0. 1. {6}
+						end atoms
+						atoms 9 14
+							over plane 0. 0. 1. {7}
+						end atoms
+					end structure
+					
+					""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM, LZM+DZ, TMT+LZM-DZ)
+	
+	# DPPC bilayer, DLPC bilayer =========================================================
+	if LipidType == 'DPPC' or LipidType == 'DLPC':
+		PackmolInput = """
+						#
+						# Lipid bilayer with water, perpendicular to z axis
+						#
+
+						# Every atom from diferent molecules will be far from each other at
+						# least 3.0 Anstroms at the solution.
+
+						tolerance 3.0
+
+						# Coordinate file types will be in pdb format (keyword not required for
+						# pdb file format, but required for tinker, xyz or moldy)
+
+						filetype pdb
+
+						# The output pdb file
+
+						output {0}.pdb
+
+						structure {8}
+							chain A
+							resnumbers 3
+							number {1:g}
+							inside box 0. 0. {2}  {3} {4} {5}
+							constrain_rotation x 180 10
+							constrain_rotation y 180 10
+						end structure
+
+						structure {8}
+							chain B
+							resnumbers 3
+							number {1:g}
+							inside box 0. 0.  {6}  {3} {4} {7}
+							constrain_rotation x 0 10
+							constrain_rotation y 0 10
+						end structure
+
+						""".format(System, NLM[LipidType], M1headMIN, LXS, 
+									LYS, M1tailMAX, M2tailMIN, M2headMAX,
+									PDBfileList[LipidType])
+		
+		PackmolInput += """
+						
+						structure {0}
+							chain C
+							resnumbers 3
+							number {1:g}
+							inside box 0. 0.  {2}  {3} {4} {5}
+							constrain_rotation x 180 10
+							constrain_rotation y 180 10
+						end structure
+						
+						""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM)
+	
+	#=======================================================================
+	#=======================================================================
+	#=======================================================================
+
+	#=======================================================================
+	# Setting the defo with solvent for packmol ============================
+	#=======================================================================
+	#Computing the number of Solvent vapor
+	NbSolVapor = int( 0.007 * Sample['LX'] * Sample['LY'] * (Sample['LZ']-LZM-TMT) /1000)
+	
+	if SolventType == 'PW':
+		if NbSolBottom:
+			PackmolInput += """
+							
+							structure {0}
+								chain D
+								number {1:g}
+								inside box 0. 0. {2}  {3} {4} {5}
+								atoms 2 3
+									radius 0.2
+								end atoms
+							end structure
+							""".format(PDBfileList[SolventType],NbSolBottom,THICKNESS,LXS,LYS,M1headMIN)
+			
+		if NbSolTop:
+			PackmolInput += """
+							
+							structure {0}
+								chain E
+								number {1:g}
+								inside box 0. 0. {2}  {3} {4} {5}
+								atoms 2 3
+									radius 0.2
+								end atoms
+							end structure
+							""".format(PDBfileList[SolventType],NbSolTop,M2headMAX,LXS,LYS,LZM)
+		PackmolInput += """
+							
+							structure {0}
+								chain V
+								number {1:g}
+								inside box 0. 0. {2}  {3} {4} {5}
+								atoms 2 3
+									radius 0.2
+								end atoms
+							end structure
+							""".format(PDBfileList[SolventType],NbSolVapor,LZM+TMT,LXS,LYS,Sample['LZ'])
+	else:
+		if NbSolBottom:
+			PackmolInput += """
+							
+							structure {0}
+								chain D
+								number {1:g}
+								inside box 0. 0. {2}  {3} {4} {5}
+							end structure
+							""".format(PDBfileList[SolventType],NbSolBottom,THICKNESS,LXS,LYS,M1headMIN)
+		if NbSolTop:
+			PackmolInput += """
+							
+							structure {0}
+								chain E
+								number {1:g}
+								inside box 0. 0. {2}  {3} {4} {5}
+							end structure
+							""".format(PDBfileList[SolventType],NbSolTop,M2headMAX,LXS,LYS,LZM)
+		PackmolInput += """
+						
+						structure {0}
+							chain V
+							number {1:g}
+							inside box 0. 0. {2}  {3} {4} {5}
+						end structure
+						""".format(PDBfileList[SolventType],NbSolVapor,LZM+TMT,LXS,LYS,Sample['LZ'])
+					
+	
+		
+	#=======================================================================
+	# Adding the substrat ==================================================
+	#=======================================================================
+	PackmolInput += """
+					
+					structure {0}
+						chain S
+						number {1:g}
+						inside box 0. 0. 0.  {2} {3} {4}
+					end structure
+					""".format(PDBfileList['SU'], nbSu, LXS, LYS, THICKNESS)
+	
+	f = open('packmol_'+System+'.input','w')
+	f.write(Utility.RemoveUnwantedIndent(PackmolInput))
+	f.close()
+	
+	# Lipids input pdb =====================================================
+	if( LipidType == "DSPC"):
+		f = open(PDBfileList['DSPC'],'w')
+		f.write(Utility.RemoveUnwantedIndent(DSPC_PDB))
+		f.close()
+	if( LipidType == "DPPC"):
+		f = open(PDBfileList['DPPC'],'w')
+		f.write(Utility.RemoveUnwantedIndent(DPPC_PDB))
+		f.close()
+	if( LipidType == "DLPC"):
+		f = open(PDBfileList['DLPC'],'w')
+		f.write(Utility.RemoveUnwantedIndent(DLPC_PDB))
+		f.close()
+		
+	# Solvents input pdb ===================================================
+	if( SolventType == 'W'):
+		f = open(PDBfileList['W'],'w')
+		f.write(Utility.RemoveUnwantedIndent(W_PDB))
+		f.close()
+	if( SolventType == 'PW'):
+		f = open(PDBfileList['PW'],'w')
+		f.write(Utility.RemoveUnwantedIndent(PW_PDB))
+		f.close()
+	if( SolventType == 'OCO'):
+		f = open(PDBfileList['OCO'],'w')
+		f.write(Utility.RemoveUnwantedIndent(OCO_PDB))
+		f.close()
+		
+	# pdb file for su
+	suType = SU_TYPE
+	assert(len(SU_TYPE) <= 4),"The name of the SU should be 4 letters max (Otherwise problem with PDB file format)" 
+	suType = SU_TYPE + (4 - len(SU_TYPE))*' '
+	suPdb = SU_PDB.replace("TEMP", suType)
+	f = open(PDBfileList['SU'],'w')
+	f.write(Utility.RemoveUnwantedIndent(suPdb))
+	f.close()
+		
+		
+	#=======================================================================
+	#lauching packmol
+	#=======================================================================
+
+	cmd = str("""{0} < packmol_{1}.input > packmol_{1}.output """).format(Softwares['PACKMOL'], System)
+	sub.call(cmd, shell=True)
+
+	#=======================================================================
+	# ensure the right box in pdb file
+	#=======================================================================
+
+	WriteBox = str("""
+			mol load pdb {0}.pdb
+			set all [atomselect top "all"]
+
+			package require pbctools
+			pbc set {{{1} {2} {3}}}
+
+			$all writepdb "{0}.withbox.pdb"
+			unset all
+
+			exit
+			""").format(System, Sample['LX'], Sample['LY'], Sample['LZ'])
+
+	f = open('write_box.vmd','w+')
+	f.write(Utility.RemoveUnwantedIndent(WriteBox) )
+	f.close()
+
+	## ======================================================================
+	cmd = str("""{0} -dispdev text -e write_box.vmd > write_box.log"""
+											).format(Softwares['VMD'])
+	sub.call(cmd, shell=True)
+	
+	MakeIndex = str("""
+			chain A
+			chain B
+			chain C
+			chain D
+			chain E
+			chain V
+			chain S
+			name 5 bottom{0}
+			name 6 top{0}
+			name 7 mono{0}
+			name 8 bottom{1}
+			name 9 top{1}
+			name 10 vap{1}
+			name 11 su
+			q
+			
+			""").format(LipidType, SolventType)
+
+	f = open('make_index.input','w+')
+	f.write(Utility.RemoveUnwantedIndent(MakeIndex) )
+	f.close()
+	
+	cmd = str("""{0}make_ndx -f {1}.withbox.pdb -o {1}.ndx < make_index.input""").format(GROMACS_LOC_prefixPath,
+																					System)
+	sub.call(cmd, shell=True)
+	
+	
+	#=======================================================================
+	# the topology file
+	#=======================================================================
+	TopologySu(Sample, PathToDefault)
+	
+	Topology = """
+				#include "martini_v2.2_{1}_{0}.itp"
+				#include "martini_v2.0_lipids.itp"
+				
+				""".format(Sample['SU']['Version'], SU_TYPE)
+	
+	#Copy the topology files for martini forcefield
+	sub.call("""cp {0}/martini_v2.0_lipids.itp  .""".format(PathToDefault), shell= True)
+	sub.call("""cp {0}/SU/su_posres.itp  .""".format(PathToDefault), shell= True)
+	f = open(System+'.top','w')
+	f.write(Utility.RemoveUnwantedIndent(Topology))
+
+	f = open(System+'.top','a')
+	f.write("""\n[ system ]\n""")
+
+	Topology = str("""{0}_{1}_WITH_{3}_{2}\n""").format(LipidType, Sample['TYPE'], Sample['SU']['Version'],
+													SU_TYPE)
+	f.write(Topology)
+
+	f.write("""\n[ molecules ]\n""")
+	Topology = str("""{0} {1}\n{2} {3}\n{4} {5}\n""").format(LipidType, Sample[LipidType]+NBLIPIDS_MONO,
+														SolventType, Sample[SolventType], SU_TYPE, nbSu)
+	f.write(Topology)
+	f.close()
+		
+	#==================================================================================
+	# Output the files for other steps
+	#==================================================================================
+	Output = str("""{0}.withbox.pdb""").format(System)
+	Index = str("""{0}.ndx""").format(System)
+	return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
+
+
+
+def InitBilayerWithHole(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
+	#Bilayer + Hole
 		SHELL = 3.0
 		
 		LXS = Sample['LX']-SHELL
@@ -584,1424 +1425,605 @@ def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 		Output = str("""{0}.withbox.pdb""").format(System)
 		Index = str("""{0}.ndx""").format(System)
 		return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
+	
+	
 
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-
-
-	if 'SU' in Sample and not 'DEFO' in Sample: #Bilayer + Wall:
-		THICKNESS = float(Sample['SU']['Thickness'])
-		DENSITY = float(Sample['SU']['Density'])
-		NBLIPIDS_MONO = int(Sample['SU']['NbLipidsM'])
-		SU_VERSION = Sample['SU']['Version']
-		SU_TYPE = Sample['SU']['SuType']
-		LZM = float(Sample['SU']['LzM'])
-		
-		
-		SHELL = 3.0
-		LXS = Sample['LX'] - SHELL
-		LYS = Sample['LY'] - SHELL
-
-		
-
-		#Number of lipid and water per layer
-		NLM = {}
-		NSOLM = {}
-		LipidType = ''
-		
-		for L in LipidsList:
-			if(L in Sample):
-				NLM.update( {L:int(Sample[L]/2)} )
-				LipidType = L
-				
-		for Sol in SolventsList:
-			if Sol in Sample:
-				NSOLM.update( {Sol:int(Sample[Sol]/2)} )
-				SolventType = Sol
-				
-		#Computing the number of SU Density in CG/nm³ thus the divided by 1000 for Volume
-		nbSu = int( DENSITY * Sample['LX'] * Sample['LY'] * THICKNESS /1000 )
-		
-		#=======================================================================
-		# Setting the bilayers  ================================================
-		#=======================================================================
-		
-		TMT = 0.0
-		DZ = 0.0
-		# DSPC bilayer =========================================================
-		if LipidType == "DSPC":
-			# Geometry to preprare the bilayer with packmol
-			# total monolayer thickness (Angstrom)
-			TMT = 30.0
-			# deltaz : thickness in Z direction for
-			# the volume constraining the heads and tails beads
-			DZ = 7.0
-		
-		# DPPC bilayer =========================================================
-		if LipidType == "DPPC":
-			TMT = 30.0
-			DZ = 10
-		
-		# DLPC bilayer =========================================================
-		if LipidType == "DLPC":
-			TMT = 30.0
-			DZ = 10
-		
-		assert(TMT > 0.0 and DZ > 0.0),"Your Parameters.csv contains a lipid not yet defined in Prepare.py"
-		#Set the box height with the monolayer + shell for PBC
-		LZ = LZM + TMT + SHELL
-		LBZ = (LZM-THICKNESS)/2.0 + THICKNESS
-		LZ2 = 0.0
-		NbParticlesToRelocate = 0
-		NbSolTop = NSOLM[SolventType]
-		NbSolBottom = NSOLM[SolventType]
-		if 'BilayerHeight' in Sample['SU']:
-			LZ2 = float(Sample['SU']['BilayerHeight'])
-			#Checking that the Bilayer lipids do not overlap with the Monolayer lipids and the substrate
-			if (LZ2 - TMT) < THICKNESS:
-				LZ2 -= LZ2 -TMT - THICKNESS
-			if (LZ2 +TMT) > LZM:
-				LZ2 += LZM - LZ2 - TMT
-			#Checking that the Solvent is not too dense
-			if LZ2 < LBZ: #Too much Solvent below
-				DensitySol = NSOLM[SolventType]/Sample['LX']/Sample['LY']/(LBZ - TMT - THICKNESS)
-				VolToRemove = LBZ - LZ2
-				VolToRemove *= LXS*LYS
-				NbParticlesToRelocate = int(DensitySol * VolToRemove)
-				
-				NbSolBottom -= NbParticlesToRelocate
-				NbSolTop += NbParticlesToRelocate
-				
-			if LZ2 > LBZ: #Too much Solvent above
-				DensitySol = NSOLM[SolventType]/LXS/LYS/(LZM - LBZ - TMT)
-				VolToRemove = LZ2 - LBZ
-				VolToRemove *= LXS*LYS
-				NbParticlesToRelocate = int(DensitySol * VolToRemove)
-				
-				NbSolBottom += NbParticlesToRelocate
-				NbSolTop -= NbParticlesToRelocate
-		else:
-			LZ2 = LBZ
-		
-		#Set the Geometry
-		M1headMIN = LZ2 - TMT
-		M1headMAX = LZ2 - TMT + DZ
-		M1tailMIN = LZ2 - DZ
-		M1tailMAX = LZ2
-
-		M2headMIN = LZ2 + TMT - DZ
-		M2headMAX = LZ2 + TMT
-		M2tailMIN = LZ2
-		M2tailMAX = LZ2 + DZ
-		
-		#=======================================================================
-		#=======================================================================
-		#=======================================================================
-
-		System = str('{0}_{1}{2}_{3}M{2}_{4}{5}_{7}{6}{8}').format(Sample['TYPE'], Sample[LipidType],
-												LipidType, NBLIPIDS_MONO , 
-												Sample[SolventType], SolventType, SU_TYPE, nbSu, SU_VERSION)
-		
-		#=======================================================================
-		# Setting the bilayers for packmol =====================================
-		#=======================================================================
-		
-		# DLPC bilayer =========================================================
-		if LipidType == "DSPC":
-			PackmolInput = """
-						#
-						# Lipid bilayer with water, perpendicular to z axis
-						#
-						
-						# Every atom from diferent molecules will be far from each other at
-						# least 3.0 Anstroms at the solution.
-						
-						tolerance 3.0
-						
-						# Coordinate file types will be in pdb format (keyword not required for
-						# pdb file format, but required for tinker, xyz or moldy)
-						
-						filetype pdb
-						
-						# do not avoid the fixed molecules
-						#avoid_overlap no
-						
-						# The output pdb file
-						
-						output {0}.pdb
-						
-						structure {12}
-							chain A
-							resnumbers 3
-							number {1:g}
-							inside box 0. 0. {2}  {3} {4} {5}
-							atoms 1
-								below plane 0. 0. 1. {6}
-							end atoms
-							atoms 9 14
-								over plane 0. 0. 1. {7}
-							end atoms
-						end structure
-						
-						structure {12}
-							chain B
-							resnumbers 3
-							number {1:g}
-							inside box 0. 0.  {8}  {3} {4} {9}
-							atoms 1
-								over plane 0. 0. 1. {10}
-							end atoms
-							atoms 9 14
-								below plane 0. 0. 1. {11}
-							end atoms
-						end structure
-						
-						""".format(System, NLM[LipidType], M1headMIN, LXS,
-									LYS, M1tailMAX, M1headMAX, M1tailMIN, 
-									M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
-									PDBfileList[LipidType])
-						
-			PackmolInput += """
-						
-						structure {0}
-							chain C
-							resnumbers 3
-							number {1:g}
-							inside box 0. 0.  {2}  {3} {4} {5}
-							atoms 1
-								below plane 0. 0. 1. {6}
-							end atoms
-							atoms 9 14
-								over plane 0. 0. 1. {7}
-							end atoms
-						end structure
-						
-						""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM, LZM+DZ, TMT+LZM-DZ)
-		
-		# DPPC bilayer, DLPC bilayer =========================================================
-		if LipidType == 'DPPC' or LipidType == 'DLPC':
-			PackmolInput = """
-							#
-							# Lipid bilayer with water, perpendicular to z axis
-							#
-
-							# Every atom from diferent molecules will be far from each other at
-							# least 3.0 Anstroms at the solution.
-
-							tolerance 3.0
-
-							# Coordinate file types will be in pdb format (keyword not required for
-							# pdb file format, but required for tinker, xyz or moldy)
-
-							filetype pdb
-
-							# The output pdb file
-
-							output {0}.pdb
-
-							structure {8}
-								chain A
-								resnumbers 3
-								number {1:g}
-								inside box 0. 0. {2}  {3} {4} {5}
-								constrain_rotation x 180 10
-								constrain_rotation y 180 10
-							end structure
-
-							structure {8}
-								chain B
-								resnumbers 3
-								number {1:g}
-								inside box 0. 0.  {6}  {3} {4} {7}
-								constrain_rotation x 0 10
-								constrain_rotation y 0 10
-							end structure
-
-							""".format(System, NLM[LipidType], M1headMIN, LXS, 
-				  						LYS, M1tailMAX, M2tailMIN, M2headMAX,
-				  						PDBfileList[LipidType])
+def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
+	THICKNESS = float(Sample['SU']['Thickness'])
+	DENSITY = float(Sample['SU']['Density'])
+	NBLIPIDS_MONO = int(Sample['SU']['NbLipidsM'])
+	SU_VERSION = Sample['SU']['Version']
+	SU_TYPE = Sample['SU']['SuType']
+	LZM = float(Sample['SU']['LzM'])
+	
+	
+	SHELL = 3.0
+	LXS = Sample['LX'] - SHELL
+	LYS = Sample['LY'] - SHELL
+	
+	#Number of lipid and water per layer
+	NLM = {}
+	NSOLM = {}
+	LipidType = ''
+	
+	for L in LipidsList:
+		if(L in Sample):
+			NLM.update( {L:int(Sample[L]/2)} )
+			LipidType = L
 			
-			PackmolInput += """
-							
-							structure {0}
-								chain C
-								resnumbers 3
-								number {1:g}
-								inside box 0. 0.  {2}  {3} {4} {5}
-								constrain_rotation x 180 10
-								constrain_rotation y 180 10
-							end structure
-							
-							""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM)
-		
-		#=======================================================================
-		#=======================================================================
-		#=======================================================================
+	for Sol in SolventsList:
+		if Sol in Sample:
+			NSOLM.update( {Sol:int(Sample[Sol]/2)} )
+			SolventType = Sol
+	
+	#=======================================================================
+	# Setting the bilayers  ================================================
+	#=======================================================================
+	
+	TMT = 0.0
+	DZ = 0.0
+	# DSPC bilayer =========================================================
+	if LipidType == "DSPC":
+		# Geometry to preprare the bilayer with packmol
+		# total monolayer thickness (Angstrom)
+		TMT = 30.0
+		# deltaz : thickness in Z direction for
+		# the volume constraining the heads and tails beads
+		DZ = 7.0
+	
+	# DPPC bilayer =========================================================
+	if LipidType == "DPPC":
+		TMT = 30.0
+		DZ = 10
+	
+	# DLPC bilayer =========================================================
+	if LipidType == "DLPC":
+		TMT = 30.0
+		DZ = 10
+	
+	assert(TMT > 0.0 and DZ > 0.0),"Your Parameters.csv contains a lipid not yet defined in Prepare.py"
+	#Set the box height with the monolayer + shell for PBC
+	LBZ = (LZM-THICKNESS)/2.0 + THICKNESS
+	LZ2 = 0.0
+	NbParticlesToRelocate = 0
+	NbSolTop = NSOLM[SolventType]
+	NbSolBottom = NSOLM[SolventType]
+	if 'BilayerHeight' in Sample['SU']:
+		LZ2 = float(Sample['SU']['BilayerHeight'])
+		#Checking that the Bilayer lipids do not overlap with the Monolayer lipids and the substrate
+		if (LZ2 - TMT) < THICKNESS:
+			LZ2 -= LZ2 -TMT - THICKNESS
+		if (LZ2 + TMT) > LZM:
+			LZ2 += LZM - LZ2 - TMT
+		#Checking that the Solvent is not too dense
+		if LZ2 < LBZ: #Too much Solvent below
+			DensitySol = NSOLM[SolventType]/LXS/LYS/(LBZ - TMT - THICKNESS)
+			VolToRemove = LBZ - LZ2
+			VolToRemove *= LXS*LYS
+			NbParticlesToRelocate = int(DensitySol * VolToRemove)
+			
+			NbSolBottom -= NbParticlesToRelocate
+			NbSolTop += NbParticlesToRelocate
+			
+		if LZ2 > LBZ: #Too much Solvent above
+			DensitySol = NSOLM[SolventType]/LXS/LYS/(LZM - LBZ - TMT)
+			VolToRemove = LZ2 - LBZ
+			VolToRemove *= LXS*LYS
+			NbParticlesToRelocate = int(DensitySol * VolToRemove)
+			
+			NbSolBottom += NbParticlesToRelocate
+			NbSolTop -= NbParticlesToRelocate
+	else:
+		LZ2 = LBZ
+			
+	
+	M1headMIN = LZ2 - TMT
+	M1headMAX = LZ2 - TMT + DZ
+	M1tailMIN = LZ2 - DZ
+	M1tailMAX = LZ2
 
-		#=======================================================================
-		# Setting the defo with solvent for packmol ============================
-		#=======================================================================
-		
+	M2headMIN = LZ2 + TMT - DZ
+	M2headMAX = LZ2 + TMT
+	M2tailMIN = LZ2
+	M2tailMAX = LZ2 + DZ
+	
+	#=======================================================================
+	# Creating the defo ====================================================
+	#=======================================================================
+	
+	if Sample['DEFO']['Height'] == 'box':
+		#Set the Defo height from the substrate to the mono layer
+		L_defo = LZM - THICKNESS
+	if Sample['DEFO']['Height'] == 'bilayer':
+		#Set the Defo height from the substrate to the top of the bilayer
+		L_defo = LZ2 + TMT - THICKNESS
+	if Sample['DEFO']['Height'] == 'follow':
+		#Set the Defo height from the bottom of the bilayer to its top
+		L_defo = 2*TMT
+	
+	NbLayers = int(L_defo/float(Sample['DEFO']['DzDefo']))
+	
+	#Defo per Layer
+	defoPerLayer = int(Sample['DEFO']['DpL']) + 1
+	#Total number of defo
+	nbDefo = defoPerLayer*NbLayers
+	#Radius for the hole
+	radiusDefo = float(Sample['DEFO']['Radius'])
+	#Number of Solvent inside the hole
+	if(0): #Set to 1 to insert solvents in the Defo
+		NbSolvIn = 0
+		if SolventType == 'W':
+			# Density x Volume
+			NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.))
+		if SolventType == 'OCO':
+			# Density x Volume
+			NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.)/2.)
 		if SolventType == 'PW':
-			if NbSolBottom:
-				PackmolInput += """
-								
-								structure {0}
-									chain D
-									number {1:g}
-									inside box 0. 0. {2}  {3} {4} {5}
-									atoms 2 3
-										radius 0.2
-									end atoms
-								end structure
-								""".format(PDBfileList[SolventType],NbSolBottom,THICKNESS,LXS,LYS,M1headMIN)
-				
-			if NbSolTop:
-				PackmolInput += """
-								
-								structure {0}
-									chain E
-									number {1:g}
-									inside box 0. 0. {2}  {3} {4} {5}
-									atoms 2 3
-										radius 0.2
-									end atoms
-								end structure
-								""".format(PDBfileList[SolventType],NbSolTop,M2headMAX,LXS,LYS,LZM)
-		else:
-			if NbSolBottom:
-				PackmolInput += """
-								
-								structure {0}
-									chain D
-									number {1:g}
-									inside box 0. 0. {2}  {3} {4} {5}
-								end structure
-								""".format(PDBfileList[SolventType],NbSolBottom,THICKNESS,LXS,LYS,M1headMIN)
-			if NbSolTop:
-				PackmolInput += """
-								
-								structure {0}
-									chain E
-									number {1:g}
-									inside box 0. 0. {2}  {3} {4} {5}
-								end structure
-								""".format(PDBfileList[SolventType],NbSolTop,M2headMAX,LXS,LYS,LZM)
-						
-		
-			
-		#=======================================================================
-		# Adding the substrat ==================================================
-		#=======================================================================
-		PackmolInput += """
-						
-						structure {0}
-							chain S
-							number {1:g}
-							inside box 0. 0. 0.  {2} {3} {4}
-						end structure
-						""".format(PDBfileList['SU'], nbSu, LXS, LYS, THICKNESS)
-		
-		f = open('packmol_'+System+'.input','w')
-		f.write(Utility.RemoveUnwantedIndent(PackmolInput))
-		f.close()
-		
-		# Lipids input pdb =====================================================
-		if( LipidType == "DSPC"):
-			f = open(PDBfileList['DSPC'],'w')
-			f.write(Utility.RemoveUnwantedIndent(DSPC_PDB))
-			f.close()
-		if( LipidType == "DPPC"):
-			f = open(PDBfileList['DPPC'],'w')
-			f.write(Utility.RemoveUnwantedIndent(DPPC_PDB))
-			f.close()
-		if( LipidType == "DLPC"):
-			f = open(PDBfileList['DLPC'],'w')
-			f.write(Utility.RemoveUnwantedIndent(DLPC_PDB))
-			f.close()
-			
-		# Solvents input pdb ===================================================
-		if( SolventType == 'W'):
-			f = open(PDBfileList['W'],'w')
-			f.write(Utility.RemoveUnwantedIndent(W_PDB))
-			f.close()
-		if( SolventType == 'PW'):
-			f = open(PDBfileList['PW'],'w')
-			f.write(Utility.RemoveUnwantedIndent(PW_PDB))
-			f.close()
-		if( SolventType == 'OCO'):
-			f = open(PDBfileList['OCO'],'w')
-			f.write(Utility.RemoveUnwantedIndent(OCO_PDB))
-			f.close()
-			
-		# pdb file for su
-		suType = SU_TYPE
-		assert(len(SU_TYPE) <= 4),"The name of the SU should be 4 letters max (Otherwise problem with PDB file format)" 
-		suType = SU_TYPE + (4 - len(SU_TYPE))*' '
-		suPdb = SU_PDB.replace("TEMP", suType)
-		f = open(PDBfileList['SU'],'w')
-		f.write(Utility.RemoveUnwantedIndent(suPdb))
-		f.close()
-			
-			
-		#=======================================================================
-		#lauching packmol
-		#=======================================================================
-
-		cmd = str("""{0} < packmol_{1}.input > packmol_{1}.output """).format(Softwares['PACKMOL'], System)
-		sub.call(cmd, shell=True)
-
-		#=======================================================================
-		# ensure the right box in pdb file
-		#=======================================================================
-
-		WriteBox = str("""
-				mol load pdb {0}.pdb
-				set all [atomselect top "all"]
-
-				package require pbctools
-				pbc set {{{1} {2} {3}}}
-
-				$all writepdb "{0}.withbox.pdb"
-				unset all
-
-				exit
-				""").format(System, Sample['LX'], Sample['LY'], Sample['LZ'])
-
-		f = open('write_box.vmd','w+')
-		f.write(Utility.RemoveUnwantedIndent(WriteBox) )
-		f.close()
-
-		## ======================================================================
-		cmd = str("""{0} -dispdev text -e write_box.vmd > write_box.log"""
-												).format(Softwares['VMD'])
-		sub.call(cmd, shell=True)
-		
-		MakeIndex = str("""
-				chain A
-				chain B
-				chain C
-				chain D
-				chain E
-				chain S
-				name 5 bottom{0}
-				name 6 top{0}
-				name 7 mono{0}
-				name 8 bottom{1}
-				name 9 top{1}
-				name 10 su
-				q
-				
-				""").format(LipidType, SolventType)
-
-		f = open('make_index.input','w+')
-		f.write(Utility.RemoveUnwantedIndent(MakeIndex) )
-		f.close()
-		
-		cmd = str("""{0}make_ndx -f {1}.withbox.pdb -o {1}.ndx < make_index.input""").format(GROMACS_LOC_prefixPath,
-																					   System)
-		sub.call(cmd, shell=True)
-		
-		
-		#=======================================================================
-		# the topology file
-		#=======================================================================
-		TopologySu(Sample, PathToDefault)
-		
-		Topology = """
-					#include "martini_v2.2_{1}_{0}.itp"
-					#include "martini_v2.0_lipids.itp"
-					
-					""".format(Sample['SU']['Version'], SU_TYPE)
-		
-		#Copy the topology files for martini forcefield
-		sub.call("""cp {0}/martini_v2.0_lipids.itp  .""".format(PathToDefault), shell= True)
-		sub.call("""cp {0}/SU/su_posres.itp  .""".format(PathToDefault), shell= True)
-		f = open(System+'.top','w')
-		f.write(Utility.RemoveUnwantedIndent(Topology))
-
-		f = open(System+'.top','a')
-		f.write("""\n[ system ]\n""")
-
-		Topology = str("""{0}_{1}_WITH_{3}_{2}\n""").format(LipidType, Sample['TYPE'], Sample['SU']['Version'],
-													  SU_TYPE)
-		f.write(Topology)
-
-		f.write("""\n[ molecules ]\n""")
-		Topology = str("""{0} {1}\n{2} {3}\n{4} {5}\n""").format(LipidType, Sample[LipidType]+NBLIPIDS_MONO,
-														   SolventType, Sample[SolventType], SU_TYPE, nbSu)
-		f.write(Topology)
-		f.close()
-			
-		#==================================================================================
-		# Output the files for other steps
-		#==================================================================================
-		Output = str("""{0}.withbox.pdb""").format(System)
-		Index = str("""{0}.ndx""").format(System)
-		return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
-
-
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-
-
-	if 'DEFO' in Sample and 'SU' in Sample: #Bilayer + Hole + Wall:
-		THICKNESS = float(Sample['SU']['Thickness'])
-		DENSITY = float(Sample['SU']['Density'])
-		NBLIPIDS_MONO = int(Sample['SU']['NbLipidsM'])
-		SU_VERSION = Sample['SU']['Version']
-		SU_TYPE = Sample['SU']['SuType']
-		LZM = float(Sample['SU']['LzM'])
-		
-		
-		SHELL = 3.0
-		LXS = Sample['LX'] - SHELL
-		LYS = Sample['LY'] - SHELL
-		
-		#Number of lipid and water per layer
-		NLM = {}
-		NSOLM = {}
-		LipidType = ''
-		
-		for L in LipidsList:
-			if(L in Sample):
-				NLM.update( {L:int(Sample[L]/2)} )
-				LipidType = L
-				
-		for Sol in SolventsList:
-			if Sol in Sample:
-				NSOLM.update( {Sol:int(Sample[Sol]/2)} )
-				SolventType = Sol
-		
-		#=======================================================================
-		# Setting the bilayers  ================================================
-		#=======================================================================
-		
-		TMT = 0.0
-		DZ = 0.0
-		# DSPC bilayer =========================================================
-		if LipidType == "DSPC":
-			# Geometry to preprare the bilayer with packmol
-			# total monolayer thickness (Angstrom)
-			TMT = 30.0
-			# deltaz : thickness in Z direction for
-			# the volume constraining the heads and tails beads
-			DZ = 7.0
-		
-		# DPPC bilayer =========================================================
-		if LipidType == "DPPC":
-			TMT = 30.0
-			DZ = 10
-		
-		# DLPC bilayer =========================================================
-		if LipidType == "DLPC":
-			TMT = 30.0
-			DZ = 10
-		
-		assert(TMT > 0.0 and DZ > 0.0),"Your Parameters.csv contains a lipid not yet defined in Prepare.py"
-		#Set the box height with the monolayer + shell for PBC
-		LBZ = (LZM-THICKNESS)/2.0 + THICKNESS
-		LZ2 = 0.0
-		NbParticlesToRelocate = 0
-		NbSolTop = NSOLM[SolventType]
-		NbSolBottom = NSOLM[SolventType]
-		if 'BilayerHeight' in Sample['SU']:
-			LZ2 = float(Sample['SU']['BilayerHeight'])
-			#Checking that the Bilayer lipids do not overlap with the Monolayer lipids and the substrate
-			if (LZ2 - TMT) < THICKNESS:
-				LZ2 -= LZ2 -TMT - THICKNESS
-			if (LZ2 + TMT) > LZM:
-				LZ2 += LZM - LZ2 - TMT
-			#Checking that the Solvent is not too dense
-			if LZ2 < LBZ: #Too much Solvent below
-				DensitySol = NSOLM[SolventType]/LXS/LYS/(LBZ - TMT - THICKNESS)
-				VolToRemove = LBZ - LZ2
-				VolToRemove *= LXS*LYS
-				NbParticlesToRelocate = int(DensitySol * VolToRemove)
-				
-				NbSolBottom -= NbParticlesToRelocate
-				NbSolTop += NbParticlesToRelocate
-				
-			if LZ2 > LBZ: #Too much Solvent above
-				DensitySol = NSOLM[SolventType]/LXS/LYS/(LZM - LBZ - TMT)
-				VolToRemove = LZ2 - LBZ
-				VolToRemove *= LXS*LYS
-				NbParticlesToRelocate = int(DensitySol * VolToRemove)
-				
-				NbSolBottom += NbParticlesToRelocate
-				NbSolTop -= NbParticlesToRelocate
-		else:
-			LZ2 = LBZ
-				
-		
-		M1headMIN = LZ2 - TMT
-		M1headMAX = LZ2 - TMT + DZ
-		M1tailMIN = LZ2 - DZ
-		M1tailMAX = LZ2
-
-		M2headMIN = LZ2 + TMT - DZ
-		M2headMAX = LZ2 + TMT
-		M2tailMIN = LZ2
-		M2tailMAX = LZ2 + DZ
-		
-		#=======================================================================
-		# Creating the defo ====================================================
-		#=======================================================================
-		
-		if Sample['DEFO']['Height'] == 'box':
-			#Set the Defo height from the substrate to the mono layer
-			L_defo = LZM - THICKNESS
-		if Sample['DEFO']['Height'] == 'bilayer':
-			#Set the Defo height from the substrate to the top of the bilayer
-			L_defo = LZ2 + TMT - THICKNESS
-		if Sample['DEFO']['Height'] == 'follow':
-			#Set the Defo height from the bottom of the bilayer to its top
-			L_defo = 2*TMT
-		
-		NbLayers = int(L_defo/float(Sample['DEFO']['DzDefo']))
-		
-		#Defo per Layer
-		defoPerLayer = int(Sample['DEFO']['DpL']) + 1
-		#Total number of defo
-		nbDefo = defoPerLayer*NbLayers
-		#Radius for the hole
-		radiusDefo = float(Sample['DEFO']['Radius'])
-		#Number of Solvent inside the hole
-		if(0): #Set to 1 to insert solvents in the Defo
-			NbSolvIn = 0
-			if SolventType == 'W':
-				# Density x Volume
-				NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.))
-			if SolventType == 'OCO':
-				# Density x Volume
-				NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.)/2.)
-			if SolventType == 'PW':
-				# Density x Volume
-				NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.)/3.)
-		
-		#Creating and Writing the defos configuration
-		DefoXYZ_filename = 'defo.xyz'
-		if os.path.exists(DefoXYZ_filename):
-			os.remove(DefoXYZ_filename)
-		XYZout = open(DefoXYZ_filename,"a")
-		XYZout.write(str(nbDefo)+'\n\n')
-		
-		for i in range(0, NbLayers):
-			ZcurrentDefo = float(Sample['DEFO']['DzDefo'])*i
-			for i in np.arange(0., 360., 360./(defoPerLayer-1)):
-				angle = math.radians(i)
-				XYZout.write(Utility.RemoveUnwantedIndent(
-					"""
-					DEF  {0}  {1}  {2} \n
-					""".format(radiusDefo*math.cos(angle), radiusDefo*math.sin(angle), ZcurrentDefo)
-					))
+			# Density x Volume
+			NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.)/3.)
+	
+	#Creating and Writing the defos configuration
+	DefoXYZ_filename = 'defo.xyz'
+	if os.path.exists(DefoXYZ_filename):
+		os.remove(DefoXYZ_filename)
+	XYZout = open(DefoXYZ_filename,"a")
+	XYZout.write(str(nbDefo)+'\n\n')
+	
+	for i in range(0, NbLayers):
+		ZcurrentDefo = float(Sample['DEFO']['DzDefo'])*i
+		for i in np.arange(0., 360., 360./(defoPerLayer-1)):
+			angle = math.radians(i)
 			XYZout.write(Utility.RemoveUnwantedIndent(
-					"""
-					DEF  0.0 0.0 {0} \n
-					""".format(ZcurrentDefo)
-					))
-		XYZout.close()
-		
-		#Formating the defos
-		formatDEFO = open("format_DEFO.vmd","w")
-		formatDEFO.write(Utility.RemoveUnwantedIndent(
-			"""
-			mol load xyz {0}
-			set all [atomselect top "all"]
-				
-			$all set resname DEFO
-			$all set name DEF
-			$all set type DEF
-			$all set chain X
-				
-			package require pbctools
-			pbc set {{0.5 0.5 {1}}}
-				
-			$all writepdb {2}
-			unset all
-				
-			exit
-			""".format(DefoXYZ_filename, L_defo, DefoXYZ_filename.replace('xyz','pdb'))
-			))
-		formatDEFO.close()
-		
-		cmd = str("""{0} -dispdev text -e format_DEFO.vmd > format_DEFO.log""").format(Softwares['VMD'])
-		sub.call(cmd, shell=True)
-		
-		#=======================================================================
-		# Number of su particles ===============================================
-		#=======================================================================
-		#Computing the number of SU Density is in CG/nm³ thus the divided by 1000 for Volume
-		nbSu = int( DENSITY * Sample['LX'] * Sample['LY'] * THICKNESS /1000 )
-		
-		#=======================================================================
-		#=======================================================================
-		#=======================================================================
-		
-		#=======================================================================
-		#=======================================================================
-		#=======================================================================
+				"""
+				DEF  {0}  {1}  {2} \n
+				""".format(radiusDefo*math.cos(angle), radiusDefo*math.sin(angle), ZcurrentDefo)
+				))
+		XYZout.write(Utility.RemoveUnwantedIndent(
+				"""
+				DEF  0.0 0.0 {0} \n
+				""".format(ZcurrentDefo)
+				))
+	XYZout.close()
+	
+	#Formating the defos
+	formatDEFO = open("format_DEFO.vmd","w")
+	formatDEFO.write(Utility.RemoveUnwantedIndent(
+		"""
+		mol load xyz {0}
+		set all [atomselect top "all"]
+			
+		$all set resname DEFO
+		$all set name DEF
+		$all set type DEF
+		$all set chain X
+			
+		package require pbctools
+		pbc set {{0.5 0.5 {1}}}
+			
+		$all writepdb {2}
+		unset all
+			
+		exit
+		""".format(DefoXYZ_filename, L_defo, DefoXYZ_filename.replace('xyz','pdb'))
+		))
+	formatDEFO.close()
+	
+	cmd = str("""{0} -dispdev text -e format_DEFO.vmd > format_DEFO.log""").format(Softwares['VMD'])
+	sub.call(cmd, shell=True)
+	
+	#=======================================================================
+	# Number of su particles ===============================================
+	#=======================================================================
+	#Computing the number of SU Density is in CG/nm³ thus the divided by 1000 for Volume
+	nbSu = int( DENSITY * Sample['LX'] * Sample['LY'] * THICKNESS /1000 )
+	
+	#=======================================================================
+	#=======================================================================
+	#=======================================================================
+	
+	#=======================================================================
+	#=======================================================================
+	#=======================================================================
 
-		System = str('{0}_{1}{2}_{3}M{2}_{4}{5}_{6}DEFO{7}_{8}{10}{9}').format(Sample['TYPE'], Sample[LipidType],
-												LipidType, NBLIPIDS_MONO , 
-												Sample[SolventType], SolventType,
-												nbDefo, Sample['DEFO']['Version'], nbSu, Sample['SU']['Version'],SU_TYPE)
-		
-		#=======================================================================
-		# Setting the bilayers for packmol =====================================
-		#=======================================================================
-		
-		# DLPC bilayer =========================================================
-		if LipidType == "DSPC":
-			PackmolInput = """
+	System = str('{0}_{1}{2}_{3}M{2}_{4}{5}_{6}DEFO{7}_{8}{10}{9}').format(Sample['TYPE'], Sample[LipidType],
+											LipidType, NBLIPIDS_MONO , 
+											Sample[SolventType], SolventType,
+											nbDefo, Sample['DEFO']['Version'], nbSu, Sample['SU']['Version'],SU_TYPE)
+	
+	#=======================================================================
+	# Setting the bilayers for packmol =====================================
+	#=======================================================================
+	
+	# DLPC bilayer =========================================================
+	if LipidType == "DSPC":
+		PackmolInput = """
+					#
+					# Lipid bilayer with water, perpendicular to z axis
+					#
+					
+					# Every atom from diferent molecules will be far from each other at
+					# least 3.0 Anstroms at the solution.
+					
+					tolerance 3.0
+					
+					# Coordinate file types will be in pdb format (keyword not required for
+					# pdb file format, but required for tinker, xyz or moldy)
+					
+					filetype pdb
+					
+					# do not avoid the fixed molecules
+					#avoid_overlap no
+					
+					# The output pdb file
+					
+					output {0}.pdb
+					
+					structure {1}
+						chain A
+						resnumbers 3
+						number {2:g}
+						inside box 0. 0. {3}  {4} {5} {6}
+						atoms 1
+							below plane 0. 0. 1. {7}
+						end atoms
+						atoms 9 14
+							over plane 0. 0. 1. {8}
+						end atoms
+						outside cylinder  {13} {14}  {3}  0.  0.  1.  {15}  {16}
+					end structure
+					
+					structure {1}
+						chain B
+						resnumbers 3
+						number {2:g}
+						inside box 0. 0.  {9}  {4} {5} {10}
+						atoms 1
+							over plane 0. 0. 1. {11}
+						end atoms
+						atoms 9 14
+							below plane 0. 0. 1. {12}
+						end atoms
+						outside cylinder  {13} {14}  {3}  0.  0.  1.  {15}  {16}
+					end structure
+					
+					""".format(System, PDBfileList[LipidType], NLM[LipidType], M1headMIN, LXS,
+								LYS, M1tailMAX, M1headMAX, M1tailMIN, 
+								M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
+								LXS/2.0, LYS/2.0, radiusDefo, L_defo)
+					
+		PackmolInput += """
+					
+					structure {0}
+						chain C
+						resnumbers 3
+						number {1:g}
+						inside box 0. 0.  {2}  {3} {4} {5}
+						atoms 1
+							below plane 0. 0. 1. {6}
+						end atoms
+						atoms 9 14
+							over plane 0. 0. 1. {7}
+						end atoms
+					end structure
+					
+					""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM, LZM+DZ, TMT+LZM-DZ)
+	
+	# DPPC bilayer, DLPC bilayer =========================================================
+	if LipidType == 'DPPC' or LipidType == 'DLPC':
+		PackmolInput = """
 						#
 						# Lipid bilayer with water, perpendicular to z axis
 						#
-						
+
 						# Every atom from diferent molecules will be far from each other at
 						# least 3.0 Anstroms at the solution.
-						
+
 						tolerance 3.0
-						
+
 						# Coordinate file types will be in pdb format (keyword not required for
 						# pdb file format, but required for tinker, xyz or moldy)
-						
+
 						filetype pdb
-						
-						# do not avoid the fixed molecules
-						#avoid_overlap no
-						
+
 						# The output pdb file
-						
+
 						output {0}.pdb
-						
+
 						structure {1}
 							chain A
 							resnumbers 3
 							number {2:g}
 							inside box 0. 0. {3}  {4} {5} {6}
-							atoms 1
-								below plane 0. 0. 1. {7}
-							end atoms
-							atoms 9 14
-								over plane 0. 0. 1. {8}
-							end atoms
-							outside cylinder  {13} {14}  {3}  0.  0.  1.  {15}  {16}
+							constrain_rotation x 180 10
+							constrain_rotation y 180 10
+							outside cylinder  {9} {10}  {3}  0.  0.  1.  {11}  {12}
 						end structure
-						
+
 						structure {1}
 							chain B
 							resnumbers 3
 							number {2:g}
-							inside box 0. 0.  {9}  {4} {5} {10}
-							atoms 1
-								over plane 0. 0. 1. {11}
-							end atoms
-							atoms 9 14
-								below plane 0. 0. 1. {12}
-							end atoms
-							outside cylinder  {13} {14}  {3}  0.  0.  1.  {15}  {16}
+							inside box 0. 0.  {7}  {4} {5} {8}
+							constrain_rotation x 0 10
+							constrain_rotation y 0 10
+							outside cylinder  {9} {10}  {3}  0.  0.  1.  {11}  {12}
 						end structure
-						
-						""".format(System, PDBfileList[LipidType], NLM[LipidType], M1headMIN, LXS,
-									LYS, M1tailMAX, M1headMAX, M1tailMIN, 
-									M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
-									LXS/2.0, LYS/2.0, radiusDefo, L_defo)
-						
-			PackmolInput += """
+
+						""".format(System, PDBfileList[LipidType], NLM[LipidType], M1headMIN, LXS, 
+									LYS, M1tailMAX, M2tailMIN, M2headMAX,
+									LXS/2.0, LYS/2.0, radiusDefo, L_defo
+									)
+		
+		PackmolInput += """
 						
 						structure {0}
 							chain C
 							resnumbers 3
 							number {1:g}
 							inside box 0. 0.  {2}  {3} {4} {5}
-							atoms 1
-								below plane 0. 0. 1. {6}
-							end atoms
-							atoms 9 14
-								over plane 0. 0. 1. {7}
-							end atoms
+							constrain_rotation x 180 10
+							constrain_rotation y 180 10
 						end structure
 						
-						""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM, LZM+DZ, TMT+LZM-DZ)
-		
-		# DPPC bilayer, DLPC bilayer =========================================================
-		if LipidType == 'DPPC' or LipidType == 'DLPC':
-			PackmolInput = """
-							#
-							# Lipid bilayer with water, perpendicular to z axis
-							#
-
-							# Every atom from diferent molecules will be far from each other at
-							# least 3.0 Anstroms at the solution.
-
-							tolerance 3.0
-
-							# Coordinate file types will be in pdb format (keyword not required for
-							# pdb file format, but required for tinker, xyz or moldy)
-
-							filetype pdb
-
-							# The output pdb file
-
-							output {0}.pdb
-
-							structure {1}
-								chain A
-								resnumbers 3
-								number {2:g}
-								inside box 0. 0. {3}  {4} {5} {6}
-								constrain_rotation x 180 10
-								constrain_rotation y 180 10
-								outside cylinder  {9} {10}  {3}  0.  0.  1.  {11}  {12}
-							end structure
-
-							structure {1}
-								chain B
-								resnumbers 3
-								number {2:g}
-								inside box 0. 0.  {7}  {4} {5} {8}
-								constrain_rotation x 0 10
-								constrain_rotation y 0 10
-								outside cylinder  {9} {10}  {3}  0.  0.  1.  {11}  {12}
-							end structure
-
-							""".format(System, PDBfileList[LipidType], NLM[LipidType], M1headMIN, LXS, 
-				  						LYS, M1tailMAX, M2tailMIN, M2headMAX,
-				  						LXS/2.0, LYS/2.0, radiusDefo, L_defo
-				  						)
-			
+						""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM)
+	
+	#=======================================================================
+	#=======================================================================
+	#=======================================================================
+	
+	
+					
+	#=======================================================================
+	# Setting the defo with solvent for packmol ============================
+	#=======================================================================
+	#Computing the number of Solvent vapor
+	NbSolVapor = int( 0.007 * Sample['LX'] * Sample['LY'] * (Sample['LZ']-LZM-TMT) /1000)
+	
+	if SolventType == 'PW':
+		if NbSolBottom:
 			PackmolInput += """
 							
 							structure {0}
-								chain C
-								resnumbers 3
+								chain D
 								number {1:g}
-								inside box 0. 0.  {2}  {3} {4} {5}
-								constrain_rotation x 180 10
-								constrain_rotation y 180 10
+								inside box 0. 0. {2}  {3} {4} {5}
+								atoms 2 3
+									radius 0.2
+								end atoms
 							end structure
-							
-							""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM)
-		
-		#=======================================================================
-		#=======================================================================
-		#=======================================================================
-		
-		
-						
-		#=======================================================================
-		# Setting the defo with solvent for packmol ============================
-		#=======================================================================
-		
-		if SolventType == 'PW':
-			if NbSolBottom:
-				PackmolInput += """
-								
-								structure {0}
-									chain D
-									number {1:g}
-									inside box 0. 0. {2}  {3} {4} {5}
-									atoms 2 3
-										radius 0.2
-									end atoms
-								end structure
-								""".format(PDBfileList[SolventType],NbSolBottom,THICKNESS,LXS,LYS,M1headMIN)
-				
-			if NbSolTop:
-				PackmolInput += """
-								
-								structure {0}
-									chain E
-									number {1:g}
-									inside box 0. 0. {2}  {3} {4} {5}
-									atoms 2 3
-										radius 0.2
-									end atoms
-								end structure
-								""".format(PDBfileList[SolventType],NbSolTop,M2headMAX,LXS,LYS,LZM)
-		else:
-			if NbSolBottom:
-				PackmolInput += """
-								
-								structure {0}
-									chain D
-									number {1:g}
-									inside box 0. 0. {2}  {3} {4} {5}
-								end structure
-								""".format(PDBfileList[SolventType],NbSolBottom,THICKNESS,LXS,LYS,M1headMIN)
-			if NbSolTop:
-				PackmolInput += """
-								
-								structure {0}
-									chain E
-									number {1:g}
-									inside box 0. 0. {2}  {3} {4} {5}
-								end structure
-								""".format(PDBfileList[SolventType],NbSolTop,M2headMAX,LXS,LYS,LZM)
-						
-		if Sample['DEFO']['Height'] == 'follow':
+							""".format(PDBfileList[SolventType],NbSolBottom,THICKNESS,LXS,LYS,M1headMIN)
+			
+		if NbSolTop:
 			PackmolInput += """
-						structure {0}
-							chain X
-							number 1
-							center
-							resnumbers 3
-							fixed {1} {2} {3} 0.0 0.0 0.0
-							radius 0.
-						end structure
-						""".format(DefoXYZ_filename.replace('xyz','pdb'),LXS/2.0, LYS/2.0, LZ2)
 							
-		else:
+							structure {0}
+								chain E
+								number {1:g}
+								inside box 0. 0. {2}  {3} {4} {5}
+								atoms 2 3
+									radius 0.2
+								end atoms
+							end structure
+							""".format(PDBfileList[SolventType],NbSolTop,M2headMAX,LXS,LYS,LZM)
+							
+		PackmolInput += """
+							
+							structure {0}
+								chain V
+								number {1:g}
+								inside box 0. 0. {2}  {3} {4} {5}
+								atoms 2 3
+									radius 0.2
+								end atoms
+							end structure
+							""".format(PDBfileList[SolventType],NbSolVapor,LZM+TMT,LXS,LYS,Sample['LZ'])
+	else:
+		if NbSolBottom:
 			PackmolInput += """
-						structure {0}
-							chain X
-							number 1
-							resnumbers 3
-							fixed {1} {2} {3} 0.0 0.0 0.0
-							radius 0.
-						end structure
-						""".format(DefoXYZ_filename.replace('xyz','pdb'),LXS/2.0, LYS/2.0, THICKNESS)
-						
-		
-		
-		#=======================================================================
-		# Adding the substrat ==================================================
-		#=======================================================================
+							
+							structure {0}
+								chain D
+								number {1:g}
+								inside box 0. 0. {2}  {3} {4} {5}
+							end structure
+							""".format(PDBfileList[SolventType],NbSolBottom,THICKNESS,LXS,LYS,M1headMIN)
+		if NbSolTop:
+			PackmolInput += """
+							
+							structure {0}
+								chain E
+								number {1:g}
+								inside box 0. 0. {2}  {3} {4} {5}
+							end structure
+							""".format(PDBfileList[SolventType],NbSolTop,M2headMAX,LXS,LYS,LZM)
 		PackmolInput += """
 						
 						structure {0}
-							chain S
+							chain V
 							number {1:g}
-							inside box 0. 0. 0.  {2} {3} {4}
+							inside box 0. 0. {2}  {3} {4} {5}
 						end structure
-						""".format(PDBfileList['SU'], nbSu, LXS, LYS, THICKNESS)
-		
-		
-		f = open('packmol_'+System+'.input','w')
-		f.write(Utility.RemoveUnwantedIndent(PackmolInput))
-		f.close()
-		
-		# Lipids input pdb =====================================================
-		if( LipidType == "DSPC"):
-			f = open(PDBfileList['DSPC'],'w')
-			f.write(Utility.RemoveUnwantedIndent(DSPC_PDB))
-			f.close()
-		if( LipidType == "DPPC"):
-			f = open(PDBfileList['DPPC'],'w')
-			f.write(Utility.RemoveUnwantedIndent(DPPC_PDB))
-			f.close()
-		if( LipidType == "DLPC"):
-			f = open(PDBfileList['DLPC'],'w')
-			f.write(Utility.RemoveUnwantedIndent(DLPC_PDB))
-			f.close()
-			
-		# Solvents input pdb ===================================================
-		if( SolventType == 'W'):
-			f = open(PDBfileList['W'],'w')
-			f.write(Utility.RemoveUnwantedIndent(W_PDB))
-			f.close()
-		if( SolventType == 'PW'):
-			f = open(PDBfileList['PW'],'w')
-			f.write(Utility.RemoveUnwantedIndent(PW_PDB))
-			f.close()
-		if( SolventType == 'OCO'):
-			f = open(PDBfileList['OCO'],'w')
-			f.write(Utility.RemoveUnwantedIndent(OCO_PDB))
-			f.close()
-			
-		# pdb file for su
-		suType = SU_TYPE
-		assert(len(SU_TYPE) <= 4),"The name of the SU should be 4 letters max (Otherwise problem with PDB file format)" 
-		suType = SU_TYPE + (4 - len(SU_TYPE))*' '
-		suPdb = SU_PDB.replace("TEMP", suType)
-		f = open(PDBfileList['SU'],'w')
-		f.write(Utility.RemoveUnwantedIndent(suPdb))
-		f.close()
-			
-			
-		#=======================================================================
-		#lauching packmol
-		#=======================================================================
-
-		cmd = str("""{0} < packmol_{1}.input > packmol_{1}.output """
-								).format(Softwares['PACKMOL'], System)
-		sub.call(cmd, shell=True)
-
-		#=======================================================================
-		# ensure the right box in pdb file
-		#=======================================================================
-
-		WriteBox = str("""
-				mol load pdb {0}.pdb
-				set all [atomselect top "all"]
-
-				package require pbctools
-				pbc set {{{1} {2} {3}}}
-
-				$all writepdb "{0}.withbox.pdb"
-				unset all
-
-				exit
-				""").format(System, Sample['LX'], Sample['LY'], Sample['LZ'])
-
-		f = open('write_box.vmd','w+')
-		f.write(Utility.RemoveUnwantedIndent(WriteBox) )
-		f.close()
-
-		## ======================================================================
-		cmd = str("""{0} -dispdev text -e write_box.vmd > write_box.log"""
-												).format(Softwares['VMD'])
-		sub.call(cmd, shell=True)
-		
-		MakeIndex = str("""
-				chain A
-				chain B
-				chain C
-				chain D
-				chain E
-				chain S
-				chain X
-				name 6 bottom{0}
-				name 7 top{0}
-				name 8 mono{0}
-				name 9 bottom{1}
-				name 10 top{1}
-				name 11 su
-				name 12 defo
-				q
-				
-				""").format(LipidType, SolventType)
-
-		f = open('make_index.input','w+')
-		f.write(Utility.RemoveUnwantedIndent(MakeIndex) )
-		f.close()
-		
-		cmd = str("""{0}make_ndx -f {1}.withbox.pdb -o {1}.ndx < make_index.input"""
-											).format(GROMACS_LOC_prefixPath, System)
-		sub.call(cmd, shell=True)
-		
-		
-		#=======================================================================
-		# the topology file
-		#=======================================================================
-		TopologyDefoSu(Sample, PathToDefault)
-		
-		Topology = """
-						#include "martini_v2.2_{2}_{0}_DEFO_{1}.itp"
-						#include "martini_v2.0_lipids.itp"
+						""".format(PDBfileList[SolventType],NbSolVapor,LZM+TMT,LXS,LYS,Sample['LZ'])
+					
+	if Sample['DEFO']['Height'] == 'follow':
+		PackmolInput += """
+					structure {0}
+						chain X
+						number 1
+						center
+						resnumbers 3
+						fixed {1} {2} {3} 0.0 0.0 0.0
+						radius 0.
+					end structure
+					""".format(DefoXYZ_filename.replace('xyz','pdb'),LXS/2.0, LYS/2.0, LZ2)
 						
-					""".format( Sample['SU']['Version'], Sample['DEFO']['Version'], SU_TYPE )
-		
-		#Copy the topology files for martini forcefield
-		sub.call("""cp {0}/martini_v2.0_lipids.itp  .""".format(PathToDefault), shell= True)
-		sub.call("""cp {0}/DEFO/defo_posres.itp  .""".format(PathToDefault), shell= True)
-		sub.call("""cp {0}/SU/su_posres.itp  .""".format(PathToDefault), shell= True)
-		f = open(System+'.top','w')
-		f.write(Utility.RemoveUnwantedIndent(Topology))
-
-		f = open(System+'.top','a')
-		f.write("""\n[ system ]\n""")
-
-		Topology = str("""{0}_{1}_WITH_DEFO_{2}_AND_{4}_{3}\n""").format(LipidType, Sample['TYPE'], Sample['DEFO']['Version'], Sample['SU']['Version'], SU_TYPE)
-		f.write(Topology)
-
-		f.write("""\n[ molecules ]\n""")
-		Topology = str("""{0} {1}\n{2} {3}\n{4} {5}\n{6} {7}\n""").format(LipidType, Sample[LipidType]+NBLIPIDS_MONO,SolventType, Sample[SolventType],'DEFO', nbDefo, SU_TYPE, nbSu)
-		f.write(Topology)
+	else:
+		PackmolInput += """
+					structure {0}
+						chain X
+						number 1
+						resnumbers 3
+						fixed {1} {2} {3} 0.0 0.0 0.0
+						radius 0.
+					end structure
+					""".format(DefoXYZ_filename.replace('xyz','pdb'),LXS/2.0, LYS/2.0, THICKNESS)
+					
+	
+	
+	#=======================================================================
+	# Adding the substrat ==================================================
+	#=======================================================================
+	PackmolInput += """
+					
+					structure {0}
+						chain S
+						number {1:g}
+						inside box 0. 0. 0.  {2} {3} {4}
+					end structure
+					""".format(PDBfileList['SU'], nbSu, LXS, LYS, THICKNESS)
+	
+	
+	f = open('packmol_'+System+'.input','w')
+	f.write(Utility.RemoveUnwantedIndent(PackmolInput))
+	f.close()
+	
+	# Lipids input pdb =====================================================
+	if( LipidType == "DSPC"):
+		f = open(PDBfileList['DSPC'],'w')
+		f.write(Utility.RemoveUnwantedIndent(DSPC_PDB))
 		f.close()
-			
-		#==================================================================================
-		# Output the files for other steps
-		#==================================================================================
-		Output = str("""{0}.withbox.pdb""").format(System)
-		Index = str("""{0}.ndx""").format(System)
-		return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
-
-
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-	###############
-
-
-	else: #Default for Free Bilayer
-		# packmol constraints are not strict !
-		# put the molecules in a smaller box to
-		# avoid initial crash because of PBC
-		# the SHELL parameter defines the shell in which
-		# packmol is not supposed to put particles
-		SHELL = 3.0
-		
-		LXS = Sample['LX']-SHELL
-		LYS = Sample['LY']-SHELL
-		LZS = Sample['LZ']-SHELL
-
-		LZ2 = LZS/2.0
-
-		#Number of lipid and water per layer
-		NLM = {}
-		NSOLM = {}
-		LipidType = ''
-		
-		for L in LipidsList:
-			if(L in Sample):
-				NLM.update( {L:int(Sample[L]/2)} )
-				LipidType = L
-		for Sol in SolventsList:
-			print(Sol,' is in sample:', Sol in Sample)
-			if Sol in Sample:
-				print(Sol)
-				NSOLM.update( {Sol:int(Sample[Sol]/2)} )
-				SolventType = Sol
-		
-		#If the number of lipids per Monolayer is high
-		# we cut the sample till we get a reasonnable amount
-		# of lipis per monolayer for packmol
-		NbMult = 0
-		NeedToExpand = False
-		while NLM[LipidType] > 512:
-			NLM[LipidType] /= 2
-			NSOLM[SolventType] /= 2
-			NbMult += 1
-			#diviser boîte
-			NeedToExpand = True
-			print(NLM[LipidType])
-		print(LipidType)
-		#==================================================================================
-		# creating the initial bilayer (lipids + water) using packmol
-		#==================================================================================
-
-		System = str('{0}_{1}{2}_{3}{4}').format(Sample['TYPE'],Sample[LipidType], LipidType, Sample[SolventType], SolventType)
-		
-		#=======================================================================
-		# Setting the bilayers  ================================================
-		#=======================================================================
-		
-		TMT = 0.0
-		DZ = 0.0
-		# DSPC bilayer =========================================================
-		if LipidType == "DSPC":
-			# Geometry to preprare the bilayer with packmol
-			# total monolayer thickness (Angstrom)
-			TMT = 30.0
-			# deltaz : thickness in Z direction for
-			# the volume constraining the heads and tails beads
-			DZ = 7.0
-		
-		# DPPC bilayer =========================================================
-		if LipidType == "DPPC":
-			TMT = 30
-			DZ = 10
-		
-		# DLPC bilayer =========================================================
-		if LipidType == "DLPC":
-			TMT = 30
-			DZ = 10
-
-		M1headMIN = LZ2 - TMT
-		M1headMAX = LZ2 - TMT + DZ
-		M1tailMIN = LZ2 - DZ
-		M1tailMAX = LZ2
-
-		M2headMIN = LZ2 + TMT - DZ
-		M2headMAX = LZ2 + TMT
-		M2tailMIN = LZ2
-		M2tailMAX = LZ2 + DZ
-		
-		#DSPC BILAYER
-		if( LipidType == "DSPC"):
-			PackmolInput = """
-							#
-							# Lipid bilayer with water, perpendicular to z axis
-							#
-
-							# Every atom from diferent molecules will be far from each other at
-							# least 3.0 Anstroms at the solution.
-
-							tolerance 3.0
-
-							# Coordinate file types will be in pdb format (keyword not required for
-							# pdb file format, but required for tinker, xyz or moldy)
-
-							filetype pdb
-
-							# The output pdb file
-
-							output {0}.pdb
-
-							structure {14}
-								chain A
-								resnumbers 3
-								number {1:g}
-								inside box 0. 0. {2}  {3} {4} {5}
-								atoms 1
-									below plane 0. 0. 1. {6}
-								end atoms
-								atoms 9 14
-									over plane 0. 0. 1. {7}
-								end atoms
-							end structure
-
-							structure {14}
-								chain B
-								resnumbers 3
-								number {1:g}
-								inside box 0. 0.  {8}  {3} {4} {9}
-								atoms 1
-									over plane 0. 0. 1. {10}
-								end atoms
-								atoms 9 14
-									below plane 0. 0. 1. {11}
-								end atoms
-							end structure
-
-							""".format(System, NLM[LipidType], M1headMIN, LXS, LYS, M1tailMAX, M1headMAX, M1tailMIN, M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, NSOLM[SolventType], LZS, PDBfileList[LipidType], PDBfileList[SolventType])
-		
-		# DPPC bilayer, DLPC bilayer =========================================================
-		if LipidType == "DPPC" or LipidType == "DLPC":
-			PackmolInput = """
-							#
-							# Lipid bilayer with water, perpendicular to z axis
-							#
-
-							# Every atom from diferent molecules will be far from each other at
-							# least 3.0 Anstroms at the solution.
-
-							tolerance 3.0
-
-							# Coordinate file types will be in pdb format (keyword not required for
-							# pdb file format, but required for tinker, xyz or moldy)
-
-							filetype pdb
-
-							# The output pdb file
-
-							output {0}.pdb
-
-							structure {14}
-								chain A
-								resnumbers 3
-								number {1:g}
-								inside box 0. 0. {2}  {3} {4} {5}
-								constrain_rotation x 180 10
-								constrain_rotation y 180 10
-							end structure
-
-							structure {14}
-								chain B
-								resnumbers 3
-								number {1:g}
-								inside box 0. 0.  {8}  {3} {4} {9}
-								constrain_rotation x 0 10
-								constrain_rotation y 0 10
-							end structure
-
-							""".format(System, NLM[LipidType], M1headMIN, LXS, LYS, M1tailMAX, M1headMAX, M1tailMIN, M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, NSOLM[SolventType], LZS, PDBfileList[LipidType], PDBfileList[SolventType])
-								
-		#=======================================================================
-		#=======================================================================
-		#=======================================================================
-		
-		#=======================================================================
-		# Setting the solvent for packmol ============================
-		#=======================================================================
-		if SolventType == 'PW':
-			PackmolInput += """
-			
-							structure {0}
-								chain C
-								number {1:g}
-								inside box 0. 0. 0.  {2} {3} {4}
-								atoms 2 3
-									radius 0.2
-								end atoms
-							end structure
-
-
-							structure {0}
-								chain D
-								number {1:g}
-								inside box 0. 0. {5}  {2} {3} {6}
-								atoms 2 3
-									radius 0.2
-								end atoms
-							end structure
-							""".format(PDBfileList[SolventType], NSOLM[SolventType], LXS, LYS,  M1headMIN,
-								M2headMAX, LZS)
-		else:
-			PackmolInput += """
-							
-							structure {0}
-								chain C
-								number {1:g}
-								inside box 0. 0. 0.  {2} {3} {4}
-							end structure
-							
-							structure {0}
-								chain D
-								number {1:g}
-								inside box 0. 0. {5}  {2} {3} {6}
-							end structure
-							""".format(PDBfileList[SolventType], NSOLM[SolventType], LXS, LYS,  M1headMIN,
-								M2headMAX, LZS)
-
-		f = open('packmol_'+System+'.input','w')
-		f.write(Utility.RemoveUnwantedIndent(PackmolInput))
+	if( LipidType == "DPPC"):
+		f = open(PDBfileList['DPPC'],'w')
+		f.write(Utility.RemoveUnwantedIndent(DPPC_PDB))
+		f.close()
+	if( LipidType == "DLPC"):
+		f = open(PDBfileList['DLPC'],'w')
+		f.write(Utility.RemoveUnwantedIndent(DLPC_PDB))
 		f.close()
 		
-		# Lipids input pdb =====================================================
-		if( LipidType == "DSPC"):
-			f = open('dspc_single.pdb','w')
-			f.write(Utility.RemoveUnwantedIndent(DSPC_PDB))
-			f.close()
-		if( LipidType == "DPPC"):
-			f = open('dppc_single.pdb','w')
-			f.write(Utility.RemoveUnwantedIndent(DPPC_PDB))
-			f.close()
-		if( LipidType == "DLPC"):
-			f = open('dlpc_single.pdb','w')
-			f.write(Utility.RemoveUnwantedIndent(DLPC_PDB))
-			f.close()
-			
-		# Solvents input pdb ===================================================
-		if( SolventType == 'W'):
-			f = open('water_single.pdb','w')
-			f.write(Utility.RemoveUnwantedIndent(W_PDB))
-			f.close()
-		if( SolventType == 'PW'):
-			f = open('polwater_single.pdb','w')
-			f.write(Utility.RemoveUnwantedIndent(PW_PDB))
-			f.close()
-		if( SolventType == 'OCO'):
-			f = open('octanol_single.pdb','w')
-			f.write(Utility.RemoveUnwantedIndent(OCO_PDB))
-			f.close()
-		
-
-		#===============================================================================
-		#lauching packmol
-		#===============================================================================
-
-		cmd = str("""{0} < packmol_{1}.input > packmol_{1}.output """).format(Softwares['PACKMOL'],System)
-		sub.call(cmd, shell=True)
-
-		
-		#===============================================================================
-		# ensure the right box in pdb file
-		#===============================================================================
-
-		WriteBox = str("""
-				mol load pdb {0}.pdb
-				set all [atomselect top "all"]
-
-				package require pbctools
-				pbc set {{{1} {2} {3}}}
-
-				$all writepdb "{0}.withbox.pdb"
-				unset all
-
-				exit
-				""").format(System, Sample['LX'], Sample['LY'], Sample['LZ'])
-
-		f = open('write_box.vmd','w+')
-		f.write(Utility.RemoveUnwantedIndent(WriteBox) )
+	# Solvents input pdb ===================================================
+	if( SolventType == 'W'):
+		f = open(PDBfileList['W'],'w')
+		f.write(Utility.RemoveUnwantedIndent(W_PDB))
 		f.close()
-
-		## ======================================================================
-		cmd = str("""{0} -dispdev text -e write_box.vmd > write_box.log""" 
-					).format(Softwares['VMD'])
-		sub.call(cmd, shell=True)
-
+	if( SolventType == 'PW'):
+		f = open(PDBfileList['PW'],'w')
+		f.write(Utility.RemoveUnwantedIndent(PW_PDB))
+		f.close()
+	if( SolventType == 'OCO'):
+		f = open(PDBfileList['OCO'],'w')
+		f.write(Utility.RemoveUnwantedIndent(OCO_PDB))
+		f.close()
 		
-		#===============================================================================
-		# For big samples
-		#===============================================================================
-		if NeedToExpand:
-			cmd = str("""{0}genconf -f {1}.withbox.pdb -nbox {2} {2} 1 -o {1}.withbox.pdb""").format(GROMACS_LOC_prefixPath, System, NbMult)
-			sub.call(cmd, shell=True)
-		## ======================================================================
-		ApL = Sample['LX']*Sample['LY']/NLM[LipidType]
-		print(Utility.RemoveUnwantedIndent(str("""
-				================================
-				================================
-				Packmol finished initial input file
-				{0} {1}, {2} {3}
-				box sizes : {4}, {5}, {6}
-				Area per lipid = {7} A**2
-				===============================
-				===============================
-				""").format(LipidType, Sample[LipidType],SolventType, Sample[SolventType], Sample['LX'],Sample['LY'],Sample['LZ'],ApL)))
+	# pdb file for su
+	suType = SU_TYPE
+	assert(len(SU_TYPE) <= 4),"The name of the SU should be 4 letters max (Otherwise problem with PDB file format)" 
+	suType = SU_TYPE + (4 - len(SU_TYPE))*' '
+	suPdb = SU_PDB.replace("TEMP", suType)
+	f = open(PDBfileList['SU'],'w')
+	f.write(Utility.RemoveUnwantedIndent(suPdb))
+	f.close()
+		
+		
+	#=======================================================================
+	#lauching packmol
+	#=======================================================================
 
-		#==================================================================================
-		# the topology file
-		#==================================================================================
+	cmd = str("""{0} < packmol_{1}.input > packmol_{1}.output """
+							).format(Softwares['PACKMOL'], System)
+	sub.call(cmd, shell=True)
 
-		Topology = str("""
-					#include "martini_v2.2.itp" ; modified with polarisable water
+	#=======================================================================
+	# ensure the right box in pdb file
+	#=======================================================================
+
+	WriteBox = str("""
+			mol load pdb {0}.pdb
+			set all [atomselect top "all"]
+
+			package require pbctools
+			pbc set {{{1} {2} {3}}}
+
+			$all writepdb "{0}.withbox.pdb"
+			unset all
+
+			exit
+			""").format(System, Sample['LX'], Sample['LY'], Sample['LZ'])
+
+	f = open('write_box.vmd','w+')
+	f.write(Utility.RemoveUnwantedIndent(WriteBox) )
+	f.close()
+
+	## ======================================================================
+	cmd = str("""{0} -dispdev text -e write_box.vmd > write_box.log"""
+											).format(Softwares['VMD'])
+	sub.call(cmd, shell=True)
+	
+	MakeIndex = str("""
+			chain A
+			chain B
+			chain C
+			chain D
+			chain E
+			chain V
+			chain S
+			chain X
+			name 6 bottom{0}
+			name 7 top{0}
+			name 8 mono{0}
+			name 9 bottom{1}
+			name 10 top{1}
+			name 11 vap{1}
+			name 12 su
+			name 13 defo
+			q
+			
+			""").format(LipidType, SolventType)
+
+	f = open('make_index.input','w+')
+	f.write(Utility.RemoveUnwantedIndent(MakeIndex) )
+	f.close()
+	
+	cmd = str("""{0}make_ndx -f {1}.withbox.pdb -o {1}.ndx < make_index.input"""
+										).format(GROMACS_LOC_prefixPath, System)
+	sub.call(cmd, shell=True)
+	
+	
+	#=======================================================================
+	# the topology file
+	#=======================================================================
+	TopologyDefoSu(Sample, PathToDefault)
+	
+	Topology = """
+					#include "martini_v2.2_{2}_{0}_DEFO_{1}.itp"
 					#include "martini_v2.0_lipids.itp"
-					""")
-		#Copy the topology files for martini forcefield
-		sub.call("""cp {0}/martini_v2.0_lipids.itp {0}/martini_v2.2.itp ./""".format(PathToDefault), shell= True)
-		f = open(System+'.top','w')
-		f.write(Utility.RemoveUnwantedIndent(Topology))
+					
+				""".format( Sample['SU']['Version'], Sample['DEFO']['Version'], SU_TYPE )
+	
+	#Copy the topology files for martini forcefield
+	sub.call("""cp {0}/martini_v2.0_lipids.itp  .""".format(PathToDefault), shell= True)
+	sub.call("""cp {0}/DEFO/defo_posres.itp  .""".format(PathToDefault), shell= True)
+	sub.call("""cp {0}/SU/su_posres.itp  .""".format(PathToDefault), shell= True)
+	f = open(System+'.top','w')
+	f.write(Utility.RemoveUnwantedIndent(Topology))
 
-		f = open(System+'.top','a')
-		f.write("""\n[ system ]\n""")
+	f = open(System+'.top','a')
+	f.write("""\n[ system ]\n""")
 
-		Topology = str("""{0} {1}\n""").format(LipidType, Sample['TYPE'])
-		f.write(Topology)
+	Topology = str("""{0}_{1}_WITH_DEFO_{2}_AND_{4}_{3}\n""").format(LipidType, Sample['TYPE'], Sample['DEFO']['Version'], Sample['SU']['Version'], SU_TYPE)
+	f.write(Topology)
 
-		###add a for loop for multiple types (Later)
-		f.write("""\n[ molecules ]\n""")
-		Topology = str("""{0} {1}\n{2} {3}""").format(LipidType, Sample[LipidType],SolventType, Sample[SolventType])
-		f.write(Topology)
-		f.close()
-
-		#==================================================================================
-		# the index file
-		#==================================================================================
-
-		cmd = str("""echo q | {0}make_ndx -f {1}.withbox.pdb -o {1}.ndx""").format(GROMACS_LOC_prefixPath,System)
-		sub.call(cmd, shell=True)
-
-		#==================================================================================
-		# Output the files for other steps
-		#==================================================================================
-		Output = str("""{0}.withbox.pdb""").format(System)
-		Index = str("""{0}.ndx""").format(System)
-		return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
-
-
-
+	f.write("""\n[ molecules ]\n""")
+	Topology = str("""{0} {1}\n{2} {3}\n{4} {5}\n{6} {7}\n""").format(LipidType, Sample[LipidType]+NBLIPIDS_MONO,SolventType, Sample[SolventType],'DEFO', nbDefo, SU_TYPE, nbSu)
+	f.write(Topology)
+	f.close()
+		
+	#==================================================================================
+	# Output the files for other steps
+	#==================================================================================
+	Output = str("""{0}.withbox.pdb""").format(System)
+	Index = str("""{0}.ndx""").format(System)
+	return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
 
 
 
