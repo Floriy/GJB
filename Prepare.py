@@ -1,4 +1,3 @@
-	
 import subprocess as sub
 import time
 import numpy as np
@@ -10,8 +9,6 @@ import glob
 #List of Lipids and Solvents:
 LipidsList = ['DSPC','DPPC','DLPC']
 SolventsList = ['W','OCO','PW']
-
-#### WallParticlesList = ['','']
 
 #***********************************************************#
 #***********************************************************#
@@ -129,22 +126,28 @@ SU_PDB = """
 
 
 def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
+	packmolSeed = 0
+	if Sample['SEED'] == 'time':
+		packmolSeed = int(time.time())
+	if Sample['SEED'] == 'jobnum':
+		packmolSeed = Sample['JOBNUM'] * 123456789
+		
 	if 'DEFO' in Sample and not 'SU' in Sample:
-		return InitBilayerWithHole(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault)
+		return InitBilayerWithHole(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, packmolSeed)
 
 	if 'SU' in Sample and not 'DEFO' in Sample: #Bilayer + Wall:
-		return InitBilayerWithWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault)
+		return InitBilayerWithWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, packmolSeed)
 
 	if 'DEFO' in Sample and 'SU' in Sample: #Bilayer + Hole + Wall:
-		return InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault)
+		return InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, packmolSeed)
 
 	else: #Default for Free Bilayer
-		return InitFreeBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault)
+		return InitFreeBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, packmolSeed)
 		
 		
 		
 		
-def InitFreeBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
+def InitFreeBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, packmolSeed):
 	# packmol constraints are not strict !
 	# put the molecules in a smaller box to
 	# avoid initial crash because of PBC
@@ -228,9 +231,23 @@ def InitFreeBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 	M2tailMIN = LZ2
 	M2tailMAX = LZ2 + DZ
 	
-	#DSPC BILAYER
-	if( LipidType == "DSPC"):
+	#=======================================================================
+	# Setting the bilayers for packmol =====================================
+	#=======================================================================
+	if packmolSeed:
 		PackmolInput = """
+					#Packmol seed was set using {0}
+					seed {1}
+				
+				""".format(Sample['SEED'], packmolSeed)
+	else:
+		PackmolInput = """
+					#Packmol Seed was set using default
+				
+							"""
+	#DSPC BILAYER
+	if LipidType == "DSPC":
+		PackmolInput += """
 						#
 						# Lipid bilayer with water, perpendicular to z axis
 						#
@@ -278,8 +295,8 @@ def InitFreeBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 						""".format(System, NLM[LipidType], M1headMIN, LXS, LYS, M1tailMAX, M1headMAX, M1tailMIN, M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, NSOLM[SolventType], LZS, PDBfileList[LipidType], PDBfileList[SolventType])
 	
 	# DPPC bilayer, DLPC bilayer =========================================================
-	if LipidType == "DPPC" or LipidType == "DLPC":
-		PackmolInput = """
+	if LipidType in {'DPPC','DLPC'}:
+		PackmolInput += """
 						#
 						# Lipid bilayer with water, perpendicular to z axis
 						#
@@ -493,7 +510,7 @@ def InitFreeBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
 
 
 
-def InitBilayerWithWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
+def InitBilayerWithWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, packmolSeed):
 	THICKNESS = float(Sample['SU']['Thickness'])
 	DENSITY = float(Sample['SU']['Density'])
 	NBLIPIDS_MONO = int(Sample['SU']['NbLipidsM'])
@@ -609,10 +626,21 @@ def InitBilayerWithWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault
 	#=======================================================================
 	# Setting the bilayers for packmol =====================================
 	#=======================================================================
-	
+	if packmolSeed:
+		PackmolInput = """
+					#Packmol seed was set using {0}
+					seed {1}
+				
+				""".format(Sample['SEED'], packmolSeed)
+	else:
+		PackmolInput = """
+					#Packmol Seed was set using default
+				
+							"""
+							
 	# DLPC bilayer =========================================================
 	if LipidType == "DSPC":
-		PackmolInput = """
+		PackmolInput += """
 					#
 					# Lipid bilayer with water, perpendicular to z axis
 					#
@@ -684,7 +712,7 @@ def InitBilayerWithWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault
 	
 	# DPPC bilayer, DLPC bilayer =========================================================
 	if LipidType == 'DPPC' or LipidType == 'DLPC':
-		PackmolInput = """
+		PackmolInput += """
 						#
 						# Lipid bilayer with water, perpendicular to z axis
 						#
@@ -917,6 +945,8 @@ def InitBilayerWithWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault
 			name 9 top{1}
 			name 10 vap{1}
 			name 11 su
+			5 | 6
+			name 12 bi{0}
 			q
 			
 			""").format(LipidType, SolventType)
@@ -969,7 +999,7 @@ def InitBilayerWithWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault
 
 
 
-def InitBilayerWithHole(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
+def InitBilayerWithHole(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, packmolSeed):
 	#Bilayer + Hole
 		SHELL = 3.0
 		
@@ -1128,9 +1158,20 @@ def InitBilayerWithHole(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault
 													Sample[SolventType], SolventType, nbDefo, 
 													Sample['DEFO']['Version'])
 		
+		if packmolSeed:
+			PackmolInput = """
+						#Packmol seed was set using {0}
+						seed {1}
+					
+					""".format(Sample['SEED'], packmolSeed)
+		else:
+			PackmolInput = """
+						#Packmol Seed was set using default
+					
+							"""
 		# DLPC bilayer =========================================================
 		if LipidType == "DSPC":
-			PackmolInput = """
+			PackmolInput += """
 						#
 						# Lipid bilayer with water, perpendicular to z axis
 						#
@@ -1187,8 +1228,8 @@ def InitBilayerWithHole(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault
 									L_defo)
 		
 		# DPPC bilayer, DLPC bilayer =========================================================
-		if LipidType == 'DPPC' or LipidType == 'DLPC':
-			PackmolInput = """
+		if LipidType in {'DPPC','DLPC'}:
+			PackmolInput += """
 						#
 						# Lipid bilayer with water, perpendicular to z axis
 						#
@@ -1428,7 +1469,7 @@ def InitBilayerWithHole(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault
 	
 	
 
-def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
+def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, packmolSeed):
 	THICKNESS = float(Sample['SU']['Thickness'])
 	DENSITY = float(Sample['SU']['Density'])
 	NBLIPIDS_MONO = int(Sample['SU']['NbLipidsM'])
@@ -1533,13 +1574,16 @@ def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathTo
 	
 	if Sample['DEFO']['Height'] == 'box':
 		#Set the Defo height from the substrate to the mono layer
-		L_defo = LZM - THICKNESS
+		L_defo = Sample['LZ'] - THICKNESS
 	if Sample['DEFO']['Height'] == 'bilayer':
 		#Set the Defo height from the substrate to the top of the bilayer
 		L_defo = LZ2 + TMT - THICKNESS
+	if Sample['DEFO']['Height'] == 'mono':
+		#Set the Defo height from the substrate to the top of the monolayer
+		L_defo = LZM + TMT - THICKNESS
 	if Sample['DEFO']['Height'] == 'follow':
 		#Set the Defo height from the bottom of the bilayer to its top
-		L_defo = 2*TMT
+		L_defo = TMT
 	
 	NbLayers = int(L_defo/float(Sample['DEFO']['DzDefo']))
 	
@@ -1633,10 +1677,20 @@ def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathTo
 	#=======================================================================
 	# Setting the bilayers for packmol =====================================
 	#=======================================================================
-	
+	if packmolSeed:
+		PackmolInput = """
+					#Packmol seed was set using {0}
+					seed {1}
+					
+					""".format(Sample['SEED'], packmolSeed)
+	else:
+		PackmolInput = """
+					#Packmol seed was set using default
+					
+					"""
 	# DLPC bilayer =========================================================
 	if LipidType == "DSPC":
-		PackmolInput = """
+		PackmolInput += """
 					#
 					# Lipid bilayer with water, perpendicular to z axis
 					#
@@ -1690,27 +1744,46 @@ def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathTo
 								LYS, M1tailMAX, M1headMAX, M1tailMIN, 
 								M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
 								LXS/2.0, LYS/2.0, radiusDefo, L_defo)
-					
-		PackmolInput += """
-					
-					structure {0}
-						chain C
-						resnumbers 3
-						number {1:g}
-						inside box 0. 0.  {2}  {3} {4} {5}
-						atoms 1
-							below plane 0. 0. 1. {6}
-						end atoms
-						atoms 9 14
-							over plane 0. 0. 1. {7}
-						end atoms
-					end structure
-					
-					""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM, LZM+DZ, TMT+LZM-DZ)
+		if Sample['DEFO']['Height'] in {'follow','mono','box'}:
+			PackmolInput += """
+						
+						structure {0}
+							chain C
+							resnumbers 3
+							number {1:g}
+							inside box 0. 0.  {2}  {3} {4} {5}
+							atoms 1
+								below plane 0. 0. 1. {6}
+							end atoms
+							atoms 9 14
+								over plane 0. 0. 1. {7}
+							end atoms
+							outside cylinder  {8} {9}  {2}  0.  0.  1.  {10}  {11}
+						end structure
+						
+						""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM, LZM+DZ, TMT+LZM-DZ,
+									LXS/2.0, LYS/2.0, radiusDefo, L_defo)
+		else:
+			PackmolInput += """
+						
+						structure {0}
+							chain C
+							resnumbers 3
+							number {1:g}
+							inside box 0. 0.  {2}  {3} {4} {5}
+							atoms 1
+								below plane 0. 0. 1. {6}
+							end atoms
+							atoms 9 14
+								over plane 0. 0. 1. {7}
+							end atoms
+						end structure
+						
+						""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM, LZM+DZ, TMT+LZM-DZ)
 	
 	# DPPC bilayer, DLPC bilayer =========================================================
-	if LipidType == 'DPPC' or LipidType == 'DLPC':
-		PackmolInput = """
+	if LipidType in {'DPPC','DLPC'}:
+		PackmolInput += """
 						#
 						# Lipid bilayer with water, perpendicular to z axis
 						#
@@ -1753,19 +1826,34 @@ def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathTo
 									LYS, M1tailMAX, M2tailMIN, M2headMAX,
 									LXS/2.0, LYS/2.0, radiusDefo, L_defo
 									)
-		
-		PackmolInput += """
-						
-						structure {0}
-							chain C
-							resnumbers 3
-							number {1:g}
-							inside box 0. 0.  {2}  {3} {4} {5}
-							constrain_rotation x 180 10
-							constrain_rotation y 180 10
-						end structure
-						
-						""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM)
+		if Sample['DEFO']['Height'] in {'follow','mono','box'}:
+			PackmolInput += """
+							
+							structure {0}
+								chain C
+								resnumbers 3
+								number {1:g}
+								inside box 0. 0.  {2}  {3} {4} {5}
+								constrain_rotation x 180 10
+								constrain_rotation y 180 10
+								outside cylinder  {6} {7}  {2}  0.  0.  1.  {8}  {9}
+							end structure
+							
+							""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM, 
+										LXS/2.0, LYS/2.0, radiusDefo, L_defo/2.0)
+		else:
+			PackmolInput += """
+							
+							structure {0}
+								chain C
+								resnumbers 3
+								number {1:g}
+								inside box 0. 0.  {2}  {3} {4} {5}
+								constrain_rotation x 180 10
+								constrain_rotation y 180 10
+							end structure
+							
+							""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM)
 	
 	#=======================================================================
 	#=======================================================================
@@ -1850,12 +1938,29 @@ def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathTo
 					structure {0}
 						chain X
 						number 1
-						center
 						resnumbers 3
 						fixed {1} {2} {3} 0.0 0.0 0.0
 						radius 0.
 					end structure
-					""".format(DefoXYZ_filename.replace('xyz','pdb'),LXS/2.0, LYS/2.0, LZ2)
+					
+					structure {0}
+						chain X
+						number 1
+						resnumbers 3
+						fixed {1} {2} {4} 0.0 0.0 0.0
+						radius 0.
+					end structure
+					""".format(DefoXYZ_filename.replace('xyz','pdb'),LXS/2.0, LYS/2.0, LZ2-TMT,LZ2)
+		PackmolInput += """
+					structure {0}
+						chain Y
+						number 1
+						resnumbers 3
+						fixed {1} {2} {3} 0.0 0.0 0.0
+						radius 0.
+					end structure
+					""".format(DefoXYZ_filename.replace('xyz','pdb'),LXS/2.0, LYS/2.0, LZM)
+			
 						
 	else:
 		PackmolInput += """
@@ -1958,8 +2063,33 @@ def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathTo
 	cmd = str("""{0} -dispdev text -e write_box.vmd > write_box.log"""
 											).format(Softwares['VMD'])
 	sub.call(cmd, shell=True)
-	
-	MakeIndex = str("""
+	if Sample['DEFO']['Height'] == 'follow':
+		MakeIndex = """
+			chain A
+			chain B
+			chain C
+			chain D
+			chain E
+			chain V
+			chain S
+			chain X
+			chain Y
+			name 6 bottom{0}
+			name 7 top{0}
+			name 8 mono{0}
+			name 9 bottom{1}
+			name 10 top{1}
+			name 11 vap{1}
+			name 12 su
+			name 13 defoBi
+			name 14 defoMono
+			6 | 7
+			name 15 bi{0}
+			q
+			
+			""".format(LipidType, SolventType)
+	else:
+		MakeIndex = """
 			chain A
 			chain B
 			chain C
@@ -1976,9 +2106,11 @@ def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathTo
 			name 11 vap{1}
 			name 12 su
 			name 13 defo
+			6 | 7
+			name 14 bi{0}
 			q
 			
-			""").format(LipidType, SolventType)
+			""".format(LipidType, SolventType)
 
 	f = open('make_index.input','w+')
 	f.write(Utility.RemoveUnwantedIndent(MakeIndex) )

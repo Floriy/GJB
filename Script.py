@@ -39,8 +39,22 @@ TGCC = {}
 #**********************************************#
 #**********************************************#
 
+#Default name for the parameter file.
+ParameterFile = "Parameters.csv"
 
-with open('Parameters.csv','r') as Input_Params:
+ErrorMissingOption = """
+						You need to provide at least one of the following options:
+								--local for local computation
+								--pbs for remote computation on Lynx
+								--tgcc for remote computation on Curie
+						"""
+assert(len(sys.argv) > 1), Utility.RemoveUnwantedIndent(ErrorMissingOption)
+
+	
+if len(sys.argv) >= 2:
+	ParameterFile = sys.argv[2]
+	
+with open(ParameterFile,'r') as Input_Params:
 	inputParamsReader = csv.reader(Input_Params, delimiter=',', skipinitialspace=True)
 	
 	#Variable to keep track of the jobs ordering
@@ -66,7 +80,7 @@ with open('Parameters.csv','r') as Input_Params:
 			jobNumber += 1
 			#Step of the run : EM, NVE, NVT, NPT ...
 			stepNumber = 0
-			Jobs.update( {jobNumber: {row[0].strip(' '): row[1].strip(' '), row[2].strip(' '): int(row[3])} } )
+			Jobs.update( {jobNumber: {row[0].strip(' '): row[1].strip(' '), row[2].strip(' '): int(row[3]), row[4].strip(' '):row[5].strip(' ')} } )
 			continue
 		
 		# Before reading information on each job the program stores the path to the softwares and gromacs default files from Parameters.csv
@@ -407,11 +421,11 @@ if(sys.argv[1] == '--tgcc'):
 						
 						# ADDAPT AUTOMATICALLY TO GROMACS VERSION ?
 						# OR AT LEAST VERIFY THAT THE TWO VERSION INFORMATION
-						# IN Parameters.csv and TGCCinfo.csv ARE CONSISTENT  ?
+						# IN {4} and TGCCinfo.csv ARE CONSISTENT  ?
 						
 						module load {3}
 						
-						""").format(ProjectName,name,TGCC['username'],TGCC['GMXversion'])
+						""").format(ProjectName,name,TGCC['username'],TGCC['GMXversion'],ParameterFile)
 		ScriptFile.write(Utility.RemoveUnwantedIndent(CopyToScratch))
 
 		PrevCmdFiles={}
@@ -503,7 +517,7 @@ if(sys.argv[1] == '--tgcc'):
 					try:
 						CopiedJob = Prepare.CopySample(Jobs, Jobs[sampleNumber], step, PathToDefault)
 						if CopiedJob == -1:
-							raise ValueError("Please Check your Parameters.csv .")
+							raise ValueError("Please Check your "+ParameterFile)
 					except ValueError as error:
 						print(error)
 						sys.exit(1)
@@ -617,7 +631,7 @@ if(sys.argv[1] == '--tgcc'):
 			SoFar.close()
 			TGCCfile = str("""
 						#! /bin/sh -x
-						#MSUB -q {2}      # queue = standard, test, long (in Parameters.csv, key "node")
+						#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
 						#MSUB -n {3}      # total number of cores, 16 cores per nodes (32 logical cores ) (in Parameters.cvs, key "ppn")
 						#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s")
 						#MSUB -r {0}	  # job name (automatically generated)
@@ -654,7 +668,7 @@ if(sys.argv[1] == '--tgcc'):
 						rm -rf ${{MYTMPDIR}}
 						
 						echo "===================== END  JOB $SLURM_JOBID =============================== "
-						""").format(name, TGCC['mail'], TGCC['queue'], Jobs[sampleNumber]['ppn'],TGCC['group'],TGCC['time_s'])
+						""").format(name, TGCC['mail'], TGCC['queue'], Jobs[sampleNumber]['ppn'],TGCC['group'],TGCC['time_s'],ParameterFile)
 			f = open(name+'.ccc_msub','w')
 			f.write( Utility.RemoveUnwantedIndent(TGCCfile) )
 			f.close()
@@ -693,8 +707,7 @@ if(sys.argv[1] == '--tgcc'):
 	#**********************************************#
 	# Copy Parameters.csv to project dir  *****#
 	#**********************************************#
-	sub.call('cp Parameters.csv '+ ProjectName, shell=True)
-
+	sub.call('cp '+ ParameterFile +' '+ ProjectName, shell=True)
 
 
 #*******************************************************************************#
@@ -828,7 +841,7 @@ if(sys.argv[1] == '--pbs'):
 					try:
 						CopiedJob = Prepare.CopySample(Jobs, Jobs[sampleNumber], step, PathToDefault)
 						if CopiedJob == -1:
-							raise ValueError("Please Check your Parameters.csv .")
+							raise ValueError("Please Check your "+ParameterFile)
 					except ValueError as error:
 						print(error)
 						sys.exit(1)
@@ -1024,7 +1037,7 @@ if(sys.argv[1] == '--pbs'):
 	#**********************************************#
 	# Copy Parameters.csv to project dir  *****#
 	#**********************************************#
-	sub.call('cp Parameters.csv '+ ProjectName, shell=True)
+	sub.call('cp '+ ParameterFile +' '+ ProjectName, shell=True)
 
 
 
@@ -1144,7 +1157,7 @@ if(sys.argv[1] == '--local'):
 					try:
 						CopiedJob = Prepare.CopySample(Jobs, Jobs[sampleNumber], step, PathToDefault)
 						if CopiedJob == -1:
-							raise ValueError("Please Check your Parameters.csv .")
+							raise ValueError("Please Check your "+ParameterFile)
 					except ValueError as error:
 						print(error)
 						sys.exit(1)
@@ -1304,4 +1317,4 @@ if(sys.argv[1] == '--local'):
 	#**********************************************#
 	# Copy Parameters.csv to project dir  *****#
 	#**********************************************#
-	sub.call('cp Parameters.csv '+ProjectName,shell=True)
+	sub.call('cp '+ ParameterFile +' '+ ProjectName, shell=True)
