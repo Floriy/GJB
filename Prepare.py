@@ -995,6 +995,20 @@ def InitBilayerWithWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault
 	#==================================================================================
 	Output = str("""{0}.withbox.pdb""").format(System)
 	Index = str("""{0}.ndx""").format(System)
+	
+	ApL = (Sample['LX']*Sample['LY'])/NLM[LipidType]
+	print(Utility.RemoveUnwantedIndent("""
+			================================
+			================================
+			Packmol finished initial input file
+			{0} {1}, {2} {3} with SU{4} {5} and mono{0} {6}
+			box sizes : {7}, {8}, {9}
+			Area per lipid = {10} A**2
+			===============================
+			===============================
+			""".format(LipidType, Sample[LipidType],SolventType, Sample[SolventType],
+				Sample['SU']['Version'],nbSu,NBLIPIDS_MONO,
+				Sample['LX'],Sample['LY'],Sample['LZ'],ApL)))
 	return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
 
 
@@ -1071,9 +1085,9 @@ def InitBilayerWithHole(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault
 		if Sample['DEFO']['Height'] == 'box':
 			L_defo = LZS
 		if Sample['DEFO']['Height'] == 'bilayer':
-			L_defo = LZ2+TMT
+			L_defo = LZ2+TMT+DZ/4.0
 		if Sample['DEFO']['Height'] == 'follow':
-			L_defo = 2*TMT
+			L_defo = 2*TMT+DZ/2.0
 		NbLayers = int(L_defo/float(Sample['DEFO']['DzDefo']))
 		
 		#Defo per Layer
@@ -1465,6 +1479,22 @@ def InitBilayerWithHole(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault
 		
 		Output = str("""{0}.withbox.pdb""").format(System)
 		Index = str("""{0}.ndx""").format(System)
+		
+		
+		ApL = (Sample['LX']*Sample['LY'] - 3.141516*radiusDefo*radiusDefo)/NLM[LipidType]
+		print(Utility.RemoveUnwantedIndent("""
+				================================
+				================================
+				Packmol finished initial input file
+				{0} {1}, {2} {3} with DEFO{4} {5}
+				box sizes : {6}, {7}, {8}
+				Area per lipid = {9} A**2
+				===============================
+				===============================
+				""".format(LipidType, Sample[LipidType],SolventType, Sample[SolventType],
+					Sample['DEFO']['Version'],nbDefo,
+					Sample['LX'],Sample['LY'],Sample['LZ'],ApL)))
+	
 		return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
 	
 	
@@ -1577,13 +1607,13 @@ def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathTo
 		L_defo = Sample['LZ'] - THICKNESS
 	if Sample['DEFO']['Height'] == 'bilayer':
 		#Set the Defo height from the substrate to the top of the bilayer
-		L_defo = LZ2 + TMT - THICKNESS
+		L_defo = LZ2 + TMT - THICKNESS + DZ/4.0
 	if Sample['DEFO']['Height'] == 'mono':
 		#Set the Defo height from the substrate to the top of the monolayer
-		L_defo = LZM + TMT - THICKNESS
+		L_defo = LZM + TMT - THICKNESS + DZ/4.0
 	if Sample['DEFO']['Height'] == 'follow':
 		#Set the Defo height from the bottom of the bilayer to its top
-		L_defo = TMT
+		L_defo = TMT+DZ/4.0
 	
 	NbLayers = int(L_defo/float(Sample['DEFO']['DzDefo']))
 	
@@ -1854,7 +1884,7 @@ def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathTo
 							end structure
 							
 							""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM)
-	
+							
 	#=======================================================================
 	#=======================================================================
 	#=======================================================================
@@ -1950,7 +1980,7 @@ def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathTo
 						fixed {1} {2} {4} 0.0 0.0 0.0
 						radius 0.
 					end structure
-					""".format(DefoXYZ_filename.replace('xyz','pdb'),LXS/2.0, LYS/2.0, LZ2-TMT,LZ2)
+					""".format(DefoXYZ_filename.replace('xyz','pdb'),LXS/2.0, LYS/2.0, LZ2-TMT-DZ/4.0,LZ2)
 		PackmolInput += """
 					structure {0}
 						chain Y
@@ -1959,7 +1989,7 @@ def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathTo
 						fixed {1} {2} {3} 0.0 0.0 0.0
 						radius 0.
 					end structure
-					""".format(DefoXYZ_filename.replace('xyz','pdb'),LXS/2.0, LYS/2.0, LZM)
+					""".format(DefoXYZ_filename.replace('xyz','pdb'),LXS/2.0, LYS/2.0, LZM-DZ/4.0)
 			
 						
 	else:
@@ -2155,6 +2185,22 @@ def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathTo
 	#==================================================================================
 	Output = str("""{0}.withbox.pdb""").format(System)
 	Index = str("""{0}.ndx""").format(System)
+	
+	ApL = (Sample['LX']*Sample['LY'] - 3.141516*radiusDefo*radiusDefo)/NLM[LipidType]
+	print(Utility.RemoveUnwantedIndent("""
+			================================
+			================================
+			Packmol finished initial input file
+			{0} {1}, {2} {3} with DEFO{4} {5}, SU{6} {7} and mono{0} {8}
+			box sizes : {9}, {10}, {11}
+			Area per lipid = {12} A**2
+			===============================
+			===============================
+			""".format(LipidType, Sample[LipidType],SolventType, Sample[SolventType],
+				Sample['DEFO']['Version'],nbDefo,
+				Sample['SU']['Version'],nbSu,
+				NBLIPIDS_MONO,
+				Sample['LX'],Sample['LY'],Sample['LZ'],ApL)))
 	return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
 
 
@@ -2646,7 +2692,7 @@ def TopologyDefoSu(Sample, PathToDefault):
 				lines = []
 				if Head is not 'moleculetype':
 					if Head is not 'atoms':
-						lines.extend([';;;;;;; SU_{0}\n'.format(Sample['DEFO']['Version'])])
+						lines.extend([';;;;;;; DEFO_{0}\n'.format(Sample['DEFO']['Version'])])
 				lines.extend(heading_and_lines[2:])
 				IdefoTopology.update({Head:''.join(lines)})
 	
@@ -3336,23 +3382,37 @@ def WriteMDP(Sample, step, defaultMDP, Version):
 	if 'DEFO' in Sample:
 		OUTPUT.write(defoMdpParams)
 	
-	# Options if DEFO
-	if 'DEFO' in Sample and Sample['TYPE'] == 'BILAYER':
-		if Sample['DEFO']['Height'] == 'follow':
-			if Version.startswith('4'):
-				#finding current lipid used
-				Lipid = ''
-				for lipid in LipidsList:
-					if lipid in Sample:
-						Lipid = lipid
-				OUTPUT.write('pull-group1		= {0}\n'.format(Lipid))
+	# Automatic filling for defo (not done yet as it is not 
+	# really useful ) 
+	if(0): #Currently off as not yet implemented
+		if 'DEFO' in Sample and Sample['TYPE'] == 'BILAYER':
+			Lipid = ''
+			for lipid in LipidsList:
+				if lipid in Sample:
+					Lipid = lipid
+			if Sample['DEFO']['Height'] == 'follow':
+				if 'SU' in Sample:
+					if Version.startswith('4'):
+						#finding current lipid used
+						OUTPUT.write('pull-group1		= {0}\n'.format(Lipid))
+					else:
+						#finding current lipid used
+						pullParams = """
+									pull-ngroups			= 2
+									pull-group1-name			= defoBi
+									pull-group1-pbcatom			= 0
+									
+									pull-group2-name			= defoMono
+									pull-group2-pbcatom = 0
+									
+									pull-ncoords			= 2
+									pull-coord1-groups
+									pull-coord2-groups			= 0 2
+									""".format()
+						OUTPUT.write('pull-group1-name		= {0}\n'.format(Lipid))
+				
 			else:
-				#finding current lipid used
-				Lipid = ''
-				for lipid in LipidsList:
-					if lipid in Sample:
-						Lipid = lipid
-				OUTPUT.write('pull-group1-name		= {0}\n'.format(Lipid))
+				pass
 		
 	# Writes parameters related to Su at the end
 	if 'SU' in Sample:
