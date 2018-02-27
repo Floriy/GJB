@@ -457,17 +457,6 @@ def InitFreeBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, pa
 		cmd = str("""{0}genconf -f {1}.withbox.pdb -nbox {2} {2} 1 -o {1}.withbox.pdb""").format(GROMACS_LOC_prefixPath, System, NbMult)
 		sub.call(cmd, shell=True)
 	## ======================================================================
-	ApL = Sample['LX']*Sample['LY']/NLM[LipidType]
-	print(Utility.RemoveUnwantedIndent(str("""
-			================================
-			================================
-			Packmol finished initial input file
-			{0} {1}, {2} {3}
-			box sizes : {4}, {5}, {6}
-			Area per lipid = {7} A**2
-			===============================
-			===============================
-			""").format(LipidType, Sample[LipidType],SolventType, Sample[SolventType], Sample['LX'],Sample['LY'],Sample['LZ'],ApL)))
 
 	#==================================================================================
 	# the topology file
@@ -497,8 +486,27 @@ def InitFreeBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, pa
 	#==================================================================================
 	# the index file
 	#==================================================================================
+	MakeIndex = str("""
+				chain A
+				chain B
+				chain C
+				chain D
+				name 4 bottom{0}
+				name 5 top{0}
+				name 6 bottom{1}
+				name 7 top{1}
+				4 | 5
+				name 8 bilayer
+				q
+				
+				""").format(LipidType,SolventType)
 
-	cmd = str("""echo q | {0}make_ndx -f {1}.withbox.pdb -o {1}.ndx""").format(GROMACS_LOC_prefixPath,System)
+	f = open('make_index.input','w+')
+	f.write(Utility.RemoveUnwantedIndent(MakeIndex) )
+	f.close()
+	
+	cmd = str("""{0}make_ndx -f {1}.withbox.pdb -o {1}.ndx < make_index.input""").format(GROMACS_LOC_prefixPath,
+																					System)
 	sub.call(cmd, shell=True)
 
 	#==================================================================================
@@ -506,6 +514,18 @@ def InitFreeBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, pa
 	#==================================================================================
 	Output = str("""{0}.withbox.pdb""").format(System)
 	Index = str("""{0}.ndx""").format(System)
+	
+	ApL = Sample['LX']*Sample['LY']/NLM[LipidType]
+	print(Utility.RemoveUnwantedIndent(str("""
+			================================
+			================================
+			Packmol finished initial input file
+			{0} {1}, {2} {3}
+			box sizes : {4}, {5}, {6}
+			Area per lipid = {7} A**2
+			===============================
+			===============================
+			""").format(LipidType, Sample[LipidType],SolventType, Sample[SolventType], Sample['LX'],Sample['LY'],Sample['LZ'],ApL)))
 	return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
 
 
@@ -946,7 +966,7 @@ def InitBilayerWithWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault
 			name 10 vap{1}
 			name 11 su
 			5 | 6
-			name 12 bi{0}
+			name 12 bilayer
 			q
 			
 			""").format(LipidType, SolventType)
@@ -1119,8 +1139,8 @@ def InitBilayerWithHole(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault
 		
 		for i in range(0, NbLayers):
 			ZcurrentDefo = float(Sample['DEFO']['DzDefo'])*i
-			for i in np.arange(0., 360., 360./(defoPerLayer-1)):
-				angle = math.radians(i)
+			for j in np.arange(0., 360., 360./(defoPerLayer-1)):
+				angle = math.radians(j)
 				XYZout.write(Utility.RemoveUnwantedIndent(
 					"""
 					DEF  {0}  {1}  {2} \n
@@ -1437,6 +1457,8 @@ def InitBilayerWithHole(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault
 				name 7 bottom{1}
 				name 8 top{1}
 				name 9 defo
+				5 | 6
+				name 10 bilayer
 				q
 				
 				""").format(LipidType,SolventType)
@@ -1645,8 +1667,8 @@ def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathTo
 	
 	for i in range(0, NbLayers):
 		ZcurrentDefo = float(Sample['DEFO']['DzDefo'])*i
-		for i in np.arange(0., 360., 360./(defoPerLayer-1)):
-			angle = math.radians(i)
+		for j in np.arange(0., 360., 360./(defoPerLayer-1)):
+			angle = math.radians(j)
 			XYZout.write(Utility.RemoveUnwantedIndent(
 				"""
 				DEF  {0}  {1}  {2} \n
@@ -2114,7 +2136,7 @@ def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathTo
 			name 13 defoBi
 			name 14 defoMono
 			6 | 7
-			name 15 bi{0}
+			name 15 bilayer
 			q
 			
 			""".format(LipidType, SolventType)
@@ -2137,7 +2159,7 @@ def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathTo
 			name 12 su
 			name 13 defo
 			6 | 7
-			name 14 bi{0}
+			name 14 bilayer
 			q
 			
 			""".format(LipidType, SolventType)
