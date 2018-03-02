@@ -1,3 +1,6 @@
-G2016,nwall,wall-type,wall-density,posres
-,2,9-3,16,off
-G4,,,,
+NONE,,,,,,,,,,,
+,,,,,,,,,,,
+FREEZE,freezegrps,freezedim,,,,,,,,,
+,su,Y Y Y,,,,,,,,,
+P4,nwall,wall-type,wall-density,test4su,tau-t,ref-t,,posres,FCX,FCY,FCZ
+,2,9-3,770545.5,1E-05,10,323,,on,200,300,500

@@ -85,8 +85,9 @@ HTMLfoot = str("""
 #*******************************************#
 #*******************************************#
 
-ProjectName = sys.argv[2] #Name of the main directory
-Parameters = sys.argv[3:] #Name of the runs to study
+OrderParam = sys.argv[2] #if number use this number for P2 computation if -- P2 not computed
+ProjectName = sys.argv[3] #Name of the main directory
+Parameters = sys.argv[4:] #Name of the runs to study
 
 #List for word completion in the interactive part
 WordsForCompletion = ['all','-run','-avg','exit','-sameplot']
@@ -111,7 +112,8 @@ print(RunsToStudy)
 with Utility.cd(ProjectName):
 
 	#Finds Gromacs path#
-	with open('Parameters.csv','r') as Input_Params:
+	ParamFile = glob.glob('*Param*.csv')[0]
+	with open(ParamFile,'r') as Input_Params:
 			Reader = csv.reader(Input_Params, delimiter=',', quotechar='#',skipinitialspace=True)
 			for row in Reader:
 				if(row[0] == 'GROMACS_LOC'):
@@ -317,17 +319,17 @@ with Utility.cd(ProjectName):
 					f_out = open('../Analysis/'+OutputAvg,'wb+')
 					f_out.write(g_energyOut)
 					f_out.close()
-					
-					if 'NPT' in RF and 'BILAYER' in RF:
-						trajfiles = [trjf for trjf in os.listdir(os.getcwd()) if trjf == RF.replace('edr','xtc')]
-						if trajfiles:
-							RunName = trajfiles[0].rsplit('-')[1].split('.xtc')[0]
-							for lipid in LipidsList:
-								if lipid in DATA[samplename]['Mol']:
-									Nblipids = DATA[samplename]['Mol'][lipid]
-									Utility.do_order(trajfiles[0],RunsToStudy[RunName], 10 ,[0,0,1] , Nblipids, lipid, GROMACS_LOC_prefixPath)
-									shutil.copyfile('order.dat', """../Analysis/{0}__{1}_order.dat""".format(samplename+'_'+RunName, lipid))
-							os.remove('order.dat')
+					if OrderParam != '--':
+						if 'NPT' in RF and 'BILAYER' in RF:
+							trajfiles = [trjf for trjf in os.listdir(os.getcwd()) if trjf == RF.replace('edr','xtc')]
+							if trajfiles:
+								RunName = trajfiles[0].rsplit('-')[1].split('.xtc')[0]
+								for lipid in LipidsList:
+									if lipid in DATA[samplename]['Mol']:
+										Nblipids = DATA[samplename]['Mol'][lipid]
+										Utility.do_order(trajfiles[0],RunsToStudy[RunName], OrderParam ,[0,0,1] , Nblipids, lipid, GROMACS_LOC_prefixPath)
+										shutil.copyfile('order.dat', """../Analysis/{0}__{1}_order.dat""".format(samplename+'_'+RunName, lipid))
+								os.remove('order.dat')
 							
 			
 			#for RF in RunsFound:
@@ -411,33 +413,34 @@ with Utility.cd(ProjectName):
 			os.remove('temp')
 		
 		#Plot P2 the order parameter
-		for ODF in OrderDATfiles:
-			P2fig = plt.figure(num= 1, figsize= [12.80,7.20],dpi=100, facecolor='w')
-			G_P2 = P2fig.add_subplot(111)
-			
-			Xaxislabels = []
-			Yaxis = []
-			
-			with open(ODF) as data:
-				Xaxislabels = data.readline().split()[1:]
-				for line in data:
-					if 'average' in line and 'order' not in line:
-						Yaxis = line.split()[1:]
-						print(line)
-						
-			Xaxis = [x for x in range(0,2*len(Xaxislabels),2)]
-			print(Yaxis)
-			G_P2.plot(Xaxis, Yaxis)
-			G_P2.set_yscale('linear')
-			G_P2.set_xticks(Xaxis)
-			G_P2.set_xticklabels(Xaxislabels, rotation='vertical', fontsize=16)
-			G_P2.set_xlabel('Bond')
-			G_P2.set_ylabel('$P_{2}$',rotation=0, fontsize=16)
-			G_P2.yaxis.set_label_coords(0, 1.01, transform=None)
-			plt.tight_layout()
-			plt.savefig(ODF.replace('dat','eps'),format='eps', dpi=100)
-			
-			P2fig.clf()
+		if OrderParam != '--':
+			for ODF in OrderDATfiles:
+				P2fig = plt.figure(num= 1, figsize= [12.80,7.20],dpi=100, facecolor='w')
+				G_P2 = P2fig.add_subplot(111)
+				
+				Xaxislabels = []
+				Yaxis = []
+				
+				with open(ODF) as data:
+					Xaxislabels = data.readline().split()[1:]
+					for line in data:
+						if 'average' in line and 'order' not in line:
+							Yaxis = line.split()[1:]
+							print(line)
+							
+				Xaxis = [x for x in range(0,2*len(Xaxislabels),2)]
+				print(Yaxis)
+				G_P2.plot(Xaxis, Yaxis)
+				G_P2.set_yscale('linear')
+				G_P2.set_xticks(Xaxis)
+				G_P2.set_xticklabels(Xaxislabels, rotation='vertical', fontsize=16)
+				G_P2.set_xlabel('Bond')
+				G_P2.set_ylabel('$P_{2}$',rotation=0, fontsize=16)
+				G_P2.yaxis.set_label_coords(0, 1.01, transform=None)
+				plt.tight_layout()
+				plt.savefig(ODF.replace('dat','eps'),format='eps', dpi=100)
+				
+				P2fig.clf()
 
 
 
