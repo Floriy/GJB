@@ -88,12 +88,15 @@ with open(ParameterFile,'r') as Input_Params:
 			if row[0] == 'GROMACS_LOC':
 				Softwares.update({row[0].strip(' '): row[1].strip(' '), row[2].strip(' '): row[3].strip(' ')})
 				continue
+			
 			if row[0] == 'VMD':
 				Softwares.update({row[0].strip(' '): row[1].strip(' ')})
 				continue
+			
 			if row[0] == 'PACKMOL':
 				Softwares.update({row[0].strip(' '): row[1].strip(' ')})
 				continue
+			
 			if row[0] == 'GROMACS_DEFAULT':
 				PathToDefault = row[1].strip(' ')
 		
@@ -120,16 +123,21 @@ with open(ParameterFile,'r') as Input_Params:
 			# For a general thermostat parameters. 
 			if row[0] == 'THERMOSTAT':
 				Jobs[jobNumber].update({ 'THERMOSTAT': {}})
+				
 				for param in range(1, len(row), 2):
 					if row[param]:
 						paramValue = row[param+1].strip(' ')
+						
 						if(Utility.is_number(paramValue)):
 							if('.' in ParameterValue or not float(ParameterValue).is_integer() ):
 								Jobs[jobNumber]['BAROSTAT'].update( {row[param].strip(' '): float(paramValue) } )
+								
 							else:
 								Jobs[jobNumber]['BAROSTAT'].update( {row[param].strip(' '): int(paramValue) } )
+								
 						else:
 							Jobs[jobNumber]['BAROSTAT'].update( {row[param].strip(' '): paramValue })
+							
 					else:
 						break
 				continue
@@ -137,16 +145,21 @@ with open(ParameterFile,'r') as Input_Params:
 			# For general barostat parameters.
 			if row[0] == 'BAROSTAT':
 				Jobs[jobNumber].update({ 'BAROSTAT': {}})
+				
 				for param in range(1, len(row), 2):
 					if row[param]:
 						paramValue = row[param+1].strip(' ')
+						
 						if(Utility.is_number(paramValue)):
 							if('.' in ParameterValue or not float(ParameterValue).is_integer() ):
 								Jobs[jobNumber]['BAROSTAT'].update( {row[param].strip(' '): float(paramValue) } )
+								
 							else:
 								Jobs[jobNumber]['BAROSTAT'].update( {row[param].strip(' '): int(paramValue) } )
+								
 						else:
 							Jobs[jobNumber]['BAROSTAT'].update( {row[param].strip(' '): paramValue })
+							
 					else:
 						break
 				continue
@@ -162,10 +175,13 @@ with open(ParameterFile,'r') as Input_Params:
 				for dimension in range(0, len(row), 2):
 					if row[dimension]:
 						dimValue = row[dimension+1].strip(' ')
+						
 						if Utility.is_number(dimValue):
 							Jobs[jobNumber].update( {row[dimension].strip(' '): float(dimValue) })
+							
 						else:
 							Jobs[jobNumber].update( {row[dimension].strip(' '): dimValue })
+							
 					else:
 						break
 				
@@ -179,6 +195,7 @@ with open(ParameterFile,'r') as Input_Params:
 					if row[paramDefo]:
 						paramDefoVal = row[paramDefo+1].strip(' ')
 						Jobs[jobNumber]['DEFO'].update( {row[paramDefo].strip(' '): paramDefoVal })
+						
 					else:
 						break
 					
@@ -186,7 +203,12 @@ with open(ParameterFile,'r') as Input_Params:
 					defoParam = csv.reader(Defo_Params, delimiter=',', skipinitialspace=True)
 					Jobs[jobNumber]['DEFO'].update( { 'presets' : {} } )
 					
-					for row in defoParam: 
+					for row in defoParam:
+						#Skip empty rows 
+						test_row = list(filter(None, row))
+						#Skip lines starting with '#' or empty lines
+						if '#' in row[0] or not test_row: continue
+					
 						firstCol = row[0].strip(' ')
 						if firstCol:
 							name = firstCol
@@ -207,8 +229,10 @@ with open(ParameterFile,'r') as Input_Params:
 									if Utility.is_number(paramValue):
 										if('.' in paramValue or not float(paramValue).is_integer() ):
 											Jobs[jobNumber]['DEFO']['presets'][name][param] = float(paramValue)
+											
 										else:
 											Jobs[jobNumber]['DEFO']['presets'][name][param] = int(paramValue)
+											
 									else:
 										Jobs[jobNumber]['DEFO']['presets'][name][param] = paramValue.strip(' ')
 				continue
@@ -218,16 +242,26 @@ with open(ParameterFile,'r') as Input_Params:
 				Jobs[jobNumber].update({ 'SU': {}})
 				
 				for paramSu in range(1, len(row), 2):
+					
 					if row[paramSu]:
 						paramSuVal = row[paramSu+1].strip(' ')
 						Jobs[jobNumber]['SU'].update( {row[paramSu].strip(' '): paramSuVal })
+						
 					else:
 						break
 					
 				with open(PathToDefault+'/SU/Parameters_su.csv','r') as Su_Params:
+					
 					suParam = csv.reader(Su_Params, delimiter=',', skipinitialspace=True)
 					Jobs[jobNumber]['SU'].update( { 'presets' : {} } )
+					
 					for row in suParam: 
+						#Skip empty rows 
+						test_row = list(filter(None, row))
+						
+						#Skip lines starting with '#' or empty lines
+						if '#' in row[0] or not test_row: continue
+					
 						firstCol = row[0].strip(' ')
 						if firstCol:
 							name = firstCol
@@ -285,7 +319,7 @@ with open(ParameterFile,'r') as Input_Params:
 				continue
 			
 			#Job protocol. Associates each parameter with its value based on the index
-			if(row[0] == ''):
+			if(row[0].strip() == ''):
 				stepNb = str(stepNumber-1)
 				for param, paramValue in Jobs[jobNumber]['PROTOCOL'][stepNb].items():
 					if param != 'stepType':
@@ -536,7 +570,7 @@ if(sys.argv[1] == '--tgcc'):
 					Comment = str("""#Energy Minimization using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}_out.gro \n\n""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['OUTPUT'], PrevCmdFiles['SYSTEM'], Jobs[sampleNumber]['JOBNUM'])
 					ScriptFile.write(Comment)
 
-					cmd = str("""gmx_mpi grompp -f {1}.mdp -po {2}-{1}_out.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} &> grompp_out/grompp_{5}_{1}.output\n\n""").format(GROMACS_REM_prefixPath, Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['SYSTEM'], PrevCmdFiles['OUTPUT'], PrevCmdFiles['INDEX'],Jobs[sampleNumber]['JOBNUM'])
+					cmd = str("""gmx_mpi grompp {7} -f {1}.mdp -po {2}-{1}_out.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} &> grompp_out/grompp_{5}_{1}.output\n\n""").format(GROMACS_REM_prefixPath, Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['SYSTEM'], PrevCmdFiles['OUTPUT'], PrevCmdFiles['INDEX'],Jobs[sampleNumber]['JOBNUM'])
 					ScriptFile.write(cmd)
 
 					cmd = str("""ccc_mprun gmx_mpi mdrun {4} -deffnm {2}_{3}-{1} -c {2}_{3}-{1}_out.gro &> mdrun_out/mdrun_{3}_{1}.output \n\n""").format(GROMACS_REM_prefixPath, Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], PrevCmdFiles['SYSTEM'], Jobs[sampleNumber]['JOBNUM'], Jobs[sampleNumber]['MDRUN_OPT'])

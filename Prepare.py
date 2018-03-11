@@ -3567,11 +3567,11 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 					DEFB 1
 					
 					[atoms]
-					;id     type     resnr    residu  atom    cgnr    charge
+					;id     type     resnr    residue  atom    cgnr    charge   mass
 					
 					""")
 	for defnb in DefoTotal:
-		TopoDefo += """ {0}     DEF     1    DEFB    DEF     {0}     0\n""".format(defnb)
+		TopoDefo += """ {0}     DEF     1    DEFB    DEF     {0}     0      {1}\n""".format(defnb, Sample['DEFO']['Mass'])
 		PosresDefo += """ {0}    1     FCX   FCY   FCZ\n""".format(defnb)
 	
 	
@@ -3583,7 +3583,7 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 				TopoDefo += Utility.RemoveUnwantedIndent("""
 							
 						[bonds]
-						; i j   funct   length  force.c.
+						; i j func length force
 						
 						""")
 				
@@ -3597,33 +3597,106 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 						nextDEF = DEF + 1
 						if DEF == DefoOutside[k]:
 							nextDEF = DefoOutside[j]
-						TopoDefo += """ {0} {1}   1       {2}    {3}\n""".format(DEF, nextDEF,
-															lengthBondP, Sample['DEFO']['FbondP'])
+						TopoDefo += """ {0} {1}   6   {2}  {3}\n""".format(DEF, nextDEF,
+															lengthBondP,Sample['DEFO']['FbondP'])
 						
 				#Set the bonds inside the layer
-				lengthBondPIn = round(0.05*float(Sample['DEFO']['Radius']),2)
+				lengthBondPIn = round(0.1*float(Sample['DEFO']['Radius']),2)
 				for i,DEFC in zip(range(0, NbLayers), DefoInside):
 					j = i*(defoPerLayer-1)
 					k = j + defoPerLayer-2
 					for DEF in DefoOutside[j:k+1]:
-						TopoDefo += """ {0} {1}   1       {2}    {3}\n""".format(DEFC, DEF,
-															lengthBondPIn, Sample['DEFO']['FbondP'])
+						TopoDefo += """ {0} {1}   6   {2}  {3}\n""".format(DEF, DEFC,
+															lengthBondPIn,Sample['DEFO']['FbondP'])
 						
 				#Set the bonds along normal to the layer
 				#Distance in z [nm] (thus the 0.1 prefactor)
-				lenghtBondN = round(0.1*float(Sample['DEFO']['DzDefo']),2)
+				lengthBondN = round(0.1*float(Sample['DEFO']['DzDefo']),2)
 				
 				for DEF in DefoTotal:
 					DEFAbove = DEF + defoPerLayer
 					if DEFAbove not in DefoTotal:
 						break
-					TopoDefo += """ {0} {1}   1       {2}    {3}\n""".format(DEF,DEFAbove,
-															lenghtBondN, Sample['DEFO']['FbondN'])
+					TopoDefo += """ {0} {1}   6   {2}  {3}\n""".format(DEF, DEFAbove,
+															lengthBondN,Sample['DEFO']['FbondP'])
 					
 		elif Sample['DEFO']['Constraints'] == 'angles':
 			pass
-		elif Sample['DEFO']['Constraints'] == 'bond&angles':
-			pass
+		elif Sample['DEFO']['Constraints'] == 'bond&angle':
+			TopoDefo += Utility.RemoveUnwantedIndent("""
+							
+						[bonds]
+						; i j func length force
+						
+						""")
+				
+			#Set the bonds at the edges of the layer
+			# 0.2 prefactor as martini needs [nm]
+			TopoDefo +="\n;In-plane bonds (outer-outer-vertices)\n"
+			lengthBondP = round(0.2*float(Sample['DEFO']['Radius'])*math.sin( math.pi/float(defoPerLayer-1) ),2)
+			for i in range(0, NbLayers):
+				j = i*(defoPerLayer-1)
+				k = j + defoPerLayer-2
+				for DEF in DefoOutside[j:k+1]:
+					nextDEF = DEF + 1
+					if DEF == DefoOutside[k]:
+						nextDEF = DefoOutside[j]
+					TopoDefo += """ {0} {1}   6   {2}  {3}\n""".format(DEF, nextDEF,
+														lengthBondP,Sample['DEFO']['FbondP'])
+					
+			#Set the bonds inside the layer
+			TopoDefo +="\n;In-plane bonds (center-to-outer-vertices)\n"
+			lengthBondPIn = round(0.1*float(Sample['DEFO']['Radius']),2)
+			for i,DEFC in zip(range(0, NbLayers), DefoInside):
+				j = i*(defoPerLayer-1)
+				k = j + defoPerLayer-2
+				for DEF in DefoOutside[j:k+1]:
+					TopoDefo += """ {0} {1}   6   {2}  {3}\n""".format(DEF, DEFC,
+														lengthBondPIn,Sample['DEFO']['FbondP'])
+					
+			#Set the bonds along normal to the layer
+			#Distance in z [nm] (thus the 0.1 prefactor)
+			TopoDefo +="\n;Out-of-plane bonds\n"
+			lengthBondN = round(0.1*float(Sample['DEFO']['DzDefo']),2)
+			
+			for DEF in DefoTotal:
+				DEFAbove = DEF + defoPerLayer
+				if DEFAbove not in DefoTotal:
+					break
+				TopoDefo += """ {0} {1}   6   {2}  {3}\n""".format(DEF, DEFAbove,
+														lengthBondN,Sample['DEFO']['FbondP'])
+			
+			TopoDefo += Utility.RemoveUnwantedIndent("""
+						
+					[angles]
+					; i j k  angle   force
+					
+					""")
+			#Set the angles in plane
+			TopoDefo +="\n;In-plane angles\n"
+			angle = 360./(defoPerLayer-1)
+			for i,DEFC in zip(range(0, NbLayers), DefoInside):
+				j = i*(defoPerLayer-1)
+				k = j + defoPerLayer-2
+				for DEF in DefoOutside[j:k+1]:
+					nextDEF = DEF + 1
+					if DEF == DefoOutside[k]:
+						nextDEF = DefoOutside[j]
+					TopoDefo += """ {0} {1} {2}   1   {3}  {4}\n""".format(DEF, DEFC, nextDEF,
+														angle, Sample['DEFO']['FangleP'])
+					
+			#Set the angles out-of-plane
+			TopoDefo +="\n;Out-of-plane angles\n"
+			angleN = 90.
+			for i,DEFC in zip(range(0, NbLayers), DefoInside):
+				j = i*(defoPerLayer-1)
+				k = j + defoPerLayer-2
+				for DEF in DefoOutside[j:k+1]:
+					DEFAbove = DEF + defoPerLayer
+					if DEFAbove not in DefoTotal:
+						break
+					TopoDefo += """ {1} {0} {2}   1   90.  {3}\n""".format(DEF, DEFC, DEFAbove,
+														Sample['DEFO']['FangleN'])
 		else:
 			pass
 		
