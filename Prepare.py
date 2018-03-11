@@ -3597,8 +3597,10 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 						nextDEF = DEF + 1
 						if DEF == DefoOutside[k]:
 							nextDEF = DefoOutside[j]
-						TopoDefo += """ {0} {1}   6   {2}  {3}\n""".format(DEF, nextDEF,
-															lengthBondP,Sample['DEFO']['FbondP'])
+						TopoDefo += """ {0} {1}   {2}   {3}  {4}\n""".format(DEF, nextDEF, 
+                                                                                                    Sample['DEFO']['FtypeBond'],
+                                                                                                    lengthBondP,
+                                                                                                    Sample['DEFO']['FbondP'])
 						
 				#Set the bonds inside the layer
 				lengthBondPIn = round(0.1*float(Sample['DEFO']['Radius']),2)
@@ -3641,9 +3643,10 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 					nextDEF = DEF + 1
 					if DEF == DefoOutside[k]:
 						nextDEF = DefoOutside[j]
-					TopoDefo += """ {0} {1}   6   {2}  {3}\n""".format(DEF, nextDEF,
-														lengthBondP,Sample['DEFO']['FbondP'])
-					
+					TopoDefo += """ {0} {1}   {2}   {3}  {4}\n""".format(DEF, nextDEF, 
+                                                                                                    Sample['DEFO']['FtypeBond'],
+                                                                                                    lengthBondP,
+                                                                                                    Sample['DEFO']['FbondP'])					
 			#Set the bonds inside the layer
 			TopoDefo +="\n;In-plane bonds (center-to-outer-vertices)\n"
 			lengthBondPIn = round(0.1*float(Sample['DEFO']['Radius']),2)
@@ -3651,8 +3654,8 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 				j = i*(defoPerLayer-1)
 				k = j + defoPerLayer-2
 				for DEF in DefoOutside[j:k+1]:
-					TopoDefo += """ {0} {1}   6   {2}  {3}\n""".format(DEF, DEFC,
-														lengthBondPIn,Sample['DEFO']['FbondP'])
+					TopoDefo += """ {0} {1}  {2}  {3}  {4}\n""".format(DEF, DEFC, Sample['DEFO']['FtypeBond'],
+									    		lengthBondPIn, Sample['DEFO']['FbondP'])
 					
 			#Set the bonds along normal to the layer
 			#Distance in z [nm] (thus the 0.1 prefactor)
@@ -3663,8 +3666,8 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 				DEFAbove = DEF + defoPerLayer
 				if DEFAbove not in DefoTotal:
 					break
-				TopoDefo += """ {0} {1}   6   {2}  {3}\n""".format(DEF, DEFAbove,
-														lengthBondN,Sample['DEFO']['FbondP'])
+				TopoDefo += """ {0} {1} {2}  {3}  {4}\n""".format(DEF, DEFAbove, Sample['DEFO']['FtypeBond'],
+							    			lengthBondN, Sample['DEFO']['FbondP'])
 			
 			TopoDefo += Utility.RemoveUnwantedIndent("""
 						
@@ -3673,7 +3676,7 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 					
 					""")
 			#Set the angles in plane
-			TopoDefo +="\n;In-plane angles\n"
+			TopoDefo +="\n;In-plane angles  DEF-Center-nextDEF \n"
 			angle = 360./(defoPerLayer-1)
 			for i,DEFC in zip(range(0, NbLayers), DefoInside):
 				j = i*(defoPerLayer-1)
@@ -3682,11 +3685,38 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 					nextDEF = DEF + 1
 					if DEF == DefoOutside[k]:
 						nextDEF = DefoOutside[j]
-					TopoDefo += """ {0} {1} {2}   1   {3}  {4}\n""".format(DEF, DEFC, nextDEF,
-														angle, Sample['DEFO']['FangleP'])
-					
+					TopoDefo += """ {0} {1} {2}   {3}   {4}  {5}\n""".format(DEF, DEFC, nextDEF,
+												Sample['DEFO']['FtypeAngle'],
+                                                                                                angle, 
+                                                                                                Sample['DEFO']['FangleP'])
+                        
+			TopoDefo +="\n;In-plane angles Center-DEF-nextDEF\n"
+                        outAngle = 0.5*(180. - angle) 
+                        for i,DEFC in zip(range(0, NbLayers), DefoInside):
+				j = i*(defoPerLayer-1)
+				k = j + defoPerLayer-2
+				for DEF in DefoOutside[j:k+1]:
+					nextDEF = DEF + 1
+					if DEF == DefoOutside[k]:
+						nextDEF = DefoOutside[j]
+		                        TopoDefo += """ {1} {0} {2}   {3}   {4}  {5}\n""".format(DEF, DEFC, nextDEF,
+				        							Sample['DEFO']['FtypeAngle'],
+                                                                                                outAngle, 
+                                                                                                Sample['DEFO']['FangleP'])	
+                        TopoDefo +="\n;In-plane angles Center-nextDEF-DEF\n"
+                        for i,DEFC in zip(range(0, NbLayers), DefoInside):
+				j = i*(defoPerLayer-1)
+				k = j + defoPerLayer-2
+				for DEF in DefoOutside[j:k+1]:
+					nextDEF = DEF + 1
+					if DEF == DefoOutside[k]:
+						nextDEF = DefoOutside[j]
+                                        TopoDefo += """ {1} {0} {2}   {3}   {4}  {5}\n""".format(DEF, DEFC, nextDEF,
+												Sample['DEFO']['FtypeAngle'],
+                                                                                                outAngle, 
+                                                                                                Sample['DEFO']['FangleP'])		        
 			#Set the angles out-of-plane
-			TopoDefo +="\n;Out-of-plane angles\n"
+			TopoDefo +="\n;Out-of-plane angles Center-DEF-DEFAbove\n"
 			angleN = 90.
 			for i,DEFC in zip(range(0, NbLayers), DefoInside):
 				j = i*(defoPerLayer-1)
@@ -3695,8 +3725,21 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 					DEFAbove = DEF + defoPerLayer
 					if DEFAbove not in DefoTotal:
 						break
-					TopoDefo += """ {1} {0} {2}   1   90.  {3}\n""".format(DEF, DEFC, DEFAbove,
-														Sample['DEFO']['FangleN'])
+					TopoDefo += """ {1} {0} {2}   {3}   90.  {4}\n""".format(DEF, DEFC, DEFAbove,
+												 Sample['DEFO']['FtypeAngle'],
+                                                                                                 Sample['DEFO']['FangleN'])
+                                        
+			TopoDefo +="\n;Out-of-plane angles DEF-Center-DEFCAbove\n"
+			for i,DEFC in zip(range(0, NbLayers), DefoInside):
+				j = i*(defoPerLayer-1)
+				k = j + defoPerLayer-2
+				DEFCAbove = DEFC + defoPerLayer
+				if DEFCAbove not in DefoInside:
+		        		break
+				for DEF in DefoOutside[j:k+1]:
+                                        TopoDefo += """ {0} {1} {2}   {3}   90.  {4}\n""".format(DEF, DEFC, DEFCAbove,
+												 Sample['DEFO']['FtypeAngle'],
+                                                                                                 Sample['DEFO']['FangleN'])
 		else:
 			pass
 		
