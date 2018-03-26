@@ -3503,7 +3503,7 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 	DefoTotal = []
 	Defonumb = 0
 	
-	if defoPerLayer != 0:
+	if defoPerLayer != 1:
 		for i in range(0, NbLayers):
 			ZcurrentDefo = float(Sample['DEFO']['DzDefo'])*i
 			for j in np.arange(0., 360., 360./(defoPerLayer-1)):
