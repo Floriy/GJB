@@ -3524,6 +3524,7 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 			DefoInside.append(Defonumb)
 	else:
 		for i in range(0, NbLayers):
+			ZcurrentDefo = float(Sample['DEFO']['DzDefo'])*i
 			XYZout.write(Utility.RemoveUnwantedIndent(
 					"""
 					DEF  0.0 0.0 {0} \n
