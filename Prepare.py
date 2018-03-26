@@ -181,14 +181,14 @@ def InitFreeBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, pa
 	# we cut the sample till we get a reasonnable amount
 	# of lipis per monolayer for packmol
 	NbMult = 0
-	NeedToExpand = False
-	while NLM[LipidType] > 512:
-		NLM[LipidType] /= 2
-		NSOLM[SolventType] /= 2
-		NbMult += 1
-		#diviser boîte
-		NeedToExpand = True
-		print(NLM[LipidType])
+	#NeedToExpand = False
+	#while NLM[LipidType] > 512:
+		#NLM[LipidType] /= 2
+		#NSOLM[SolventType] /= 2
+		#NbMult += 1
+		##diviser boîte
+		#NeedToExpand = True
+		#print(NLM[LipidType])
 	print(LipidType)
 	#==================================================================================
 	# creating the initial bilayer (lipids + water) using packmol
@@ -453,9 +453,9 @@ def InitFreeBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, pa
 	#===============================================================================
 	# For big samples
 	#===============================================================================
-	if NeedToExpand:
-		cmd = str("""{0}genconf -f {1}.withbox.pdb -nbox {2} {2} 1 -o {1}.withbox.pdb""").format(GROMACS_LOC_prefixPath, System, NbMult)
-		sub.call(cmd, shell=True)
+	#if NeedToExpand:
+		#cmd = str("""{0}genconf -f {1}.withbox.pdb -nbox {2} {2} 1 -o {1}.withbox.pdb""").format(GROMACS_LOC_prefixPath, System, NbMult)
+		#sub.call(cmd, shell=True)
 	## ======================================================================
 
 	#==================================================================================
@@ -1991,6 +1991,8 @@ def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathTo
 			name 14 defoMono
 			6 | 7
 			name 15 bilayer
+			13 | 14
+			name 16 defo
 			q
 			
 			""".format(LipidType, SolventType)
@@ -3166,7 +3168,7 @@ def WriteMDP(Sample, step, defaultMDP, Version):
 		defoMdpParams = '\n\n ;;; Parameters for Defo ;;; \n\n'
 		Egrps += 'DEFO'
 		if 'ref-t' in defoPresetForStep or 'tau-t' in defoPresetForStep: 
-			Tcgrps += ' DEFO'
+			Tcgrps += 'defo'
 		
 		for defoParam, defoParamValue in defoPresetForStep.items():
 			if defoParam not in ('posres','FCX','FCY','FCZ'):
@@ -3501,24 +3503,34 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 	DefoTotal = []
 	Defonumb = 0
 	
-	for i in range(0, NbLayers):
-		ZcurrentDefo = float(Sample['DEFO']['DzDefo'])*i
-		for j in np.arange(0., 360., 360./(defoPerLayer-1)):
-			angle = math.radians(j)
+	if defoPerLayer != 0:
+		for i in range(0, NbLayers):
+			ZcurrentDefo = float(Sample['DEFO']['DzDefo'])*i
+			for j in np.arange(0., 360., 360./(defoPerLayer-1)):
+				angle = math.radians(j)
+				XYZout.write(Utility.RemoveUnwantedIndent(
+					"""
+					DEF  {0}  {1}  {2} \n
+					""".format(radiusDefo*math.cos(angle), radiusDefo*math.sin(angle), ZcurrentDefo)
+					))
+				Defonumb += 1
+				DefoOutside.append(Defonumb)
 			XYZout.write(Utility.RemoveUnwantedIndent(
-				"""
-				DEF  {0}  {1}  {2} \n
-				""".format(radiusDefo*math.cos(angle), radiusDefo*math.sin(angle), ZcurrentDefo)
-				))
+					"""
+					DEF  0.0 0.0 {0} \n
+					""".format(ZcurrentDefo)
+					))
 			Defonumb += 1
-			DefoOutside.append(Defonumb)
-		XYZout.write(Utility.RemoveUnwantedIndent(
-				"""
-				DEF  0.0 0.0 {0} \n
-				""".format(ZcurrentDefo)
-				))
-		Defonumb += 1
-		DefoInside.append(Defonumb)
+			DefoInside.append(Defonumb)
+	else:
+		for i in range(0, NbLayers):
+			XYZout.write(Utility.RemoveUnwantedIndent(
+					"""
+					DEF  0.0 0.0 {0} \n
+					""".format(ZcurrentDefo)
+					))
+			Defonumb += 1
+			DefoInside.append(Defonumb)
 		
 	XYZout.close()
 	DefoTotal.extend(DefoInside)
@@ -3624,9 +3636,10 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 					
 		elif Sample['DEFO']['Constraints'] == 'angles':
 			pass
+		
 		elif Sample['DEFO']['Constraints'] == 'bond&angle':
 			TopoDefo += Utility.RemoveUnwantedIndent("""
-							
+						
 						[bonds]
 						; i j func length force
 						
@@ -3644,9 +3657,9 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 					if DEF == DefoOutside[k]:
 						nextDEF = DefoOutside[j]
 					TopoDefo += """ {0} {1}   {2}   {3}  {4}\n""".format(DEF, nextDEF, 
-                                                                                                    Sample['DEFO']['FtypeBond'],
-                                                                                                    lengthBondP,
-                                                                                                    Sample['DEFO']['FbondP'])					
+																		Sample['DEFO']['FtypeBond'],
+																		lengthBondP,
+																		Sample['DEFO']['FbondP'])
 			#Set the bonds inside the layer
 			TopoDefo +="\n;In-plane bonds (center-to-outer-vertices)\n"
 			lengthBondPIn = round(0.1*float(Sample['DEFO']['Radius']),2)
@@ -3656,12 +3669,12 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 				for DEF in DefoOutside[j:k+1]:
 					TopoDefo += """ {0} {1}  {2}  {3}  {4}\n""".format(DEF, DEFC, Sample['DEFO']['FtypeBond'],
 									    		lengthBondPIn, Sample['DEFO']['FbondP'])
-					
+			
+			
 			#Set the bonds along normal to the layer
 			#Distance in z [nm] (thus the 0.1 prefactor)
 			TopoDefo +="\n;Out-of-plane bonds\n"
 			lengthBondN = round(0.1*float(Sample['DEFO']['DzDefo']),2)
-			
 			for DEF in DefoTotal:
 				DEFAbove = DEF + defoPerLayer
 				if DEFAbove not in DefoTotal:
@@ -3686,60 +3699,66 @@ def CreateDefoBi(Sample,Softwares, TMT, DZ):
 					if DEF == DefoOutside[k]:
 						nextDEF = DefoOutside[j]
 					TopoDefo += """ {0} {1} {2}   {3}   {4}  {5}\n""".format(DEF, DEFC, nextDEF,
-												Sample['DEFO']['FtypeAngle'],
-                                                                                                angle, 
-                                                                                                Sample['DEFO']['FangleP'])
-                        
+																			Sample['DEFO']['FtypeAngle'],
+																			angle, 
+																			Sample['DEFO']['FangleP'])
+			
 			TopoDefo +="\n;In-plane angles Center-DEF-nextDEF\n"
-                        outAngle = 0.5*(180. - angle) 
-                        for i,DEFC in zip(range(0, NbLayers), DefoInside):
-				j = i*(defoPerLayer-1)
-				k = j + defoPerLayer-2
-				for DEF in DefoOutside[j:k+1]:
-					nextDEF = DEF + 1
-					if DEF == DefoOutside[k]:
-						nextDEF = DefoOutside[j]
-		                        TopoDefo += """ {1} {0} {2}   {3}   {4}  {5}\n""".format(DEF, DEFC, nextDEF,
-				        							Sample['DEFO']['FtypeAngle'],
-                                                                                                outAngle, 
-                                                                                                Sample['DEFO']['FangleP'])	
-                        TopoDefo +="\n;In-plane angles Center-nextDEF-DEF\n"
-                        for i,DEFC in zip(range(0, NbLayers), DefoInside):
-				j = i*(defoPerLayer-1)
-				k = j + defoPerLayer-2
-				for DEF in DefoOutside[j:k+1]:
-					nextDEF = DEF + 1
-					if DEF == DefoOutside[k]:
-						nextDEF = DefoOutside[j]
-                                        TopoDefo += """ {1} {0} {2}   {3}   {4}  {5}\n""".format(DEF, DEFC, nextDEF,
-												Sample['DEFO']['FtypeAngle'],
-                                                                                                outAngle, 
-                                                                                                Sample['DEFO']['FangleP'])		        
-			#Set the angles out-of-plane
-			TopoDefo +="\n;Out-of-plane angles Center-DEF-DEFAbove\n"
-			angleN = 90.
+			outAngle = 0.5*(180. - angle) 
 			for i,DEFC in zip(range(0, NbLayers), DefoInside):
 				j = i*(defoPerLayer-1)
 				k = j + defoPerLayer-2
 				for DEF in DefoOutside[j:k+1]:
+					nextDEF = DEF + 1
+					if DEF == DefoOutside[k]:
+						nextDEF = DefoOutside[j]
+					TopoDefo += """ {1} {0} {2}   {3}   {4}  {5}\n""".format(DEF, DEFC, nextDEF,
+																				Sample['DEFO']['FtypeAngle'],
+																				outAngle,
+																				Sample['DEFO']['FangleP'])
+			
+			TopoDefo +="\n;In-plane angles Center-nextDEF-DEF\n"
+			for i,DEFC in zip(range(0, NbLayers), DefoInside):
+				j = i*(defoPerLayer-1)
+				k = j + defoPerLayer-2
+				for DEF in DefoOutside[j:k+1]:
+					nextDEF = DEF + 1
+					if DEF == DefoOutside[k]:
+						nextDEF = DefoOutside[j]
+					TopoDefo += """ {1} {0} {2}   {3}   {4}  {5}\n""".format(DEF, DEFC, nextDEF,
+																			Sample['DEFO']['FtypeAngle'],
+																			outAngle, 
+																			Sample['DEFO']['FangleP'])
+		
+			#Set the angles out-of-plane
+			TopoDefo +="\n;Out-of-plane angles Center-DEF-DEFAbove\n"
+			for i,DEFC in zip(range(0, NbLayers), DefoInside):
+				j = i*(defoPerLayer-1)
+				k = j + defoPerLayer-2
+				
+				for DEF in DefoOutside[j:k+1]:
 					DEFAbove = DEF + defoPerLayer
+					
 					if DEFAbove not in DefoTotal:
 						break
+					
 					TopoDefo += """ {1} {0} {2}   {3}   90.  {4}\n""".format(DEF, DEFC, DEFAbove,
-												 Sample['DEFO']['FtypeAngle'],
-                                                                                                 Sample['DEFO']['FangleN'])
-                                        
+																				Sample['DEFO']['FtypeAngle'],
+																				Sample['DEFO']['FangleN'])
+			
 			TopoDefo +="\n;Out-of-plane angles DEF-Center-DEFCAbove\n"
 			for i,DEFC in zip(range(0, NbLayers), DefoInside):
 				j = i*(defoPerLayer-1)
 				k = j + defoPerLayer-2
 				DEFCAbove = DEFC + defoPerLayer
+				
 				if DEFCAbove not in DefoInside:
-		        		break
+					break
+				
 				for DEF in DefoOutside[j:k+1]:
-                                        TopoDefo += """ {0} {1} {2}   {3}   90.  {4}\n""".format(DEF, DEFC, DEFCAbove,
-												 Sample['DEFO']['FtypeAngle'],
-                                                                                                 Sample['DEFO']['FangleN'])
+					TopoDefo += """ {0} {1} {2}   {3}   90.  {4}\n""".format(DEF, DEFC, DEFCAbove,
+																			Sample['DEFO']['FtypeAngle'],
+																			Sample['DEFO']['FangleN'])
 		else:
 			pass
 		

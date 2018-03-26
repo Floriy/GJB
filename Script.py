@@ -539,7 +539,7 @@ if(sys.argv[1] == '--tgcc'):
 						InitForCopy = Prepare.InitBilayer(Jobs[sampleNumber], Softwares, GROMACS_LOC_prefixPath, PathToDefault)
 					if(Jobs[sampleNumber]['TYPE'] == 'SOLVENT'):
 						InitForCopy = Prepare.InitSolvent(Jobs[sampleNumber], Softwares, GROMACS_LOC_prefixPath, PathToDefault)
-					SoFar.write(str("""{0} done""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType']))
+					SoFar.write(str("""{0} done\n""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType']))
 					PrevCmdFiles = copy.deepcopy(InitForCopy)
 					continue
 
@@ -556,7 +556,7 @@ if(sys.argv[1] == '--tgcc'):
 						print(error)
 						sys.exit(1)
 						
-					SoFar.write(  str("""{0} {1} done""").format( Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], CopyFrom) )
+					SoFar.write(  str("""{0} {1} done\n""").format( Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], CopyFrom) )
 					PrevCmdFiles = copy.deepcopy(CopiedJob)
 					continue
 
@@ -863,7 +863,7 @@ if(sys.argv[1] == '--pbs'):
 						InitForCopy = Prepare.InitBilayer(Jobs[sampleNumber], Softwares, GROMACS_LOC_prefixPath, PathToDefault)
 					if(Jobs[sampleNumber]['TYPE'] == 'SOLVENT'):
 						InitForCopy = Prepare.InitSolvent(Jobs[sampleNumber], Softwares, GROMACS_LOC_prefixPath, PathToDefault)
-					SoFar.write(str("""{0} done""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType']))
+					SoFar.write(str("""{0} done\n""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType']))
 					PrevCmdFiles = copy.deepcopy(InitForCopy)
 					continue
 
@@ -880,7 +880,7 @@ if(sys.argv[1] == '--pbs'):
 						print(error)
 						sys.exit(1)
 						
-					SoFar.write(  str("""{0} {1} done""").format( Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], CopyFrom) )
+					SoFar.write(  str("""{0} {1} done\n""").format( Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], CopyFrom) )
 					PrevCmdFiles = copy.deepcopy(CopiedJob)
 					continue
 
@@ -1179,7 +1179,7 @@ if(sys.argv[1] == '--local'):
 						InitForCopy = Prepare.InitBilayer(Jobs[sampleNumber], Softwares, GROMACS_LOC_prefixPath, PathToDefault)
 					if(Jobs[sampleNumber]['TYPE'] == 'SOLVENT'):
 						InitForCopy = Prepare.InitSolvent(Jobs[sampleNumber], Softwares, GROMACS_LOC_prefixPath, PathToDefault)
-					SoFar.write(str("""{0} done \n\n""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType']))
+					SoFar.write(str("""{0} done \n""").format(Jobs[sampleNumber]['PROTOCOL'][step]['stepType']))
 					PrevCmdFiles = copy.deepcopy(InitForCopy)
 					continue
 
@@ -1196,7 +1196,7 @@ if(sys.argv[1] == '--local'):
 						print(error)
 						sys.exit(1)
 						
-					SoFar.write(  str("""{0} {1} done""").format( Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], CopyFrom) )
+					SoFar.write(  str("""{0} {1} done\n""").format( Jobs[sampleNumber]['PROTOCOL'][step]['stepType'], CopyFrom) )
 					PrevCmdFiles = copy.deepcopy(CopiedJob)
 					continue
 
