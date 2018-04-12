@@ -12,7 +12,7 @@ import shutil
 import argparse
 
 import Utility as ut
-import New_Prepare as Prepare
+import Prepare
 
 LipidsList = ['DSPC','DPPC','DLPC']
 
