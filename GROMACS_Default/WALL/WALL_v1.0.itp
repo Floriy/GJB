@@ -1,0 +1,34 @@
+[ atomtypes ]
+WNda 72.0 0.000 A 0.0 0.0
+WAP4 72.0 0.000 A 0.0 0.0
+#####################################################################
+[ nonbond_params ]
+  WNda  WNda    1       0.000000000     0.000000000 ; no self-interaction
+  WNda 	SNda 	1 	0.19402E-00 	0.20914E-02 ; almost attractive
+  WNda 	Nd 	1 	0.19402E-00 	0.20914E-02 ; almost attractive
+  WNda 	SNd 	1 	0.19402E-00 	0.20914E-02 ; almost attractive
+  WNda 	Na 	1 	0.19402E-00 	0.20914E-02 ; almost attractive
+  WNda 	SNa 	1 	0.19402E-00 	0.20914E-02 ; almost attractive
+  WNda 	N0 	1 	0.15091E-00 	0.16267E-02 ; intermediate 
+  WNda 	SN0 	1 	0.15091E-00 	0.16267E-02 ; intermediate 
+  WNda 	C5 	1 	0.15091E-00 	0.16267E-02 ; intermediate 
+  WNda 	SC5 	1 	0.15091E-00 	0.16267E-02 ; intermediate 
+  WNda 	C4 	1 	0.13366E-00 	0.14408E-02 ; almost intermediate 
+  WNda 	SC4 	1 	0.13366E-00 	0.14408E-02 ; almost intermediate 
+  WNda 	C3 	1 	0.11642E-00 	0.12549E-02 ; semi repulsive
+  WNda 	SC3 	1 	0.11642E-00 	0.12549E-02 ; semi repulsive
+  WNda 	C2 	1 	0.11642E-00 	0.12549E-02 ; semi repulsive
+  WNda 	AC2 	1 	0.11642E-00 	0.12549E-02 ; semi repulsive
+  WNda 	SC2 	1 	0.11642E-00 	0.12549E-02 ; semi repulsive
+  WNda 	C1 	1 	0.11642E-00 	0.12549E-02 ; semi repulsive
+  WNda 	AC1 	1 	0.11642E-00 	0.12549E-02 ; semi repulsive
+  WNda 	SC1 	1 	0.11642E-00 	0.12549E-02 ; semi repulsive
+  WNda 	Qda 	1 	0.21558E-00 	0.23238E-02 ; attractive 
+  WNda 	SQda 	1 	0.21558E-00 	0.23238E-02 ; attractive 
+  WNda 	Qd 	1 	0.21558E-00 	0.23238E-02 ; attractive 
+  WNda 	SQd 	1 	0.21558E-00 	0.23238E-02 ; attractive 
+  WNda 	Qa 	1 	0.21558E-00 	0.23238E-02 ; attractive 
+  WNda 	SQa 	1 	0.21558E-00 	0.23238E-02 ; attractive 
+  WNda 	Q0 	1 	0.17246E-00 	0.18590E-02 ; semi attractive
+  WNda 	SQ0 	1 	0.17246E-00 	0.18590E-02 ; semi attractive
+#####################################################################

@@ -27,7 +27,7 @@ SU  Qa  1    0.15091E-00     0.16267E-02 ; intermediate
                                                                                 
 [ atoms ]
 ;id   type  resnr   residu  atom  cgnr  charge
- 1  SU   1   SUI  SUI  1   0
+ 1  SU   1   SUI  SU  1   0
 
 [ moleculetype ]
 ; molname    nrexcl
@@ -35,7 +35,7 @@ SU  Qa  1    0.15091E-00     0.16267E-02 ; intermediate
                                                                                 
 [ atoms ]
 ;id   type  resnr   residu  atom  cgnr  charge
- 1  P1   1   SUP1  SUP1  1   0
+ 1  P1   1   SUP1  P1  1   0
 
 
 [ moleculetype ]
@@ -44,7 +44,7 @@ SU  Qa  1    0.15091E-00     0.16267E-02 ; intermediate
                                                                                 
 [ atoms ]
 ;id   type  resnr   residu  atom  cgnr  charge
- 1  P2   1   SUP2  SUP2  1   0
+ 1  P2   1   SUP2  P2  1   0
 
  [ moleculetype ]
 ; molname    nrexcl
@@ -52,7 +52,7 @@ SU  Qa  1    0.15091E-00     0.16267E-02 ; intermediate
                                                                                 
 [ atoms ]
 ;id   type  resnr   residu  atom  cgnr  charge
- 1  P3   1   SUP3  SUP3  1   0
+ 1  P3   1   SUP3  P3  1   0
 
 
  [ moleculetype ]
@@ -61,7 +61,7 @@ SU  Qa  1    0.15091E-00     0.16267E-02 ; intermediate
                                                                                 
 [ atoms ]
 ;id   type  resnr   residu  atom  cgnr  charge
- 1  P4   1   SUP4  SUP4  1   0
+ 1  P4   1   SUP4  P4  1   0
 
 
  [ moleculetype ]
@@ -70,12 +70,12 @@ SU  Qa  1    0.15091E-00     0.16267E-02 ; intermediate
                                                                                 
 [ atoms ]
 ;id   type  resnr   residu  atom  cgnr  charge
- 1  P5   1   SUP5  SUP5  1   0
+ 1  P5   1   SUP5  P5  1   0
 
  [ moleculetype ]
 ; molname    nrexcl
   SNda       1
                                                                                 
 [ atoms ]
- 1  Nda   1   SUNda  SUNda  1   0
+ 1  Nda   1   SNda  Nda  1   0
 #####################################################################

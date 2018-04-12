@@ -920,7 +920,12 @@ D    24.0 0.000 A 0.0 0.0
   SQa 	Q0 	1 	0.19402E-00 	0.20914E-02 ; almost attractive
   SQa 	SQ0 	1 	0.85338E-01 	0.53946E-03 ; 75almost attractive, s=0.43
   Q0 	SQ0 	1 	0.15091E-00 	0.16267E-02 ; intermediate 
-;;;
+;pol water self-terms
+  POL   POL     1   0.17246E-00     0.18590E-02 ; semi attractive
+  D     D       1   0.00000E-00     0.00000E-00 ; no LJ interaction
+
+
+;cross interactions with polarizable water
   POL   P5      1   0.22937E-00     0.24725E-02 ; supra attractive 95%
   POL   SP5     1   0.22937E-00     0.24725E-02 ; supra attractive 95%
   POL   P4      1   0.20480E-00     0.22076E-02 ; attractive 95%
@@ -957,13 +962,52 @@ D    24.0 0.000 A 0.0 0.0
   POL   SQa     1   0.21558E-00     0.23238E-02 ; attractive 
   POL   Q0      1   0.19402E-00     0.20914E-02 ; almost attractive
   POL   SQ0     1   0.19402E-00     0.20914E-02 ; almost attractive
+  D     P5      1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SP5     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     P4      1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SP4     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     P3      1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SP3     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     P2      1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SP2     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     P1      1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SP1     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     Nda     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SNda    1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     Nd      1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SNd     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     Na      1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SNa     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     N0      1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SN0     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     C5      1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SC5     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     C4      1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SC4     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     C3      1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SC3     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     C2      1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SC2     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     C1      1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SC1     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     Qda     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SQda    1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     Qd      1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SQd     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     Qa      1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SQa     1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     Q0      1   0.00000E-00     0.00000E-00 ; no LJ interaction
+  D     SQ0     1   0.00000E-00     0.00000E-00 ; no LJ interaction
 ;;;
-
 
 ;;;;;;#PLACE_FOR_DEFO#
 
 ;;;;;;#PLACE_FOR_SU#
-  
+ 
+;;;;;;#PLACE_FOR_WALL#
+
+
+ 
 ;;;;;; WATER (representing 4 H2O molecules)
 
 [ moleculetype ]
@@ -998,15 +1042,15 @@ PW              1
 
 [constraints]
 ;  i     j   funct   length
-   1     2    1       0.14
-   1     3    1       0.14
+;   1     2    1       0.14
+;   1     3    1       0.14
 
 ; for minimization purposes constraints might be replaced by stiff bonds:
 ;
-;[bonds]
+[bonds]
 ;  i     j   funct   length   force const.
-;   1     2    1       0.14    50000
-;   1     3    1       0.14    50000
+   1     2    1       0.14    50000
+   1     3    1       0.14    50000
 
 [angles]
 ;   i    j   k   funct  angle    fc

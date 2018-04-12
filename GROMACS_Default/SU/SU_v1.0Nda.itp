@@ -1,0 +1,93 @@
+[ atomtypes ]
+SU 72.0 0.000 A 0.0 0.0
+#####################################################################
+[ nonbond_params ]
+  SU  SU  1    0.0 0.0                                          
+  SU 	Nda 	1 	0.19402E-00 	0.20914E-02 ; almost attractive
+  SU 	SNda 	1 	0.19402E-00 	0.20914E-02 ; almost attractive
+  SU 	Nd 	1 	0.19402E-00 	0.20914E-02 ; almost attractive
+  SU 	SNd 	1 	0.19402E-00 	0.20914E-02 ; almost attractive
+  SU 	Na 	1 	0.19402E-00 	0.20914E-02 ; almost attractive
+  SU 	SNa 	1 	0.19402E-00 	0.20914E-02 ; almost attractive
+  SU 	N0 	1 	0.15091E-00 	0.16267E-02 ; intermediate 
+  SU 	SN0 	1 	0.15091E-00 	0.16267E-02 ; intermediate 
+  SU 	C5 	1 	0.15091E-00 	0.16267E-02 ; intermediate 
+  SU 	SC5 	1 	0.15091E-00 	0.16267E-02 ; intermediate 
+  SU 	C4 	1 	0.13366E-00 	0.14408E-02 ; almost intermediate 
+  SU 	SC4 	1 	0.13366E-00 	0.14408E-02 ; almost intermediate 
+  SU 	C3 	1 	0.11642E-00 	0.12549E-02 ; semi repulsive
+  SU 	SC3 	1 	0.11642E-00 	0.12549E-02 ; semi repulsive
+  SU 	C2 	1 	0.11642E-00 	0.12549E-02 ; semi repulsive
+  SU 	AC2 	1 	0.11642E-00 	0.12549E-02 ; semi repulsive
+  SU 	SC2 	1 	0.11642E-00 	0.12549E-02 ; semi repulsive
+  SU 	C1 	1 	0.11642E-00 	0.12549E-02 ; semi repulsive
+  SU 	AC1 	1 	0.11642E-00 	0.12549E-02 ; semi repulsive
+  SU 	SC1 	1 	0.11642E-00 	0.12549E-02 ; semi repulsive
+  SU 	Qda 	1 	0.21558E-00 	0.23238E-02 ; attractive 
+  SU 	SQda 	1 	0.21558E-00 	0.23238E-02 ; attractive 
+  SU 	Qd 	1 	0.21558E-00 	0.23238E-02 ; attractive 
+  SU 	SQd 	1 	0.21558E-00 	0.23238E-02 ; attractive 
+  SU 	Qa 	1 	0.21558E-00 	0.23238E-02 ; attractive 
+  SU 	SQa 	1 	0.21558E-00 	0.23238E-02 ; attractive 
+  SU 	Q0 	1 	0.17246E-00 	0.18590E-02 ; semi attractive
+  SU 	SQ0 	1 	0.17246E-00 	0.18590E-02 ; semi attractive
+
+#####################################################################
+[ moleculetype ]
+; molname    nrexcl
+  SUI       1
+                                                                                
+[ atoms ]
+;id   type  resnr   residu  atom  cgnr  charge
+ 1  SU   1   SUI  SUI  1   0
+
+[ moleculetype ]
+; molname    nrexcl
+  SUP1       1
+                                                                                
+[ atoms ]
+;id   type  resnr   residu  atom  cgnr  charge
+ 1  P1   1   SUP1  SUP1  1   0
+
+
+[ moleculetype ]
+; molname    nrexcl
+  SUP2       1
+                                                                                
+[ atoms ]
+;id   type  resnr   residu  atom  cgnr  charge
+ 1  P2   1   SUP2  SUP2  1   0
+
+ [ moleculetype ]
+; molname    nrexcl
+  SUP3       1
+                                                                                
+[ atoms ]
+;id   type  resnr   residu  atom  cgnr  charge
+ 1  P3   1   SUP3  SUP3  1   0
+
+
+ [ moleculetype ]
+; molname    nrexcl
+  SUP4       1
+                                                                                
+[ atoms ]
+;id   type  resnr   residu  atom  cgnr  charge
+ 1  P4   1   SUP4  SUP4  1   0
+
+
+ [ moleculetype ]
+; molname    nrexcl
+  SUP5       1
+                                                                                
+[ atoms ]
+;id   type  resnr   residu  atom  cgnr  charge
+ 1  P5   1   SUP5  SUP5  1   0
+
+ [ moleculetype ]
+; molname    nrexcl
+  SNda       1
+                                                                                
+[ atoms ]
+ 1  Nda   1   SUNda  SUNda  1   0
+#####################################################################
