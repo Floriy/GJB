@@ -1,23 +1,17 @@
 import subprocess as sub
 import time
+from shutil import copyfile
 import numpy as np
 import math
-import Utility
+import Utility as ut
 import os
 import glob
-
-#List of Lipids and Solvents:
-LipidsList = ['DSPC','DPPC','DLPC']
-SolventsList = ['W','OCO','PW']
 
 #***********************************************************#
 #***********************************************************#
 #********************* PDB Files list **********************#
 #***********************************************************#
 #***********************************************************#
-PDBfileList = {'W':'water_single.pdb','OCO':'octanol_single.pdb',
-			   'PW':'polwater_single.pdb','DSPC':'dspc_single.pdb',
-			   'DPPC':'dppc_single.pdb','DLPC':'dlpc_single.pdb','SU':'su_single.pdb'}
 
 W_PDB = """
 		CRYST1   04.000   04.000   04.000  90.00  90.00  90.00 P1           1
@@ -27,8 +21,8 @@ W_PDB = """
 
 OCO_PDB = """
 		CRYST1   10.000   10.000   10.000  90.00  90.00 90.00 P 1           1
-		ATOM      1  PC  OCO     1      5.000  5.000  7.865 0.00  0.00          
-		ATOM      2  C   OCO     1      5.000  5.000  3.135 0.00  0.00          
+		ATOM      1  PC  OCO X   1       5.000   5.000   7.865 0.00  0.00          
+		ATOM      2  C   OCO X   1       5.000   5.000   3.135 0.00  0.00          
 		END
 		"""
 
@@ -98,3831 +92,1255 @@ DLPC_PDB = """
 		
 SU_PDB = """
 		CRYST1   04.000   04.000   04.000  90.00  90.00  90.00 P1           1
-		ATOM      1  TEMPSU  S   1      00.000  00.000  00.000 0.00  0.00
+		ATOM      1  TEM TEMPS   1      00.000  00.000  00.000 0.00  0.00
 		END
 		"""
-		
+
+
+pdb_file_list = {'W':{'name':'water_single.pdb','content': W_PDB},
+			   'OCO':{'name':'octanol_single.pdb','content': OCO_PDB},
+			   'PW':{'name':'polwater_single.pdb','content': PW_PDB},
+			   'DSPC':{ 'name':'dspc_single.pdb', 'content':DSPC_PDB},
+			   'DPPC':{ 'name':'dppc_single.pdb', 'content':DPPC_PDB},
+			   'DLPC':{ 'name':'dlpc_single.pdb', 'content':DPPC_PDB},
+			   'SU':{ 'name':'su_single.pdb', 'content':SU_PDB}}
+
 #***********************************************************#
 #***********************************************************#
 #***********************************************************#
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def InitBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
-	packmolSeed = 0
-	if Sample['SEED'] == 'time':
-		packmolSeed = int(time.time())
-	if Sample['SEED'] == 'jobnum':
-		packmolSeed = Sample['JOBNUM'] * 123456789
-		
-	if 'DEFO' in Sample and not 'SU' in Sample:
-		return InitBilayerWithHole(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, packmolSeed)
-
-	if 'SU' in Sample and not 'DEFO' in Sample: #Bilayer + Wall:
-		return InitBilayerWithWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, packmolSeed)
-
-	if 'DEFO' in Sample and 'SU' in Sample: #Bilayer + Hole + Wall:
-		return InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, packmolSeed)
-
-	else: #Default for Free Bilayer
-		return InitFreeBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, packmolSeed)
-		
-		
-		
-		
-def InitFreeBilayer(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, packmolSeed):
-	# packmol constraints are not strict !
-	# put the molecules in a smaller box to
-	# avoid initial crash because of PBC
-	# the SHELL parameter defines the shell in which
-	# packmol is not supposed to put particles
-	SHELL = 3.0
+class BaseProject(object):
+	""" Main project class
+	This class provides the basis for a job. Derived classes will have different fucntions based on base_project type.
+	"""
 	
-	LXS = Sample['LX']-SHELL
-	LYS = Sample['LY']-SHELL
-	LZS = Sample['LZ']-SHELL
+	def __init__(self, sample, softwares, path_to_default):
+		try:
+			#Softwares
+			self.softwares = softwares
+			self.path_to_default = path_to_default
+			self.protocol = sample['PROTOCOL']
+			
+			self.job_id = sample['JOBID']
+			self.job_num = sample['JOBNUM']
+			self.job_seed = sample['SEED']
 
-	LZ2 = LZS/2.0
+			self.node = sample['NODE']
+			self.nbnodes = sample['NBNODES']
+			self.ppn = sample['PPN']
 
-	#Number of lipid and water per layer
-	NLM = {}
-	NSOLM = {}
-	LipidType = ''
-	
-	for L in LipidsList:
-		if(L in Sample):
-			NLM.update( {L:int(Sample[L]/2)} )
-			LipidType = L
-	for Sol in SolventsList:
-		print(Sol,' is in sample:', Sol in Sample)
-		if Sol in Sample:
-			print(Sol)
-			NSOLM.update( {Sol:int(Sample[Sol]/2)} )
-			SolventType = Sol
-	
-	#If the number of lipids per Monolayer is high
-	# we cut the sample till we get a reasonnable amount
-	# of lipis per monolayer for packmol
-	NbMult = 0
-	#NeedToExpand = False
-	#while NLM[LipidType] > 512:
-		#NLM[LipidType] /= 2
-		#NSOLM[SolventType] /= 2
-		#NbMult += 1
-		##diviser boîte
-		#NeedToExpand = True
-		#print(NLM[LipidType])
-	print(LipidType)
-	#==================================================================================
-	# creating the initial bilayer (lipids + water) using packmol
-	#==================================================================================
+			self.mdrun_opt = sample['MDRUN_OPT']
 
-	System = str('{0}_{1}{2}_{3}{4}').format(Sample['TYPE'],Sample[LipidType], LipidType, Sample[SolventType], SolventType)
-	
-	#=======================================================================
-	# Setting the bilayers  ================================================
-	#=======================================================================
-	
-	TMT = 0.0
-	DZ = 0.0
-	# DSPC bilayer =========================================================
-	if LipidType == "DSPC":
-		# Geometry to preprare the bilayer with packmol
-		# total monolayer thickness (Angstrom)
-		TMT = 30.0
-		# deltaz : thickness in Z direction for
-		# the volume constraining the heads and tails beads
-		DZ = 7.0
-	
-	# DPPC bilayer =========================================================
-	if LipidType == "DPPC":
-		TMT = 30
-		DZ = 10
-	
-	# DLPC bilayer =========================================================
-	if LipidType == "DLPC":
-		TMT = 30
-		DZ = 10
-
-	M1headMIN = LZ2 - TMT
-	M1headMAX = LZ2 - TMT + DZ
-	M1tailMIN = LZ2 - DZ
-	M1tailMAX = LZ2
-
-	M2headMIN = LZ2 + TMT - DZ
-	M2headMAX = LZ2 + TMT
-	M2tailMIN = LZ2
-	M2tailMAX = LZ2 + DZ
-	
-	#=======================================================================
-	# Setting the bilayers for packmol =====================================
-	#=======================================================================
-	if packmolSeed:
-		PackmolInput = """
-					#Packmol seed was set using {0}
-					seed {1}
+			self.sample_molecules = sample['SAMPLE']
+			self.type = sample['TYPE']
+			
+			
+			self.dimensions = {'LX': float(sample['GEOMETRY']['LX']),
+								'LY': float(sample['GEOMETRY']['LY']), 
+								'LZ': float(sample['GEOMETRY']['LZ'])}
+			
+			self.lz_vaccum = None
+			if 'LzVac' in sample['GEOMETRY']:
+				self.lz_vaccum = float(sample['GEOMETRY']['LzVac'])
+						   
+			self.fillmode = None
+			if 'FILLMODE' in sample['GEOMETRY']:
+				self.fillmode = sample['GEOMETRY']['FILLMODE']
+			self.radius = None
+			if 'Radius' in sample['GEOMETRY']:
+				self.radius = sample['GEOMETRY']['Radius']
+			
+			self.defo = None
+			self.su = None
+			self.mono = None
+			self.wall = None
+			self.thermostat = None
+			
+			if 'DEFO' in sample:
+				self.defo = sample['DEFO']
 				
-				""".format(Sample['SEED'], packmolSeed)
-	else:
-		PackmolInput = """
-					#Packmol Seed was set using default
+			if 'SU' in sample:
+				self.su = sample['SU']
 				
-							"""
-	#DSPC BILAYER
-	if LipidType == "DSPC":
-		PackmolInput += """
-						#
-						# Lipid bilayer with water, perpendicular to z axis
-						#
-
-						# Every atom from diferent molecules will be far from each other at
-						# least 3.0 Anstroms at the solution.
-
-						tolerance 3.0
-
-						# Coordinate file types will be in pdb format (keyword not required for
-						# pdb file format, but required for tinker, xyz or moldy)
-
-						filetype pdb
-
-						# The output pdb file
-
-						output {0}.pdb
-
-						structure {14}
-							chain A
-							resnumbers 3
-							number {1:g}
-							inside box 0. 0. {2}  {3} {4} {5}
-							atoms 1
-								below plane 0. 0. 1. {6}
-							end atoms
-							atoms 9 14
-								over plane 0. 0. 1. {7}
-							end atoms
-						end structure
-
-						structure {14}
-							chain B
-							resnumbers 3
-							number {1:g}
-							inside box 0. 0.  {8}  {3} {4} {9}
-							atoms 1
-								over plane 0. 0. 1. {10}
-							end atoms
-							atoms 9 14
-								below plane 0. 0. 1. {11}
-							end atoms
-						end structure
-
-						""".format(System, NLM[LipidType], M1headMIN, LXS, LYS, M1tailMAX, M1headMAX, M1tailMIN, M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, NSOLM[SolventType], LZS, PDBfileList[LipidType], PDBfileList[SolventType])
-	
-	# DPPC bilayer, DLPC bilayer =========================================================
-	if LipidType in {'DPPC','DLPC'}:
-		PackmolInput += """
-						#
-						# Lipid bilayer with water, perpendicular to z axis
-						#
-
-						# Every atom from diferent molecules will be far from each other at
-						# least 3.0 Anstroms at the solution.
-
-						tolerance 3.0
-
-						# Coordinate file types will be in pdb format (keyword not required for
-						# pdb file format, but required for tinker, xyz or moldy)
-
-						filetype pdb
-
-						# The output pdb file
-
-						output {0}.pdb
-
-						structure {14}
-							chain A
-							resnumbers 3
-							number {1:g}
-							inside box 0. 0. {2}  {3} {4} {5}
-							constrain_rotation x 180 10
-							constrain_rotation y 180 10
-						end structure
-
-						structure {14}
-							chain B
-							resnumbers 3
-							number {1:g}
-							inside box 0. 0.  {8}  {3} {4} {9}
-							constrain_rotation x 0 10
-							constrain_rotation y 0 10
-						end structure
-
-						""".format(System, NLM[LipidType], M1headMIN, LXS, LYS, M1tailMAX, M1headMAX, M1tailMIN, M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, NSOLM[SolventType], LZS, PDBfileList[LipidType], PDBfileList[SolventType])
-							
-	#=======================================================================
-	#=======================================================================
-	#=======================================================================
-	
-	#=======================================================================
-	# Setting the solvent for packmol ============================
-	#=======================================================================
-	if SolventType == 'PW':
-		PackmolInput += """
-		
-						structure {0}
-							chain C
-							number {1:g}
-							inside box 0. 0. 0.  {2} {3} {4}
-							atoms 2 3
-								radius 0.2
-							end atoms
-						end structure
-
-
-						structure {0}
-							chain D
-							number {1:g}
-							inside box 0. 0. {5}  {2} {3} {6}
-							atoms 2 3
-								radius 0.2
-							end atoms
-						end structure
-						""".format(PDBfileList[SolventType], NSOLM[SolventType], LXS, LYS,  M1headMIN,
-							M2headMAX, LZS)
-	else:
-		PackmolInput += """
-						
-						structure {0}
-							chain C
-							number {1:g}
-							inside box 0. 0. 0.  {2} {3} {4}
-						end structure
-						
-						structure {0}
-							chain D
-							number {1:g}
-							inside box 0. 0. {5}  {2} {3} {6}
-						end structure
-						""".format(PDBfileList[SolventType], NSOLM[SolventType], LXS, LYS,  M1headMIN,
-							M2headMAX, LZS)
-
-	f = open('packmol_'+System+'.input','w')
-	f.write(Utility.RemoveUnwantedIndent(PackmolInput))
-	f.close()
-	
-	# Lipids input pdb =====================================================
-	if( LipidType == "DSPC"):
-		f = open('dspc_single.pdb','w')
-		f.write(Utility.RemoveUnwantedIndent(DSPC_PDB))
-		f.close()
-	if( LipidType == "DPPC"):
-		f = open('dppc_single.pdb','w')
-		f.write(Utility.RemoveUnwantedIndent(DPPC_PDB))
-		f.close()
-	if( LipidType == "DLPC"):
-		f = open('dlpc_single.pdb','w')
-		f.write(Utility.RemoveUnwantedIndent(DLPC_PDB))
-		f.close()
-		
-	# Solvents input pdb ===================================================
-	if( SolventType == 'W'):
-		f = open('water_single.pdb','w')
-		f.write(Utility.RemoveUnwantedIndent(W_PDB))
-		f.close()
-	if( SolventType == 'PW'):
-		f = open('polwater_single.pdb','w')
-		f.write(Utility.RemoveUnwantedIndent(PW_PDB))
-		f.close()
-	if( SolventType == 'OCO'):
-		f = open('octanol_single.pdb','w')
-		f.write(Utility.RemoveUnwantedIndent(OCO_PDB))
-		f.close()
-	
-
-	#===============================================================================
-	#lauching packmol
-	#===============================================================================
-
-	cmd = str("""{0} < packmol_{1}.input > packmol_{1}.output """).format(Softwares['PACKMOL'],System)
-	sub.call(cmd, shell=True)
-
-	
-	#===============================================================================
-	# ensure the right box in pdb file
-	#===============================================================================
-
-	WriteBox = str("""
-			mol load pdb {0}.pdb
-			set all [atomselect top "all"]
-
-			package require pbctools
-			pbc set {{{1} {2} {3}}}
-
-			$all writepdb "{0}.withbox.pdb"
-			unset all
-
-			exit
-			""").format(System, Sample['LX'], Sample['LY'], Sample['LZ'])
-
-	f = open('write_box.vmd','w+')
-	f.write(Utility.RemoveUnwantedIndent(WriteBox) )
-	f.close()
-
-	## ======================================================================
-	cmd = str("""{0} -dispdev text -e write_box.vmd > write_box.log""" 
-				).format(Softwares['VMD'])
-	sub.call(cmd, shell=True)
-
-	
-	#===============================================================================
-	# For big samples
-	#===============================================================================
-	#if NeedToExpand:
-		#cmd = str("""{0}genconf -f {1}.withbox.pdb -nbox {2} {2} 1 -o {1}.withbox.pdb""").format(GROMACS_LOC_prefixPath, System, NbMult)
-		#sub.call(cmd, shell=True)
-	## ======================================================================
-
-	#==================================================================================
-	# the topology file
-	#==================================================================================
-
-	Topology = str("""
-				#include "martini_v2.2.itp" ; modified with polarisable water
-				#include "martini_v2.0_lipids.itp"
-				""")
-	#Copy the topology files for martini forcefield
-	sub.call("""cp {0}/martini_v2.0_lipids.itp {0}/martini_v2.2.itp ./""".format(PathToDefault), shell= True)
-	f = open(System+'.top','w')
-	f.write(Utility.RemoveUnwantedIndent(Topology))
-
-	f = open(System+'.top','a')
-	f.write("""\n[ system ]\n""")
-
-	Topology = str("""{0} {1}\n""").format(LipidType, Sample['TYPE'])
-	f.write(Topology)
-
-	###add a for loop for multiple types (Later)
-	f.write("""\n[ molecules ]\n""")
-	Topology = str("""{0} {1}\n{2} {3}""").format(LipidType, Sample[LipidType],SolventType, Sample[SolventType])
-	f.write(Topology)
-	f.close()
-
-	#==================================================================================
-	# the index file
-	#==================================================================================
-	MakeIndex = str("""
-				chain A
-				chain B
-				chain C
-				chain D
-				name 4 bottom{0}
-				name 5 top{0}
-				name 6 bottom{1}
-				name 7 top{1}
-				4 | 5
-				name 8 bilayer
-				q
+			if 'MONO' in sample:
+				self.mono = sample['MONO']
+			
+			if 'WALL' in sample:
+				self.wall = sample['WALL']
 				
-				""").format(LipidType,SolventType)
+			if 'THERMOSTAT' in sample:
+				self.thermostat = sample['THERMOSTAT']
 
-	f = open('make_index.input','w+')
-	f.write(Utility.RemoveUnwantedIndent(MakeIndex) )
-	f.close()
-	
-	cmd = str("""{0}make_ndx -f {1}.withbox.pdb -o {1}.ndx < make_index.input""").format(GROMACS_LOC_prefixPath,
-																					System)
-	sub.call(cmd, shell=True)
-
-	#==================================================================================
-	# Output the files for other steps
-	#==================================================================================
-	Output = str("""{0}.withbox.pdb""").format(System)
-	Index = str("""{0}.ndx""").format(System)
-	
-	ApL = Sample['LX']*Sample['LY']/NLM[LipidType]
-	print(Utility.RemoveUnwantedIndent(str("""
-			================================
-			================================
-			Packmol finished initial input file
-			{0} {1}, {2} {3}
-			box sizes : {4}, {5}, {6}
-			Area per lipid = {7} A**2
-			===============================
-			===============================
-			""").format(LipidType, Sample[LipidType],SolventType, Sample[SolventType], Sample['LX'],Sample['LY'],Sample['LZ'],ApL)))
-	return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
-
-
-
-def InitBilayerWithWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, packmolSeed):
-	THICKNESS = float(Sample['SU']['Thickness'])
-	DENSITY = float(Sample['SU']['Density'])
-	NBLIPIDS_MONO = int(Sample['SU']['NbLipidsM'])
-	SU_VERSION = Sample['SU']['Version']
-	SU_TYPE = Sample['SU']['SuType']
-	LZM = float(Sample['SU']['LzM'])
-	
-	
-	SHELL = 3.0
-	LXS = Sample['LX'] - SHELL
-	LYS = Sample['LY'] - SHELL
-
-	
-
-	#Number of lipid and water per layer
-	NLM = {}
-	NSOLM = {}
-	LipidType = ''
-	
-	for L in LipidsList:
-		if(L in Sample):
-			NLM.update( {L:int(Sample[L]/2)} )
-			LipidType = L
+			self.protocol = sample['PROTOCOL']
 			
-	for Sol in SolventsList:
-		if Sol in Sample:
-			NSOLM.update( {Sol:int(Sample[Sol]/2)} )
-			SolventType = Sol
+			self.system = None
+			self.shell = 3.0
 			
-	#Computing the number of SU using Density in CG/nm³ thus the divided by 1000 for Volume
-	nbSu = int( DENSITY * Sample['LX'] * Sample['LY'] * THICKNESS /1000 )
-	
-	#=======================================================================
-	# Setting the bilayers  ================================================
-	#=======================================================================
-	
-	TMT = 0.0
-	DZ = 0.0
-	# DSPC bilayer =========================================================
-	if LipidType == "DSPC":
-		# Geometry to preprare the bilayer with packmol
-		# total monolayer thickness (Angstrom)
-		TMT = 30.0
-		# deltaz : thickness in Z direction for
-		# the volume constraining the heads and tails beads
-		DZ = 7.0
-	
-	# DPPC bilayer =========================================================
-	if LipidType == "DPPC":
-		TMT = 30.0
-		DZ = 10
-	
-	# DLPC bilayer =========================================================
-	if LipidType == "DLPC":
-		TMT = 30.0
-		DZ = 10
-	
-	assert(TMT > 0.0 and DZ > 0.0),"Your Parameters.csv contains a lipid not yet defined in Prepare.py"
-	#Set the box height with the monolayer + shell for PBC
-	LZ = LZM + TMT + SHELL
-	LBZ = (LZM-THICKNESS)/2.0 + THICKNESS
-	LZ2 = 0.0
-	NbParticlesToRelocate = 0
-	NbSolTop = NSOLM[SolventType]
-	NbSolBottom = NSOLM[SolventType]
-	if 'BilayerHeight' in Sample['SU']:
-		LZ2 = float(Sample['SU']['BilayerHeight'])
-		#Checking that the Bilayer lipids do not overlap with the Monolayer lipids and the substrate
-		if (LZ2 - TMT) < THICKNESS:
-			LZ2 -= LZ2 -TMT - THICKNESS
-		if (LZ2 +TMT) > LZM:
-			LZ2 += LZM - LZ2 - TMT
-		#Checking that the Solvent is not too dense
-		if LZ2 < LBZ: #Too much Solvent below
-			DensitySol = NSOLM[SolventType]/Sample['LX']/Sample['LY']/(LBZ - TMT - THICKNESS)
-			VolToRemove = LBZ - LZ2
-			VolToRemove *= LXS*LYS
-			NbParticlesToRelocate = int(DensitySol * VolToRemove)
+		except RuntimeError as e:
+			print(e)
 			
-			NbSolBottom -= NbParticlesToRelocate
-			NbSolTop += NbParticlesToRelocate
-			
-		if LZ2 > LBZ: #Too much Solvent above
-			DensitySol = NSOLM[SolventType]/LXS/LYS/(LZM - LBZ - TMT)
-			VolToRemove = LZ2 - LBZ
-			VolToRemove *= LXS*LYS
-			NbParticlesToRelocate = int(DensitySol * VolToRemove)
-			
-			NbSolBottom += NbParticlesToRelocate
-			NbSolTop -= NbParticlesToRelocate
-	else:
-		LZ2 = LBZ
-	
-	#Set the Geometry
-	M1headMIN = LZ2 - TMT
-	M1headMAX = LZ2 - TMT + DZ
-	M1tailMIN = LZ2 - DZ
-	M1tailMAX = LZ2
-
-	M2headMIN = LZ2 + TMT - DZ
-	M2headMAX = LZ2 + TMT
-	M2tailMIN = LZ2
-	M2tailMAX = LZ2 + DZ
-	
-	#=======================================================================
-	#=======================================================================
-	#=======================================================================
-
-	System = str('{0}_{1}{2}_{3}M{2}_{4}{5}_{7}{6}{8}').format(Sample['TYPE'], Sample[LipidType],
-											LipidType, NBLIPIDS_MONO , 
-											Sample[SolventType], SolventType, SU_TYPE, nbSu, SU_VERSION)
-	
-	#=======================================================================
-	# Setting the bilayers for packmol =====================================
-	#=======================================================================
-	if packmolSeed:
-		PackmolInput = """
-					#Packmol seed was set using {0}
-					seed {1}
-				
-				""".format(Sample['SEED'], packmolSeed)
-	else:
-		PackmolInput = """
-					#Packmol Seed was set using default
-				
-							"""
-							
-	# DLPC bilayer =========================================================
-	if LipidType == "DSPC":
-		PackmolInput += """
-					#
-					# Lipid bilayer with water, perpendicular to z axis
-					#
-					
-					# Every atom from diferent molecules will be far from each other at
-					# least 3.0 Anstroms at the solution.
-					
-					tolerance 3.0
-					
-					# Coordinate file types will be in pdb format (keyword not required for
-					# pdb file format, but required for tinker, xyz or moldy)
-					
-					filetype pdb
-					
-					# do not avoid the fixed molecules
-					#avoid_overlap no
-					
-					# The output pdb file
-					
-					output {0}.pdb
-					
-					structure {12}
-						chain A
-						resnumbers 3
-						number {1:g}
-						inside box 0. 0. {2}  {3} {4} {5}
-						atoms 1
-							below plane 0. 0. 1. {6}
-						end atoms
-						atoms 9 14
-							over plane 0. 0. 1. {7}
-						end atoms
-					end structure
-					
-					structure {12}
-						chain B
-						resnumbers 3
-						number {1:g}
-						inside box 0. 0.  {8}  {3} {4} {9}
-						atoms 1
-							over plane 0. 0. 1. {10}
-						end atoms
-						atoms 9 14
-							below plane 0. 0. 1. {11}
-						end atoms
-					end structure
-					
-					""".format(System, NLM[LipidType], M1headMIN, LXS,
-								LYS, M1tailMAX, M1headMAX, M1tailMIN, 
-								M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
-								PDBfileList[LipidType])
-					
-		PackmolInput += """
-					
-					structure {0}
-						chain C
-						resnumbers 3
-						number {1:g}
-						inside box 0. 0.  {2}  {3} {4} {5}
-						atoms 1
-							below plane 0. 0. 1. {6}
-						end atoms
-						atoms 9 14
-							over plane 0. 0. 1. {7}
-						end atoms
-					end structure
-					
-					""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM, LZM+DZ, TMT+LZM-DZ)
-	
-	# DPPC bilayer, DLPC bilayer =========================================================
-	if LipidType == 'DPPC' or LipidType == 'DLPC':
-		PackmolInput += """
-						#
-						# Lipid bilayer with water, perpendicular to z axis
-						#
-
-						# Every atom from diferent molecules will be far from each other at
-						# least 3.0 Anstroms at the solution.
-
-						tolerance 3.0
-
-						# Coordinate file types will be in pdb format (keyword not required for
-						# pdb file format, but required for tinker, xyz or moldy)
-
-						filetype pdb
-
-						# The output pdb file
-
-						output {0}.pdb
-
-						structure {8}
-							chain A
-							resnumbers 3
-							number {1:g}
-							inside box 0. 0. {2}  {3} {4} {5}
-							constrain_rotation x 180 10
-							constrain_rotation y 180 10
-						end structure
-
-						structure {8}
-							chain B
-							resnumbers 3
-							number {1:g}
-							inside box 0. 0.  {6}  {3} {4} {7}
-							constrain_rotation x 0 10
-							constrain_rotation y 0 10
-						end structure
-
-						""".format(System, NLM[LipidType], M1headMIN, LXS, 
-									LYS, M1tailMAX, M2tailMIN, M2headMAX,
-									PDBfileList[LipidType])
+		self.lipid_list = ['DSPC','DPPC','DLPC']
+		self.solvent_list = ['W','OCO','PW']
 		
-		PackmolInput += """
-						
-						structure {0}
-							chain C
-							resnumbers 3
-							number {1:g}
-							inside box 0. 0.  {2}  {3} {4} {5}
-							constrain_rotation x 180 10
-							constrain_rotation y 180 10
-						end structure
-						
-						""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM)
-	
-	#=======================================================================
-	#=======================================================================
-	#=======================================================================
-
-	#=======================================================================
-	# Setting the defo with solvent for packmol ============================
-	#=======================================================================
-	#Computing the number of Solvent vapor
-	NbSolVapor = int( 0.007 * Sample['LX'] * Sample['LY'] * (Sample['LZ']-LZM-TMT) /1000)
-	
-	if SolventType == 'PW':
-		if NbSolBottom:
-			PackmolInput += """
-							
-							structure {0}
-								chain D
-								number {1:g}
-								inside box 0. 0. {2}  {3} {4} {5}
-								atoms 2 3
-									radius 0.2
-								end atoms
-							end structure
-							""".format(PDBfileList[SolventType],NbSolBottom,THICKNESS,LXS,LYS,M1headMIN)
-			
-		if NbSolTop:
-			PackmolInput += """
-							
-							structure {0}
-								chain E
-								number {1:g}
-								inside box 0. 0. {2}  {3} {4} {5}
-								atoms 2 3
-									radius 0.2
-								end atoms
-							end structure
-							""".format(PDBfileList[SolventType],NbSolTop,M2headMAX,LXS,LYS,LZM)
-		PackmolInput += """
-							
-							structure {0}
-								chain V
-								number {1:g}
-								inside box 0. 0. {2}  {3} {4} {5}
-								atoms 2 3
-									radius 0.2
-								end atoms
-							end structure
-							""".format(PDBfileList[SolventType],NbSolVapor,LZM+TMT,LXS,LYS,Sample['LZ'])
-	else:
-		if NbSolBottom:
-			PackmolInput += """
-							
-							structure {0}
-								chain D
-								number {1:g}
-								inside box 0. 0. {2}  {3} {4} {5}
-							end structure
-							""".format(PDBfileList[SolventType],NbSolBottom,THICKNESS,LXS,LYS,M1headMIN)
-		if NbSolTop:
-			PackmolInput += """
-							
-							structure {0}
-								chain E
-								number {1:g}
-								inside box 0. 0. {2}  {3} {4} {5}
-							end structure
-							""".format(PDBfileList[SolventType],NbSolTop,M2headMAX,LXS,LYS,LZM)
-		PackmolInput += """
-						
-						structure {0}
-							chain V
-							number {1:g}
-							inside box 0. 0. {2}  {3} {4} {5}
-						end structure
-						""".format(PDBfileList[SolventType],NbSolVapor,LZM+TMT,LXS,LYS,Sample['LZ'])
-					
-	
+		self.packmol_seed = None
+		self.packmol_input = None
 		
-	#=======================================================================
-	# Adding the substrat ==================================================
-	#=======================================================================
-	PackmolInput += """
-					
-					structure {0}
-						chain S
-						number {1:g}
-						inside box 0. 0. 0.  {2} {3} {4}
-					end structure
-					""".format(PDBfileList['SU'], nbSu, LXS, LYS, THICKNESS)
-	
-	f = open('packmol_'+System+'.input','w')
-	f.write(Utility.RemoveUnwantedIndent(PackmolInput))
-	f.close()
-	
-	# Lipids input pdb =====================================================
-	if( LipidType == "DSPC"):
-		f = open(PDBfileList['DSPC'],'w')
-		f.write(Utility.RemoveUnwantedIndent(DSPC_PDB))
-		f.close()
-	if( LipidType == "DPPC"):
-		f = open(PDBfileList['DPPC'],'w')
-		f.write(Utility.RemoveUnwantedIndent(DPPC_PDB))
-		f.close()
-	if( LipidType == "DLPC"):
-		f = open(PDBfileList['DLPC'],'w')
-		f.write(Utility.RemoveUnwantedIndent(DLPC_PDB))
-		f.close()
+		self.lipid_types = None
+		self.solvent_types = None
 		
-	# Solvents input pdb ===================================================
-	if( SolventType == 'W'):
-		f = open(PDBfileList['W'],'w')
-		f.write(Utility.RemoveUnwantedIndent(W_PDB))
-		f.close()
-	if( SolventType == 'PW'):
-		f = open(PDBfileList['PW'],'w')
-		f.write(Utility.RemoveUnwantedIndent(PW_PDB))
-		f.close()
-	if( SolventType == 'OCO'):
-		f = open(PDBfileList['OCO'],'w')
-		f.write(Utility.RemoveUnwantedIndent(OCO_PDB))
-		f.close()
+		if sample['SEED'] == 'time':
+			self.packmol_seed = int(time.time())
+		elif sample['SEED'] == 'jobnum':
+			self.packmol_seed = Sample['JOBNUM'] * 123456789
+			
 		
-	# pdb file for su
-	suType = SU_TYPE
-	assert(len(SU_TYPE) <= 4),"The name of the SU should be 4 letters max (Otherwise problem with PDB file format)" 
-	suType = SU_TYPE + (4 - len(SU_TYPE))*' '
-	suPdb = SU_PDB.replace("TEMP", suType)
-	f = open(PDBfileList['SU'],'w')
-	f.write(Utility.RemoveUnwantedIndent(suPdb))
-	f.close()
-		
-		
-	#=======================================================================
-	#lauching packmol
-	#=======================================================================
-
-	cmd = str("""{0} < packmol_{1}.input > packmol_{1}.output """).format(Softwares['PACKMOL'], System)
-	sub.call(cmd, shell=True)
-
-	#=======================================================================
-	# ensure the right box in pdb file
-	#=======================================================================
-
-	WriteBox = str("""
-			mol load pdb {0}.pdb
-			set all [atomselect top "all"]
-
-			package require pbctools
-			pbc set {{{1} {2} {3}}}
-
-			$all writepdb "{0}.withbox.pdb"
-			unset all
-
-			exit
-			""").format(System, Sample['LX'], Sample['LY'], Sample['LZ'])
-
-	f = open('write_box.vmd','w+')
-	f.write(Utility.RemoveUnwantedIndent(WriteBox) )
-	f.close()
-
-	## ======================================================================
-	cmd = str("""{0} -dispdev text -e write_box.vmd > write_box.log"""
-											).format(Softwares['VMD'])
-	sub.call(cmd, shell=True)
-	
-	MakeIndex = str("""
-			chain A
-			chain B
-			chain C
-			chain D
-			chain E
-			chain V
-			chain S
-			name 5 bottom{0}
-			name 6 top{0}
-			name 7 mono{0}
-			name 8 bottom{1}
-			name 9 top{1}
-			name 10 vap{1}
-			name 11 su
-			5 | 6
-			name 12 bilayer
-			q
-			
-			""").format(LipidType, SolventType)
-
-	f = open('make_index.input','w+')
-	f.write(Utility.RemoveUnwantedIndent(MakeIndex) )
-	f.close()
-	
-	cmd = str("""{0}make_ndx -f {1}.withbox.pdb -o {1}.ndx < make_index.input""").format(GROMACS_LOC_prefixPath,
-																					System)
-	sub.call(cmd, shell=True)
-	
-	
-	#=======================================================================
-	# the topology file
-	#=======================================================================
-	TopologySu(Sample, PathToDefault)
-	
-	Topology = """
-				#include "martini_v2.2_{1}_{0}.itp"
-				#include "martini_v2.0_lipids.itp"
-				
-				""".format(Sample['SU']['Version'], SU_TYPE)
-	
-	#Copy the topology files for martini forcefield
-	sub.call("""cp {0}/martini_v2.0_lipids.itp  .""".format(PathToDefault), shell= True)
-	sub.call("""cp {0}/SU/su_posres.itp  .""".format(PathToDefault), shell= True)
-	f = open(System+'.top','w')
-	f.write(Utility.RemoveUnwantedIndent(Topology))
-
-	f = open(System+'.top','a')
-	f.write("""\n[ system ]\n""")
-
-	Topology = str("""{0}_{1}_WITH_{3}_{2}\n""").format(LipidType, Sample['TYPE'], Sample['SU']['Version'],
-													SU_TYPE)
-	f.write(Topology)
-
-	f.write("""\n[ molecules ]\n""")
-	Topology = str("""{0} {1}\n{2} {3}\n{4} {5}\n""").format(LipidType, Sample[LipidType]+NBLIPIDS_MONO,
-														SolventType, Sample[SolventType], SU_TYPE, nbSu)
-	f.write(Topology)
-	f.close()
-		
-	#==================================================================================
-	# Output the files for other steps
-	#==================================================================================
-	Output = str("""{0}.withbox.pdb""").format(System)
-	Index = str("""{0}.ndx""").format(System)
-	
-	ApL = (Sample['LX']*Sample['LY'])/NLM[LipidType]
-	print(Utility.RemoveUnwantedIndent("""
-			================================
-			================================
-			Packmol finished initial input file
-			{0} {1}, {2} {3} with SU{4} {5} and mono{0} {6}
-			box sizes : {7}, {8}, {9}
-			Area per lipid = {10} A**2
-			===============================
-			===============================
-			""".format(LipidType, Sample[LipidType],SolventType, Sample[SolventType],
-				Sample['SU']['Version'],nbSu,NBLIPIDS_MONO,
-				Sample['LX'],Sample['LY'],Sample['LZ'],ApL)))
-	return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
-
-
-
-def InitBilayerWithHole(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, packmolSeed):
-	#Bilayer + Hole
-	SHELL = 3.0
-	
-	LXS = Sample['LX']-SHELL
-	LYS = Sample['LY']-SHELL
-	LZS = Sample['LZ']-SHELL
-
-	LZ2 = LZS/2.0
-	
-	#Number of lipid and water per layer
-	NLM = {}
-	NSOLM = {}
-	
-	LipidType = ''
-	for L in LipidsList:
-		if(L in Sample):
-			NLM.update( {L:int(Sample[L]/2)} )
-			LipidType = L
-	for Sol in SolventsList:
-		if(Sol in Sample):
-			NSOLM.update( {Sol:int(Sample[Sol]/2)} )
-			SolventType = Sol
-	
-	
-	#=======================================================================
-	# Setting the bilayers  ================================================
-	#=======================================================================
-	
-	TMT = 0.0
-	DZ = 0.0
-	# DSPC bilayer =========================================================
-	if LipidType == "DSPC":
-		# Geometry to preprare the bilayer with packmol
-		# total monolayer thickness (Angstrom)
-		TMT = 30.0
-		# deltaz : thickness in Z direction for
-		# the volume constraining the heads and tails beads
-		DZ = 7.0
-	
-	# DPPC bilayer =========================================================
-	if LipidType == "DPPC":
-		TMT = 30
-		DZ = 10
-	
-	# DLPC bilayer =========================================================
-	if LipidType == "DLPC":
-		TMT = 30
-		DZ = 10
-
-	M1headMIN = LZ2 - TMT
-	M1headMAX = LZ2 - TMT + DZ
-	M1tailMIN = LZ2 - DZ
-	M1tailMAX = LZ2
-
-	M2headMIN = LZ2 + TMT - DZ
-	M2headMAX = LZ2 + TMT
-	M2tailMIN = LZ2
-	M2tailMAX = LZ2 + DZ
-	
-	
-	#=======================================================================
-	#=======================================================================
-	#=======================================================================
-	
-	#=======================================================================
-	# Creating the defo ====================================================
-	#=======================================================================
-			
-	infoDefo = CreateDefoBi(Sample, Softwares, TMT, DZ)
-	DefoXYZ_filename = infoDefo[0]
-	radiusDefo = infoDefo[1]
-	L_defo = infoDefo[2]
-	nbDefo = infoDefo[3]
-	#=======================================================================
-	#=======================================================================
-	#=======================================================================
-	
-	#=======================================================================
-	# Setting the bilayers for packmol =====================================
-	#=======================================================================
-	
-	#Setting the name of the system
-	System = """{0}_{1}{2}_{3}{4}_{5}DEF{6}""".format(Sample['TYPE'], Sample[LipidType],LipidType,
-												Sample[SolventType], SolventType, nbDefo, 
-												Sample['DEFO']['Version'])
-	
-	if packmolSeed:
-		PackmolInput = """
-					#Packmol seed was set using {0}
-					seed {1}
-				
-				""".format(Sample['SEED'], packmolSeed)
-	else:
-		PackmolInput = """
-					#Packmol Seed was set using default
-				
-						"""
-	# DLPC bilayer =========================================================
-	if LipidType == "DSPC":
-		PackmolInput += """
-					#
-					# Lipid bilayer with water, perpendicular to z axis
-					#
-					
-					# Every atom from diferent molecules will be far from each other at
-					# least 3.0 Anstroms at the solution.
-					
-					tolerance 3.0
-					
-					# Coordinate file types will be in pdb format (keyword not required for
-					# pdb file format, but required for tinker, xyz or moldy)
-					
-					filetype pdb
-					
-					# do not avoid the fixed molecules
-					#avoid_overlap no
-					
-					# The output pdb file
-					
-					output {0}.pdb
-					
-					structure {1}
-						chain A
-						resnumbers 3
-						number {2:g}
-						inside box 0. 0. {3}  {4} {5} {6}
-						atoms 1
-							below plane 0. 0. 1. {7}
-						end atoms
-						atoms 9 14
-							over plane 0. 0. 1. {8}
-						end atoms
-						outside cylinder  {13} {14}  {3}  0.  0.  1.  {15}  {16}
-					end structure
-					
-					structure {1}
-						chain B
-						resnumbers 3
-						number {2:g}
-						inside box 0. 0.  {9}  {4} {5} {10}
-						atoms 1
-							over plane 0. 0. 1. {11}
-						end atoms
-						atoms 9 14
-							below plane 0. 0. 1. {12}
-						end atoms
-						outside cylinder  {13} {14}  {3}  0.  0.  1.  {15}  {16}
-					end structure
-					
-					""".format(System, PDBfileList[LipidType], NLM[LipidType], M1headMIN, 
-								LXS, LYS, M1tailMAX, M1headMAX,
-								M1tailMIN, M2tailMIN,M2headMAX, M2headMIN,
-								M2tailMAX, LXS/2.0, LYS/2.0, radiusDefo,
-								L_defo)
-	
-	# DPPC bilayer, DLPC bilayer =========================================================
-	if LipidType in {'DPPC','DLPC'}:
-		PackmolInput += """
-					#
-					# Lipid bilayer with water, perpendicular to z axis
-					#
-					
-					# Every atom from diferent molecules will be far from each other at
-					# least 3.0 Anstroms at the solution.
-					
-					tolerance 3.0
-					
-					# Coordinate file types will be in pdb format (keyword not required for
-					# pdb file format, but required for tinker, xyz or moldy)
-					
-					filetype pdb
-					
-					# do not avoid the fixed molecules
-					#avoid_overlap no
-					
-					# The output pdb file
-					
-					output {0}.pdb
-					
-					structure {1}
-						chain A
-						resnumbers 3
-						number {2:g}
-						inside box 0. 0. {3}  {4} {5} {6}
-						constrain_rotation x 180 10
-						constrain_rotation y 180 10
-						outside cylinder  {9} {10}  0.  0.  0.  1.  {11}  {12}
-					end structure
-					
-					structure {1}
-						chain B
-						resnumbers 3
-						number {2:g}
-						inside box 0. 0.  {7}  {4} {5} {8}
-						constrain_rotation x 0 10
-						constrain_rotation y 0 10
-						outside cylinder  {9} {10}  0.  0.  0.  1.  {11}  {12}
-					end structure
-					
-					""".format(System, PDBfileList[LipidType], NLM[LipidType], M1headMIN, LXS, LYS, M1tailMAX,
-						M2tailMIN, M2headMAX, LXS/2.0, LYS/2.0, radiusDefo, L_defo)
-	
-	#=======================================================================
-	#=======================================================================
-	#=======================================================================
-	
-	#=======================================================================
-	# Setting the defo with solvent for packmol ============================
-	#=======================================================================
-	
-	if SolventType == 'PW':
-		PackmolInput += """
-		
-						structure {0}
-							chain C
-							number {1:g}
-							inside box 0. 0. 0.  {2} {3} {4}
-							atoms 2 3
-								radius 0.2
-							end atoms
-						end structure
-
-
-						structure {0}
-							chain D
-							number {1:g}
-							inside box 0. 0. {5}  {2} {3} {6}
-							atoms 2 3
-								radius 0.2
-							end atoms
-						end structure
-						""".format(PDBfileList[SolventType], NSOLM[SolventType], LXS, LYS,  M1headMIN,
-							M2headMAX, LZS)
-	else:
-		PackmolInput += """
-						
-						structure {0}
-							chain C
-							number {1:g}
-							inside box 0. 0. 0.  {2} {3} {4}
-						end structure
-						
-						structure {0}
-							chain D
-							number {1:g}
-							inside box 0. 0. {5}  {2} {3} {6}
-						end structure
-						""".format(PDBfileList[SolventType], NSOLM[SolventType], LXS, LYS,  M1headMIN,
-							M2headMAX, LZS)
-	if Sample['DEFO']['Height'] == 'follow':
-		PackmolInput += """
-						
-						structure {0}
-							chain X
-							number 1
-							center
-							resnumbers 3
-							fixed {1} {2} {3} 0.0 0.0 0.0
-							radius 0.
-						end structure
-						""".format(DefoXYZ_filename.replace('xyz','pdb'), 
-								LXS/2.0, LYS/2.0, LZ2)
-	else:
-		PackmolInput += """
-						
-						structure {0}
-							chain X
-							number 1
-							resnumbers 3
-							fixed {1} {2} {3} 0.0 0.0 0.0
-							radius 0.
-						end structure
-						""".format(DefoXYZ_filename.replace('xyz','pdb'), 
-								LXS/2.0, LYS/2.0, 0.0)
-					
-	f = open('packmol_'+System+'.input','w')
-	f.write(Utility.RemoveUnwantedIndent(PackmolInput))
-	f.close()
-	
-	# Lipids input pdb =====================================================
-	if( LipidType == "DSPC"):
-		f = open('dspc_single.pdb','w')
-		f.write(Utility.RemoveUnwantedIndent(DSPC_PDB))
-		f.close()
-	if( LipidType == "DPPC"):
-		f = open('dppc_single.pdb','w')
-		f.write(Utility.RemoveUnwantedIndent(DPPC_PDB))
-		f.close()
-	if( LipidType == "DLPC"):
-		f = open('dlpc_single.pdb','w')
-		f.write(Utility.RemoveUnwantedIndent(DLPC_PDB))
-		f.close()
-		
-	# Solvents input pdb ===================================================
-	if( SolventType == 'W'):
-		f = open('water_single.pdb','w')
-		f.write(Utility.RemoveUnwantedIndent(W_PDB))
-		f.close()
-	if( SolventType == 'PW'):
-		f = open('polwater_single.pdb','w')
-		f.write(Utility.RemoveUnwantedIndent(PW_PDB))
-		f.close()
-	if( SolventType == 'OCO'):
-		f = open('octanol_single.pdb','w')
-		f.write(Utility.RemoveUnwantedIndent(OCO_PDB))
-		f.close()
-	
-	#=======================================================================
-	#lauching packmol
-	#=======================================================================
-
-	cmd = str("""{0} < packmol_{1}.input > packmol_{1}.output """).format(Softwares['PACKMOL'],System)
-	sub.call(cmd, shell=True)
-
-	#=======================================================================
-	# ensure the right box in pdb file
-	#=======================================================================
-
-	WriteBox = str("""
-			mol load pdb {0}.pdb
-			set all [atomselect top "all"]
-
-			package require pbctools
-			pbc set {{{1} {2} {3}}}
-
-			$all writepdb "{0}.withbox.pdb"
-			unset all
-
-			exit
-			""").format(System, Sample['LX'], Sample['LY'], Sample['LZ'])
-
-	f = open('write_box.vmd','w+')
-	f.write(Utility.RemoveUnwantedIndent(WriteBox) )
-	f.close()
-
-	## ======================================================================
-	cmd = str("""{0} -dispdev text -e write_box.vmd > write_box.log"""
-											).format(Softwares['VMD'])
-	sub.call(cmd, shell=True)
-	
-	MakeIndex = str("""
-			chain A
-			chain B
-			chain C
-			chain D
-			chain X
-			name 5 bottom{0}
-			name 6 top{0}
-			name 7 bottom{1}
-			name 8 top{1}
-			name 9 defo
-			5 | 6
-			name 10 bilayer
-			q
-			
-			""").format(LipidType,SolventType)
-
-	f = open('make_index.input','w+')
-	f.write(Utility.RemoveUnwantedIndent(MakeIndex) )
-	f.close()
-	
-	cmd = str("""{0}make_ndx -f {1}.withbox.pdb -o {1}.ndx < make_index.input""").format(GROMACS_LOC_prefixPath,
-																					System)
-	sub.call(cmd, shell=True)
-	
-	#=======================================================================
-	# the topology file
-	#=======================================================================
-	TopologyDefo(Sample, PathToDefault)
-	
-	Topology = Utility.RemoveUnwantedIndent("""
-				#include "martini_v2.2_DEFO_{0}.itp"
-				#include "martini_v2.0_lipids.itp"
-			""".format(Sample['DEFO']['Version']))
-	
-	#Add the topology for the defo (bilayer)
-	Topology += """\n#include "defo_topo.itp"\n """
-	
-	#Copy the topology files for martini forcefield
-	sub.call("""cp {0}/martini_v2.0_lipids.itp  .""".format(PathToDefault), shell= True)
-	#sub.call("""cp {0}/DEFO/defo_posres.itp  .""".format(PathToDefault), shell= True)
-	f = open(System+'.top','w')
-	f.write(Topology)
-
-	f = open(System+'.top','a')
-	f.write("""\n[ system ]\n""")
-
-	Topology = str("""{0}_{1}_WITH_DEFO_{2}\n""").format(LipidType, Sample['TYPE'], Sample['DEFO']['Version'])
-	f.write(Topology)
-
-	f.write("""\n[ molecules ]\n""")
-	Topology = str("""{0} {1}\n{2} {3}\n{4} {5}\n""").format(LipidType, Sample[LipidType], SolventType, 
-														Sample[SolventType],'DEFB',1)
-	f.write(Topology)
-	f.close()
-	###### TO CHECKK TO CHECKKKK #######
-	Output = str("""{0}.withbox.pdb""").format(System)
-	Index = str("""{0}.ndx""").format(System)
-	
-	
-	ApL = (Sample['LX']*Sample['LY'] - 3.141516*radiusDefo*radiusDefo)/NLM[LipidType]
-	print(Utility.RemoveUnwantedIndent("""
-			================================
-			================================
-			Packmol finished initial input file
-			{0} {1}, {2} {3} with DEFO{4} {5}
-			box sizes : {6}, {7}, {8}
-			Area per lipid = {9} A**2
-			===============================
-			===============================
-			""".format(LipidType, Sample[LipidType],SolventType, Sample[SolventType],
-				Sample['DEFO']['Version'],nbDefo,
-				Sample['LX'],Sample['LY'],Sample['LZ'],ApL)))
-
-	return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
-
-
-
-
-def InitBilayerWithHoleAndWall(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault, packmolSeed):
-	THICKNESS = float(Sample['SU']['Thickness'])
-	DENSITY = float(Sample['SU']['Density'])
-	NBLIPIDS_MONO = int(Sample['SU']['NbLipidsM'])
-	SU_VERSION = Sample['SU']['Version']
-	SU_TYPE = Sample['SU']['SuType']
-	LZM = float(Sample['SU']['LzM'])
-	
-	
-	SHELL = 3.0
-	LXS = Sample['LX'] - SHELL
-	LYS = Sample['LY'] - SHELL
-	
-	#Number of lipid and water per layer
-	NLM = {}
-	NSOLM = {}
-	LipidType = ''
-	
-	for L in LipidsList:
-		if(L in Sample):
-			NLM.update( {L:int(Sample[L]/2)} )
-			LipidType = L
-			
-	for Sol in SolventsList:
-		if Sol in Sample:
-			NSOLM.update( {Sol:int(Sample[Sol]/2)} )
-			SolventType = Sol
-	
-	#=======================================================================
-	# Setting the bilayers  ================================================
-	#=======================================================================
-	
-	TMT = 0.0
-	DZ = 0.0
-	# DSPC bilayer =========================================================
-	if LipidType == "DSPC":
-		# Geometry to preprare the bilayer with packmol
-		# total monolayer thickness (Angstrom)
-		TMT = 30.0
-		# deltaz : thickness in Z direction for
-		# the volume constraining the heads and tails beads
-		DZ = 7.0
-	
-	# DPPC bilayer =========================================================
-	if LipidType == "DPPC":
-		TMT = 30.0
-		DZ = 10
-	
-	# DLPC bilayer =========================================================
-	if LipidType == "DLPC":
-		TMT = 30.0
-		DZ = 10
-	
-	assert(TMT > 0.0 and DZ > 0.0),"Your Parameters.csv contains a lipid not yet defined in Prepare.py"
-	#Set the box height with the monolayer + shell for PBC
-	LBZ = (LZM-THICKNESS)/2.0 + THICKNESS
-	LZ2 = 0.0
-	NbParticlesToRelocate = 0
-	NbSolTop = NSOLM[SolventType]
-	NbSolBottom = NSOLM[SolventType]
-	if 'BilayerHeight' in Sample['SU']:
-		LZ2 = float(Sample['SU']['BilayerHeight'])
-		#Checking that the Bilayer lipids do not overlap with the Monolayer lipids and the substrate
-		if (LZ2 - TMT) < THICKNESS:
-			LZ2 -= LZ2 -TMT - THICKNESS
-		if (LZ2 + TMT) > LZM:
-			LZ2 += LZM - LZ2 - TMT
-		#Checking that the Solvent is not too dense
-		if LZ2 < LBZ: #Too much Solvent below
-			DensitySol = NSOLM[SolventType]/LXS/LYS/(LBZ - TMT - THICKNESS)
-			VolToRemove = LBZ - LZ2
-			VolToRemove *= LXS*LYS
-			NbParticlesToRelocate = int(DensitySol * VolToRemove)
-			
-			NbSolBottom -= NbParticlesToRelocate
-			NbSolTop += NbParticlesToRelocate
-			
-		if LZ2 > LBZ: #Too much Solvent above
-			DensitySol = NSOLM[SolventType]/LXS/LYS/(LZM - LBZ - TMT)
-			VolToRemove = LZ2 - LBZ
-			VolToRemove *= LXS*LYS
-			NbParticlesToRelocate = int(DensitySol * VolToRemove)
-			
-			NbSolBottom += NbParticlesToRelocate
-			NbSolTop -= NbParticlesToRelocate
-	else:
-		LZ2 = LBZ
-			
-	
-	M1headMIN = LZ2 - TMT
-	M1headMAX = LZ2 - TMT + DZ
-	M1tailMIN = LZ2 - DZ
-	M1tailMAX = LZ2
-
-	M2headMIN = LZ2 + TMT - DZ
-	M2headMAX = LZ2 + TMT
-	M2tailMIN = LZ2
-	M2tailMAX = LZ2 + DZ
-	
-	#=======================================================================
-	# Creating the defo ====================================================
-	#=======================================================================
-	
-	if Sample['DEFO']['Height'] == 'follow':
-		defoDict = CreateDefoBiAndMono(Sample,Softwares, TMT, DZ, LZ2, THICKNESS)
-		nbDefo = 0
-		for defoLayer in defoDict:
-			nbDefo += defoDict[defoLayer]['nbDefo']
-	else:
-		infoDefo = CreateDefoBiAndMono(Sample,Softwares, TMT, DZ, LZ2, THICKNESS)
-		DefoXYZ_filename = infoDefo[0]
-		nbDefo = infoDefo[1]
-	radiusDefo = float(Sample['DEFO']['Radius'])
-	#=======================================================================
-	# Number of su particles ===============================================
-	#=======================================================================
-	#Computing the number of SU Density is in CG/nm³ thus the divided by 1000 for Volume
-	nbSu = int( DENSITY * Sample['LX'] * Sample['LY'] * THICKNESS /1000 )
-	
-	#=======================================================================
-	#=======================================================================
-	#=======================================================================
-	
-	#=======================================================================
-	#=======================================================================
-	#=======================================================================
-
-	System = str('{0}_{1}{2}_{3}M{2}_{4}{5}_{6}DEF{7}_{8}{10}{9}').format(Sample['TYPE'], Sample[LipidType],
-											LipidType, NBLIPIDS_MONO , 
-											Sample[SolventType], SolventType,
-											nbDefo, Sample['DEFO']['Version'], nbSu, Sample['SU']['Version'],SU_TYPE)
-	
-	#=======================================================================
-	# Setting the bilayers for packmol =====================================
-	#=======================================================================
-	if packmolSeed:
-		PackmolInput = """
-					#Packmol seed was set using {0}
-					seed {1}
-					
-					""".format(Sample['SEED'], packmolSeed)
-	else:
-		PackmolInput = """
-					#Packmol seed was set using default
-					
-					"""
-	# DLPC bilayer =========================================================
-	if LipidType == "DSPC":
-		PackmolInput += """
-					#
-					# Lipid bilayer with water, perpendicular to z axis
-					#
-					
-					# Every atom from diferent molecules will be far from each other at
-					# least 3.0 Anstroms at the solution.
-					
-					tolerance 3.0
-					
-					# Coordinate file types will be in pdb format (keyword not required for
-					# pdb file format, but required for tinker, xyz or moldy)
-					
-					filetype pdb
-					
-					# do not avoid the fixed molecules
-					#avoid_overlap no
-					
-					# The output pdb file
-					
-					output {0}.pdb
-					
-					structure {1}
-						chain A
-						resnumbers 3
-						number {2:g}
-						inside box 0. 0. {3}  {4} {5} {6}
-						atoms 1
-							below plane 0. 0. 1. {7}
-						end atoms
-						atoms 9 14
-							over plane 0. 0. 1. {8}
-						end atoms
-						outside cylinder  {13} {14}  {3}  0.  0.  1.  {15}  {16}
-					end structure
-					
-					structure {1}
-						chain B
-						resnumbers 3
-						number {2:g}
-						inside box 0. 0.  {9}  {4} {5} {10}
-						atoms 1
-							over plane 0. 0. 1. {11}
-						end atoms
-						atoms 9 14
-							below plane 0. 0. 1. {12}
-						end atoms
-						outside cylinder  {13} {14}  {3}  0.  0.  1.  {15}  {16}
-					end structure
-					
-					""".format(System, PDBfileList[LipidType], NLM[LipidType], M1headMIN, LXS,
-								LYS, M1tailMAX, M1headMAX, M1tailMIN, 
-								M2tailMIN, M2headMAX, M2headMIN, M2tailMAX, 
-								LXS/2.0, LYS/2.0, radiusDefo, Sample['LZ'])
-		if Sample['DEFO']['Height'] in {'follow','mono','box'}:
-			PackmolInput += """
-						
-						structure {0}
-							chain C
-							resnumbers 3
-							number {1:g}
-							inside box 0. 0.  {2}  {3} {4} {5}
-							atoms 1
-								below plane 0. 0. 1. {6}
-							end atoms
-							atoms 9 14
-								over plane 0. 0. 1. {7}
-							end atoms
-							outside cylinder  {8} {9}  {2}  0.  0.  1.  {10}  {11}
-						end structure
-						
-						""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM, LZM+DZ, TMT+LZM-DZ,
-									LXS/2.0, LYS/2.0, radiusDefo, Sample['LZ'])
+		if self.packmol_seed is not None:
+			self.packmol_input = """
+							# Packmol seed was set using {0}
+							seed {1:d}\ntolerance 3.0
+							filetype pdb\n""".format(sample['SEED'], self.packmol_seed)
 		else:
-			PackmolInput += """
-						
-						structure {0}
-							chain C
-							resnumbers 3
-							number {1:g}
-							inside box 0. 0.  {2}  {3} {4} {5}
-							atoms 1
-								below plane 0. 0. 1. {6}
-							end atoms
-							atoms 9 14
-								over plane 0. 0. 1. {7}
-							end atoms
-						end structure
-						
-						""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM, LZM+DZ, TMT+LZM-DZ)
-	
-	# DPPC bilayer, DLPC bilayer =========================================================
-	if LipidType in {'DPPC','DLPC'}:
-		PackmolInput += """
-						#
-						# Lipid bilayer with water, perpendicular to z axis
-						#
-
-						# Every atom from diferent molecules will be far from each other at
-						# least 3.0 Anstroms at the solution.
-
-						tolerance 3.0
-
-						# Coordinate file types will be in pdb format (keyword not required for
-						# pdb file format, but required for tinker, xyz or moldy)
-
-						filetype pdb
-
-						# The output pdb file
-
-						output {0}.pdb
-
-						structure {1}
-							chain A
-							resnumbers 3
-							number {2:g}
-							inside box 0. 0. {3}  {4} {5} {6}
-							constrain_rotation x 180 10
-							constrain_rotation y 180 10
-							outside cylinder  {9} {10}  {3}  0.  0.  1.  {11}  {12}
-						end structure
-
-						structure {1}
-							chain B
-							resnumbers 3
-							number {2:g}
-							inside box 0. 0.  {7}  {4} {5} {8}
-							constrain_rotation x 0 10
-							constrain_rotation y 0 10
-							outside cylinder  {9} {10}  {3}  0.  0.  1.  {11}  {12}
-						end structure
-
-						""".format(System, PDBfileList[LipidType], NLM[LipidType], M1headMIN, LXS, 
-									LYS, M1tailMAX, M2tailMIN, M2headMAX,
-									LXS/2.0, LYS/2.0, radiusDefo, Sample['LZ']
-									)
-		if Sample['DEFO']['Height'] in {'follow','mono','box'}:
-			PackmolInput += """
-							
-							structure {0}
-								chain C
-								resnumbers 3
-								number {1:g}
-								inside box 0. 0.  {2}  {3} {4} {5}
-								constrain_rotation x 180 10
-								constrain_rotation y 180 10
-								outside cylinder  {6} {7}  {2}  0.  0.  1.  {8}  {9}
-							end structure
-							
-							""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM, 
-										LXS/2.0, LYS/2.0, radiusDefo, Sample['LZ'])
-		else:
-			PackmolInput += """
-							
-							structure {0}
-								chain C
-								resnumbers 3
-								number {1:g}
-								inside box 0. 0.  {2}  {3} {4} {5}
-								constrain_rotation x 180 10
-								constrain_rotation y 180 10
-							end structure
-							
-							""".format(PDBfileList[LipidType], NBLIPIDS_MONO, LZM, LXS, LYS, TMT+LZM)
-							
-	#=======================================================================
-	#=======================================================================
-	#=======================================================================
-	
-	
-					
-	#=======================================================================
-	# Setting the defo with solvent for packmol ============================
-	#=======================================================================
-	#Computing the number of Solvent vapor
-	NbSolVapor = int( 0.007 * Sample['LX'] * Sample['LY'] * (Sample['LZ']-LZM-TMT) /1000)
-	
-	if SolventType == 'PW':
-		if NbSolBottom:
-			PackmolInput += """
-							
-							structure {0}
-								chain D
-								number {1:g}
-								inside box 0. 0. {2}  {3} {4} {5}
-								atoms 2 3
-									radius 0.2
-								end atoms
-							end structure
-							""".format(PDBfileList[SolventType],NbSolBottom,THICKNESS,LXS,LYS,M1headMIN)
+			self.packmol_input = """
+							# Packmol seed was set using default
+							tolerance 3.0
+							filetype pdb\n"""
 			
-		if NbSolTop:
-			PackmolInput += """
-							
-							structure {0}
-								chain E
-								number {1:g}
-								inside box 0. 0. {2}  {3} {4} {5}
-								atoms 2 3
-									radius 0.2
-								end atoms
-							end structure
-							""".format(PDBfileList[SolventType],NbSolTop,M2headMAX,LXS,LYS,LZM)
-							
-		if NbSolVapor:
-			PackmolInput += """
+			
+	
+	def write_packmol_input(self):
+		pass
+	
+	def create_sample(self):
+		pass
+	
+	def add_substrate(self):
+		pass
+	
+	def add_substrate_in_run(self, sample, md_step, previous_cmd_files, prefix_gromacs_grompp, prefix_gromacs_mdrun):
+		""" Method writing bash commands to include the substrate in the middle of the runs
+		"""
+		self.su = self.protocol[md_step]
+		
+		# pdb file for su
+		assert(len(self.su['SuType']) <= 4),"The name of the SU should be 4 letters max (Otherwise problem with PDB file format)" 
+		
+		su_type = self.su['SuType'] + (4 - len(self.su['SuType']))*' '
+		
+		atom_type = None
+		if 'SU' in self.su['SuType']:
+			atom_type = self.su['SuType'][-2:] + (3 - len(self.su['SuType'][-2:]))*' '
+		
+		elif 'S' in self.su['SuType']:
+			atom_type = self.su['SuType'][-3:] + (3 - len(self.su['SuType'][-3:]))*' '
+		
+		su_pdb_content = pdb_file_list['SU']['content'].replace("TEMP", su_type)
+		su_pdb_content = su_pdb_content.replace("TEM", atom_type)
+		
+		with open(pdb_file_list['SU']['name'],'w') as su_pdb:
+			su_pdb.write(ut.RemoveUnwantedIndent(su_pdb_content))
+				
+		density = self.su['Density']
+		thickness = self.su['Thickness']
+		
+		file_input = previous_cmd_files['OUTPUT']
+		file_output = file_input.replace('out.gro','_{0}{1}d{2}.gro'.format(self.su['SuType'], self.su['Version'], self.su['Density']))
+		
+		cmd = "# BEGIN ####### INSERTING THE SUBSTRATE BELOW THE SAMPLE #######"
+		cmd += "### Reading the box vectors\n"
+		cmd += "read -r LX LY LZ<<<$(tail -n1 {0})\n\n".format(file_input)
+		
+		cmd += "density={0}\n".format(density)
+		cmd += "thickness={0}\n".format(float(thickness)/10.)
+		
+		shell = 0.2
+		cmd += "shell={0}\n".format(shell)
+		
+		cmd += "### Computing the number of substrate particles to add\n"
+		cmd += str("""nb_su=$(awk -vX=$LX -vY=$LY -vZ=$LZ -vT=$thickness -vD=$density """
+					"""'BEGIN{ printf "%.0f" ,X*Y*T*D }')\n\n""")
+		
+		cmd += "### Computing the new Z-vector for the box (new_LZ = LZ + thickness)\n"
+		cmd += """nLZ=$(awk -vZ=$LZ -vT=$thickness -vS=$shell 'BEGIN{ print Z+T+2*S }')\n\n"""
+		
+		# Manipulating the sample 
+		cmd += "### Removing pbc to manipulate it correcly\n"
+		
+		cmd += "printf {0} | {1} trjconv -f {2} -s {3} -n {4} -o {5} -pbc res\n".format(repr("0\n"), prefix_gromacs_grompp, file_input, file_input.replace('_out.gro','.tpr'),
+																						self.index_file, 'fixed_pbc.gro')
+		
+		cmd += "{0} editconf -f {1} -o {2} -pbc no\n".format(prefix_gromacs_grompp,
+																'fixed_pbc.gro', 'temp_for_adding_su_1.gro')
+		
+		cmd += "### Creating the new box and shifting all the previous atoms (0, 0, thickness)\n"
+		cmd += """translate=$(awk -vT=$thickness -vS=$shell 'BEGIN{ print T+S }')\n\n"""
+		cmd += "{0} editconf -f {1} -o {2} -box $LX $LY $nLZ -c no\n".format(prefix_gromacs_grompp,
+																'temp_for_adding_su_1.gro', 'temp_for_adding_su_2.gro')
+		
+		
+		cmd += "{0} editconf -f {1} -o {2} -translate 0. 0. $translate\n\n".format(prefix_gromacs_grompp,
+																			'temp_for_adding_su_2.gro',
+																			'temp_for_adding_su_3.gro')
+		
+		# Creating the substrate
+		cmd += "### Creating the substrate with box size (LX, LY, thickness)\n"
+		cmd += "{0} insert-molecules -ci su_single.pdb -nmol $nb_su -o sub.gro -box $LX $LY $thickness -radius {1}\n\n".format(prefix_gromacs_grompp,
+																																self.su['Radius'])
+		
+		self.system += "_{0}{1}d{2}".format(self.su['SuType'], self.su['Version'], self.su['Density'])
+		self.create_topology()
+		
+		# Energy minimisation of the substrate
+		cmd += "### Writing topology for EM su\n"
+		cmd += "printf " + repr( """#include "{0}"\n\n""".format(self.itp_file) ) + ">> su_insertion.top\n"
+		cmd += "printf " + repr("[ system ]\nSUBSTRATE\n") + ">> su_insertion.top\n"
+		cmd += "printf " + repr("[ molecules ]\n%s %d\n") +""" {0} $nb_su """.format(self.su['SuType']) + ">> su_insertion.top\n\n"
+		
+		#Modifying the rcut otherwise problem with gromacs
+		try:
+			path_to_EMmdp = self.path_to_default+'/SU/EM_su_insertion.mdp'
+			new_rcut = float(self.su['Thickness'])/20.
+			
+			#if float(self.su['Thickness'])/20. < 1.2:
+				#with open(path_to_EMmdp,'r') as input_mdp:
+					#with open('EM_su_insertion.mdp','w') as output_mdp:
+						#copy_original_line = True
+						
+						#for i, line in enumerate(input_mdp):
+							#if not line.startswith(';'):
+								#for rcut in ('rcoulomb','rvdw',):
+									#if rcut in line and rcut != '' and (line.partition(' ')[0] == rcut or line.partition('=')[0] == rcut):
+										#output_mdp.write(rcut+'			= {0}\n'.format(new_rcut-0.1))
+										#copy_original_line = False
+										#continue
+										
+								#if copy_original_line:
+									#output_mdp.write(line)
 								
-								structure {0}
-									chain V
-									number {1:g}
-									inside box 0. 0. {2}  {3} {4} {5}
-									atoms 2 3
-										radius 0.2
-									end atoms
-								end structure
-								""".format(PDBfileList[SolventType],NbSolVapor,LZM+TMT,LXS,LYS,Sample['LZ'])
-	else:
-		if NbSolBottom:
-			PackmolInput += """
-							
-							structure {0}
-								chain D
-								number {1:g}
-								inside box 0. 0. {2}  {3} {4} {5}
-							end structure
-							""".format(PDBfileList[SolventType],NbSolBottom,THICKNESS,LXS,LYS,M1headMIN)
-		if NbSolTop:
-			PackmolInput += """
-							
-							structure {0}
-								chain E
-								number {1:g}
-								inside box 0. 0. {2}  {3} {4} {5}
-							end structure
-							""".format(PDBfileList[SolventType],NbSolTop,M2headMAX,LXS,LYS,LZM)
-		if NbSolVapor:
-			PackmolInput += """
-							
-							structure {0}
-								chain V
-								number {1:g}
-								inside box 0. 0. {2}  {3} {4} {5}
-							end structure
-							""".format(PDBfileList[SolventType],NbSolVapor,LZM+TMT,LXS,LYS,Sample['LZ'])
-						
-	if Sample['DEFO']['Height'] == 'follow':
-		PackmolInput += """
-					structure {0}
-						chain X
-						number 1
-						resnumbers 3
-						fixed {1} {2} {3} 0.0 0.0 0.0
-						radius 0.
-						center
-					end structure
-					""".format(defoDict['DEFB']['XYZfile'].replace('xyz','pdb'),LXS/2.0, LYS/2.0, LZ2)
-		PackmolInput += """
-					structure {0}
-						chain Y
-						number 1
-						resnumbers 3
-						fixed {1} {2} {3} 0.0 0.0 0.0
-						radius 0.
-					end structure
-					""".format(defoDict['DEFM']['XYZfile'].replace('xyz','pdb'),LXS/2.0, LYS/2.0, LZM-DZ/8.0)
+								#copy_original_line=True
+			#else:
+			copyfile(path_to_EMmdp,'EM_su_insertion.mdp')
 			
-						
-	else:
-		PackmolInput += """
-					structure {0}
-						chain X
-						number 1
-						resnumbers 3
-						fixed {1} {2} {3} 0.0 0.0 0.0
-						radius 0.
-					end structure
-					""".format(DefoXYZ_filename.replace('xyz','pdb'),LXS/2.0, LYS/2.0, THICKNESS)
+		except IOError as e:
+			print(e)
+			
+		cmd += "### Energy minimisation for the substrate\n"
+		cmd += str("{0}grompp -f EM_su_insertion.mdp -po EM_su_insertion_out.mdp -c {1} -p su_insertion.top -maxwarn 10 -o EM_su_insertion.tpr "
+								"|& tee grompp_out/grompp_EM_su_insertion.output\n\n").format(prefix_gromacs_grompp, 'sub.gro',
+																					previous_cmd_files['SYSTEM'])
+								
+		
+		
+		cmd += str("{0}mdrun -deffnm EM_su_insertion -c EM_su_insertion_out.gro "
+					" |& tee mdrun_out/mdrun_EM_su_insertion.output \n\n").format(prefix_gromacs_mdrun)
+		
+		cmd += "### Removing pbc for energy minimlized su to manipulate it correcly\n"
+		cmd += "{0} editconf -f {1} -o {2} -pbc no\n\n".format(prefix_gromacs_grompp,
+																'EM_su_insertion_out.gro','EM_su_insertion_out_nopbc.gro' )
+		
+		#Inserting the substrate into the sample
+		cmd += "### Inserting the substrate in the sample\n"
+		cmd += str("{0} insert-molecules -f {1} -ci EM_su_insertion_out_nopbc.gro -nmol 1 -o {2} "
+					"-rot none -ip position.dat \n\n").format(prefix_gromacs_grompp,
+																'temp_for_adding_su_3.gro',
+																file_output,
+																self.index_file)
+		
+		cmd += "### Creating an .ndx with su group\n"
+		file_index = self.index_file.replace( '.ndx', '_{0}{1}d{2}.ndx'.format(self.su['SuType'], self.su['Version'], self.su['Density']) )
+		
+		self.nb_index += 1
+		group_index = [str(i) for i in range(0, self.nb_index-1, 1)]
+		creating_system = "del 0\ndel 0\n"
+		creating_system += "{0}\nname {1} System".format(" | ".join(group_index), int(group_index[-1])+1)
+		
+		cmd += "printf "
+		cmd += repr( "r {0}\nname {1} su\n{2}\nq\n".format(self.su['SuType'], self.nb_index, creating_system) )
+		cmd += """ | {0} make_ndx -f {1} -n {2} -o {3} \n\n""".format(prefix_gromacs_grompp,
+																	file_output, self.index_file,
+																	file_index)
 					
-	
-	
-	#=======================================================================
-	# Adding the substrat ==================================================
-	#=======================================================================
-	PackmolInput += """
+		with open('position.dat','w') as pos_dat:
+			pos_dat.write("0. 0. 0.\n")
+		
+		
+		
+		cmd += "### Appending the substrate particles at the end of the topology\n"
+		cmd += "printf " + repr("%s %d\n") + """ {0} $nb_su """.format(self.su['SuType'])+ """>> {0}\n\n""".format(self.system+'.top')
+		cmd += "# END ####### INSERTING THE SUBSTRATE BELOW THE SAMPLE #######\n"
 					
-					structure {0}
-						chain S
-						number {1:g}
-						inside box 0. 0. 0.  {2} {3} {4}
-					end structure
-					""".format(PDBfileList['SU'], nbSu, LXS, LYS, THICKNESS)
+		
+		return cmd, file_output, file_index, self.system
+		
 	
-	
-	f = open('packmol_'+System+'.input','w')
-	f.write(Utility.RemoveUnwantedIndent(PackmolInput))
-	f.close()
-	
-	# Lipids input pdb =====================================================
-	if( LipidType == "DSPC"):
-		f = open(PDBfileList['DSPC'],'w')
-		f.write(Utility.RemoveUnwantedIndent(DSPC_PDB))
-		f.close()
-	if( LipidType == "DPPC"):
-		f = open(PDBfileList['DPPC'],'w')
-		f.write(Utility.RemoveUnwantedIndent(DPPC_PDB))
-		f.close()
-	if( LipidType == "DLPC"):
-		f = open(PDBfileList['DLPC'],'w')
-		f.write(Utility.RemoveUnwantedIndent(DLPC_PDB))
-		f.close()
+	def add_wall_in_run(self, sample, md_step, previous_cmd_files):
+		""" Method writing bash commands to include walls in the middle of the runs
+		"""
+		self.wall = self.protocol[md_step]
 		
-	# Solvents input pdb ===================================================
-	if( SolventType == 'W'):
-		f = open(PDBfileList['W'],'w')
-		f.write(Utility.RemoveUnwantedIndent(W_PDB))
-		f.close()
-	if( SolventType == 'PW'):
-		f = open(PDBfileList['PW'],'w')
-		f.write(Utility.RemoveUnwantedIndent(PW_PDB))
-		f.close()
-	if( SolventType == 'OCO'):
-		f = open(PDBfileList['OCO'],'w')
-		f.write(Utility.RemoveUnwantedIndent(OCO_PDB))
-		f.close()
+		self.system += "_WALL"
+		self.create_topology()
 		
-	# pdb file for su
-	suType = SU_TYPE
-	assert(len(SU_TYPE) <= 4),"The name of the SU should be 4 letters max (Otherwise problem with PDB file format)" 
-	suType = SU_TYPE + (4 - len(SU_TYPE))*' '
-	suPdb = SU_PDB.replace("TEMP", suType)
-	f = open(PDBfileList['SU'],'w')
-	f.write(Utility.RemoveUnwantedIndent(suPdb))
-	f.close()
+		return self.system
 		
 		
-	#=======================================================================
-	#lauching packmol
-	#=======================================================================
-
-	cmd = str("""{0} < packmol_{1}.input > packmol_{1}.output """
-							).format(Softwares['PACKMOL'], System)
-	sub.call(cmd, shell=True)
-
-	#=======================================================================
-	# ensure the right box in pdb file
-	#=======================================================================
-
-	WriteBox = str("""
-			mol load pdb {0}.pdb
-			set all [atomselect top "all"]
-
-			package require pbctools
-			pbc set {{{1} {2} {3}}}
-
-			$all writepdb "{0}.withbox.pdb"
-			unset all
-
-			exit
-			""").format(System, Sample['LX'], Sample['LY'], Sample['LZ'])
-
-	f = open('write_box.vmd','w+')
-	f.write(Utility.RemoveUnwantedIndent(WriteBox) )
-	f.close()
-
-	## ======================================================================
-	cmd = str("""{0} -dispdev text -e write_box.vmd > write_box.log"""
-											).format(Softwares['VMD'])
-	sub.call(cmd, shell=True)
-	if Sample['DEFO']['Height'] == 'follow':
-		MakeIndex = """
-			chain A
-			chain B
-			chain C
-			chain D
-			chain E
-			chain V
-			chain S
-			chain X
-			chain Y
-			name 6 bottom{0}
-			name 7 top{0}
-			name 8 mono{0}
-			name 9 bottom{1}
-			name 10 top{1}
-			name 11 vap{1}
-			name 12 su
-			name 13 defoBi
-			name 14 defoMono
-			6 | 7
-			name 15 bilayer
-			13 | 14
-			name 16 defo
-			q
+		
+		
+		
+	def preparing_mdp(self, md_step):
+		""" Method to prepare mdp parameters
+		"""
+		md_step_after_init = int(md_step)-1
+		
+		if self.defo is not None:
+			preset_name = self.defo['defoProtocol'][md_step_after_init].strip(' ')
+			defo_preset_for_md_step = self.defo['presets'][preset_name]
 			
-			""".format(LipidType, SolventType)
-	else:
-		MakeIndex = """
-			chain A
-			chain B
-			chain C
-			chain D
-			chain E
-			chain V
-			chain S
-			chain X
-			name 6 bottom{0}
-			name 7 top{0}
-			name 8 monolayer
-			name 9 bottom{1}
-			name 10 top{1}
-			name 11 vap{1}
-			name 12 su
-			name 13 defo
-			6 | 7
-			name 14 bilayer
-			q
-			
-			""".format(LipidType, SolventType)
-
-	f = open('make_index.input','w+')
-	f.write(Utility.RemoveUnwantedIndent(MakeIndex) )
-	f.close()
-	
-	cmd = str("""{0}make_ndx -f {1}.withbox.pdb -o {1}.ndx < make_index.input"""
-										).format(GROMACS_LOC_prefixPath, System)
-	sub.call(cmd, shell=True)
-	
-	
-	#=======================================================================
-	# the topology file
-	#=======================================================================
-	TopologyDefoSu(Sample, PathToDefault)
-	
-	Topology = Utility.RemoveUnwantedIndent("""
-					#include "martini_v2.2_{2}_{0}_DEFO_{1}.itp"
-					#include "martini_v2.0_lipids.itp"
-				""".format( Sample['SU']['Version'], Sample['DEFO']['Version'], SU_TYPE ))
-	
-	#Add the topology for the defos (bilayer and monolayer)
-	if Sample['DEFO']['Height'] == 'follow' and 'Constraints' in Sample['DEFO']:
-		Topology += """\n#include "defos_topo.itp"\n """
+		if self.su is not None:
+			md_step_after_init = int(md_step)-1
+			preset_name = self.su['suProtocol'][md_step_after_init].strip(' ')
+			su_preset_for_md_step = self.su['presets'][preset_name]
 		
-	
-	#Copy the topology files for martini forcefield
-	sub.call("""cp {0}/martini_v2.0_lipids.itp  .""".format(PathToDefault), shell= True)
-	#sub.call("""cp {0}/DEFO/defo_posres.itp  .""".format(PathToDefault), shell= True)
-	sub.call("""cp {0}/SU/su_posres_gen.itp  .""".format(PathToDefault), shell= True)
-	f = open(System+'.top','w')
-	f.write(Topology)
-
-	f = open(System+'.top','a')
-	f.write("""\n[ system ]\n""")
-
-	Topology = """{0}_{1}_WITH_DEFO_{2}_AND_{4}_{3}\n""".format(LipidType, Sample['TYPE'], Sample['DEFO']['Version'], Sample['SU']['Version'], SU_TYPE)
-	f.write(Topology)
-
-	f.write("""\n[ molecules ]\n""")
-	Topology = """{0} {1}\n{2} {3}\n{4} {5}\n""".format(LipidType, Sample[LipidType]+NBLIPIDS_MONO,SolventType, Sample[SolventType], SU_TYPE, nbSu)
-	if Sample['DEFO']['Height'] == 'follow':
-		Topology += """{0} 1\n{1} 1\n""".format('DEFB','DEFM')
-	else:
-		Topology += """{0} 1\n""".format('DEFB')
-	f.write(Topology)
-	f.close()
+		#Showing the final parameters
+		print("Writing step {0} ==========================".format(self.protocol[md_step]['stepType']))
 		
-	#==================================================================================
-	# Output the files for other steps
-	#==================================================================================
-	Output = str("""{0}.withbox.pdb""").format(System)
-	Index = str("""{0}.ndx""").format(System)
-	
-	ApL = (Sample['LX']*Sample['LY'] - 3.141516*radiusDefo*radiusDefo)/NLM[LipidType]
-	print(Utility.RemoveUnwantedIndent("""
-			================================
-			================================
-			Packmol finished initial input file
-			{0} {1}, {2} {3} with DEFO{4} {5}, SU{6} {7} and mono{0} {8}
-			box sizes : {9}, {10}, {11}
-			Area per lipid = {12} A**2
-			===============================
-			===============================
-			""".format(LipidType, Sample[LipidType],SolventType, Sample[SolventType],
-				Sample['DEFO']['Version'],nbDefo,
-				Sample['SU']['Version'],nbSu,
-				NBLIPIDS_MONO,
-				Sample['LX'],Sample['LY'],Sample['LZ'],ApL)))
-	return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def InitSolvent(Sample, Softwares, GROMACS_LOC_prefixPath, PathToDefault):
-	# packmol constraints are not strict !
-	# put the molecules in a smaller box to
-	# avoid initial crash because of PBC
-	# the SHELL parameter defines the shell in which
-	# packmol is not supposed to put particles
-	
-	
-	SHELL = 3.0
-	
-	LXS = 0.0
-	LYS = 0.0
-	LZS = 0.0
-	
-	if 'FILLMODE' in Sample:
-		if Sample['FILLMODE'] == 'FULL':
-			LXS = Sample['LX']-SHELL
-			LYS = Sample['LY']-SHELL
-			LZS = Sample['LZ']-SHELL
-		if Sample['FILLMODE'] == 'BOX':
-			LXS = LYS = LZS = Sample['LX']-SHELL
-		if Sample['FILLMODE'] == 'HALF-X':
-			LXS = Sample['LX']/2.0-SHELL
-			LYS = Sample['LY']-SHELL
-			LZS = Sample['LZ']-SHELL
-		if Sample['FILLMODE'] == 'HALF-Y':
-			LXS = Sample['LX']-SHELL
-			LYS = Sample['LY']/2.0-SHELL
-			LZS = Sample['LZ']-SHELL
-		if Sample['FILLMODE'] == 'HALF-Z':
-			LXS = Sample['LX']-SHELL
-			LYS = Sample['LY']-SHELL
-			LZS = Sample['LZ']/2.0-SHELL
-	else:
-		LXS = Sample['LX']-SHELL
-		LYS = Sample['LY']-SHELL
-		LZS = Sample['LZ']-SHELL
-	
-	Solvents = []
-	NbSol = 0
-	for Sol in SolventsList:
-		if(Sol in Sample):
-			Solvents.append(Sol)
-			NbSol += 1
-			
-	#==================================================================================
-	# Only one solvent case
-	#==================================================================================
-	if NbSol == 1:
-		SolventType = Solvents[0]
-		#==================================================================================
-		# creating the initial bilayer (lipids + water) using packmol
-		#==================================================================================
+		#Bool to check that the run is of NVT or NPT type
+		NPT_or_NVT = False
 		
-		System = str('{0}_{1}{2}').format(Sample['TYPE'], Sample[SolventType], SolventType)
-		if SolventType == 'PW':
-			# creating input for packmol
-			PackmolInput = str("""
-							#
-							#  solvent
-							#
-							
-							# Every atom from diferent molecules will be far from each other at
-							# least 3.0 Anstroms at the solution.
-							
-							tolerance 3.0
-							
-							# Coordinate file types will be in pdb format (keyword not required for
-							# pdb file format, but required for tinker, xyz or moldy)
-							
-							filetype pdb
-							
-							# The output pdb file
-							
-							output {0}.pdb
-							
-							structure {5}
-								number {1:g}
-								inside box 0. 0. 0.  {2} {3} {4}
-								atoms 2 3
-									radius 0.2
-								end atoms
-							end structure
-							""").format(System, Sample[SolventType], LXS, LYS, LZS, PDBfileList[SolventType])
-			
-			f = open('packmol_'+System+'.input','w')
-			f.write(Utility.RemoveUnwantedIndent(PackmolInput))
-			f.close()
-		else:
-			# creating input for packmol
-			PackmolInput = str("""
-							#
-							#  solvent
-							#
-							
-							# Every atom from diferent molecules will be far from each other at
-							# least 3.0 Anstroms at the solution.
-							
-							tolerance 3.0
-							
-							# Coordinate file types will be in pdb format (keyword not required for
-							# pdb file format, but required for tinker, xyz or moldy)
-							
-							filetype pdb
-							
-							# The output pdb file
-							
-							output {0}.pdb
-							
-							structure {5}
-								number {1:g}
-								inside box 0. 0. 0.  {2} {3} {4}
-							end structure
-							""").format(System, Sample[SolventType], LXS, LYS, LZS, PDBfileList[SolventType])
-			
-			f = open('packmol_'+System+'.input','w')
-			f.write(Utility.RemoveUnwantedIndent(PackmolInput))
-			f.close()
+		#Look if the run is NPT or NVT
+		if self.protocol[md_step]['stepType'].startswith('NPT') or self.protocol[md_step]['stepType'].startswith('NVT'):
+			NPT_or_NVT = True
+			# if THERMOSTAT is in Parameters.csv the values set here will override the values set
+			# for NPT and NVT runs
+			if self.thermostat is not None:
+				if 'ref-t' in self.thermostat:
+					self.protocol[md_step].update( {'ref-t': self.thermostat['ref-t'] } )
 		
-		# water input pdb
-		if( SolventType == 'W'):
-			f = open('water_single.pdb','w')
-			f.write(Utility.RemoveUnwantedIndent(W_PDB))
-			f.close()
+		#Energy and Temperature groups
+		energy_grps = ''
+		T_coupling_grps = ''
 		
-		if( SolventType == 'OCO'):
-			f = open('octanol_single.pdb','w')
-			f.write(Utility.RemoveUnwantedIndent(OCO_PDB))
-			f.close()
+		# Multiply tau-t and ref-t by the number of grps
+		Tau_T_coupling_grps = ''
+		ref_t_T_coupling_grps = ''
 		
-		if( SolventType == 'PW'):
-			f = open('polwater_single.pdb','w')
-			f.write(Utility.RemoveUnwantedIndent(PW_PDB))
-			f.close()
-
+		auto_energy_grps = True
+		auto_T_coupling_grps = True
+		auto_tau_T_coupling_grps = True
+		auto_ref_t_T_coupling_grps = True
 		
-		#==================================================================================
-		#lauching packmol
-		#==================================================================================
-		
-		cmd = str("""{0} < packmol_{1}.input > packmol_{1}.output """).format(Softwares['PACKMOL'],System)
-		sub.call(cmd, shell=True)
-		
-		#==================================================================================
-		# ensure the right box in pdb file
-		#==================================================================================
-		
-		WriteBox = str("""
-				mol load pdb {0}.pdb
-				set all [atomselect top "all"]
-		
-				package require pbctools
-				pbc set {{{1} {2} {3}}}
+		#Creates grps for all lipid found except if tau-t and ref-t contain multiple values
+		#Exception
+		if 'energygrps' in self.protocol[md_step]:
+			if ' ' in str(self.protocol[md_step]['energygrps']):
+				energy_grps += str(self.protocol[md_step]['energygrps'])
+				auto_energy_grps = False
 				
-				$all writepdb "{0}.withbox.pdb"
-				unset all
+		if 'tc-grps' in self.protocol[md_step]:
+			if ' ' in str(self.protocol[md_step]['tc-grps']):
+				T_coupling_grps += str(self.protocol[md_step]['tc-grps'])
+				auto_T_coupling_grps = False
 				
-				exit
-				""").format(System, Sample['LX'], Sample['LY'], Sample['LZ'])
-		
-		f = open('write_box.vmd','w+')
-		f.write(Utility.RemoveUnwantedIndent(WriteBox) )
-		f.close()
-		
-		## ======================================================================
-		cmd = str("""{0} -dispdev text -e write_box.vmd > write_box.log""").format(Softwares['VMD'])
-		sub.call(cmd, shell=True)
-		
-		## ======================================================================
-		print(Utility.RemoveUnwantedIndent(str("""
-				================================
-				================================
-				Packmol finished initial input file
-				{0} {1}
-				box sizes : {2}, {3}, {4}
-				===============================
-				===============================
-				""").format(SolventType, Sample[SolventType], Sample['LX'],Sample['LY'],Sample['LZ']) ))
-		
-		#==================================================================================
-		# the topology file
-		#==================================================================================
-		
-		Topology = str("""
-					#include "martini_v2.2.itp" ; modified with polarisable water
-					#include "martini_v2.0_solvents.itp"
-					""")
-		#Copy the topology files for martini forcefield
-		sub.call("""cp {0}/martini_v2.0_solvents.itp {0}/martini_v2.2.itp ./""".format(PathToDefault), shell= True)
-		f = open(System+'.top','w')
-		f.write(Utility.RemoveUnwantedIndent(Topology))
-		
-		f = open(System+'.top','a')
-		f.write(Utility.RemoveUnwantedIndent("""
-						
-						[ system ]
-						{0}
-						
-						""".format(System)))
-		
-		###add a for loop for multiple types (Later)
-		f.write("""\n[ molecules ]\n""")
-		Topology = str("""{0} {1}""").format(SolventType, Sample[SolventType])
-		f.write(Topology)
-		f.close()
-		
-		#==================================================================================
-		# the index file
-		#==================================================================================
-		cmd = str("""echo q | {0}make_ndx -f {1}.withbox.pdb -o {1}.ndx""").format(GROMACS_LOC_prefixPath,System)
-		sub.call(cmd, shell=True)
-		
-		#==================================================================================
-		# Output the files for other steps
-		#==================================================================================
-		Output = str("""{0}.withbox.pdb""").format(System)
-		Index = str("""{0}.ndx""").format(System)
-		return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
-	
-	#==================================================================================
-	# More than one solvent case
-	#==================================================================================
-	if NbSol > 1:
-		#==================================================================================
-		# creating the initial bilayer (lipids + water) using packmol
-		#==================================================================================
-		Qt = ''
-		for Sol in Solvents:
-			Qt += "{0}{1}_".format(Sample[Sol], Sol)
-		#Remove last underscore
-		li = Qt.rsplit('_',1)
-		Qt = ('').join(li)
-		#**********************
-		System = str('{0}_{1}').format(Sample['TYPE'], Qt)
-		
-		# creating input for packmol
-		f = open('packmol_'+System+'.input','a+')
-		PackmolInput = str("""
-						#
-						#  solvent
-						#
-						
-						# Every atom from diferent molecules will be far from each other at
-						# least 3.0 Anstroms at the solution.
-						
-						tolerance 3.0
-						
-						# Coordinate file types will be in pdb format (keyword not required for
-						# pdb file format, but required for tinker, xyz or moldy)
-						
-						filetype pdb
-						
-						# The output pdb file
-						
-						output {0}.pdb
-						
-						
-						""").format(System)
-		f.write(Utility.RemoveUnwantedIndent(PackmolInput))
-		Shift = 0.
-		for Sol in Solvents:
-			print(Sol)
-			if Sol == 'PW':
-				PackmolInput = str("""
-						
-						structure {5}
-							resnumbers 3
-							number {0:g}
-							inside box 0. 0. {4} {1} {2} {3}
-							atoms 2 3
-								radius 0.2
-							end atoms
-						end structure
-						
-						""").format(Sample[Sol], LXS, LYS, (LZS/NbSol)+Shift, Shift, PDBfileList[Sol])
-				f.write(Utility.RemoveUnwantedIndent(PackmolInput))
-			else:
-				PackmolInput = str("""
-						
-						structure {5}
-							resnumbers 3
-							number {0:g}
-							inside box 0. 0. {4} {1} {2} {3}
-						end structure
-						
-						""").format(Sample[Sol], LXS, LYS, (LZS/NbSol)+Shift, Shift, PDBfileList[Sol])
-				f.write(Utility.RemoveUnwantedIndent(PackmolInput))
-				Shift += LZS/NbSol
+		if 'tau-t' in self.protocol[md_step]:
+			if ' ' in str(self.protocol[md_step]['tau-t']):
+				Tau_T_coupling_grps += str(self.protocol[md_step]['tau-t'])
+				auto_tau_T_coupling_grps = False
 				
-		f.close()
-		
-		for Sol in Solvents:
-			if( Sol == 'W'):
-				f = open('water_single.pdb','w')
-				f.write(Utility.RemoveUnwantedIndent(W_PDB))
-				f.close()
-		
-			if( Sol == 'OCO'):
-				f = open('octanol_single.pdb','w')
-				f.write(Utility.RemoveUnwantedIndent(OCO_PDB))
-				f.close()
-			
-			if( Sol == 'PW'):
-				f = open('polwater_single.pdb','w')
-				f.write(Utility.RemoveUnwantedIndent(PW_PDB))
-				f.close()
-		
-		
-		#==================================================================================
-		#lauching packmol
-		#==================================================================================
-		
-		cmd = str("""{0} < packmol_{1}.input > packmol_{1}.output """).format(Softwares['PACKMOL'],System)
-		sub.call(cmd, shell=True)
-		
-		#==================================================================================
-		# ensure the right box in pdb file
-		#==================================================================================
-		
-		WriteBox = str("""
-				mol load pdb {0}.pdb
-				set all [atomselect top "all"]
-		
-				package require pbctools
-				pbc set {{{1} {2} {3}}}
+		if 'ref-t' in self.protocol[md_step]:
+			if ' ' in str(self.protocol[md_step]['ref-t']):
+				ref_t_T_coupling_grps += str(self.protocol[md_step]['ref-t'])
+				auto_ref_t_T_coupling_grps = False
 				
-				$all writepdb "{0}.withbox.pdb"
-				unset all
-				
-				exit
-				""").format(System, Sample['LX'], Sample['LY'], Sample['LZ'])
-		
-		f = open('write_box.vmd','w+')
-		f.write(Utility.RemoveUnwantedIndent(WriteBox) )
-		f.close()
-		
-		## ======================================================================
-		cmd = str("""{0} -dispdev text -e write_box.vmd > write_box.log""").format(Softwares['VMD'])
-		sub.call(cmd, shell=True)
-		
-		## ======================================================================
-		print(Utility.RemoveUnwantedIndent("""
-				================================
-				================================
-				Packmol finished initial input file"""))
-		for Sol in Solvents:
-			print("""{0} {1}""".format(Sol, Sample[Sol]))
-		print(Utility.RemoveUnwantedIndent("""
-				box sizes : {0}, {1}, {2}
-				===============================
-				===============================
-				""").format(Sample['LX'],Sample['LY'],Sample['LZ']) )
-		
-		#==================================================================================
-		# the topology file
-		#==================================================================================
-		
-		Topology = str("""
-					#include "martini_v2.2.itp" ; modified with polarisable water
-					#include "martini_v2.0_solvents.itp"
-					""")
-		#Copy the topology files for martini forcefield
-		sub.call("""cp {0}/martini_v2.0_solvents.itp {0}/martini_v2.2.itp ./""".format(PathToDefault), shell= True)
-		f = open(System+'.top','w')
-		f.write(Utility.RemoveUnwantedIndent(Topology))
-		
-		f = open(System+'.top','a')
-		f.write(Utility.RemoveUnwantedIndent("""
+		#Automatic generation
+		if auto_energy_grps or auto_T_coupling_grps or auto_tau_T_coupling_grps or auto_ref_t_T_coupling_grps:
+			if self.lipid_types is not None:
+				for lipid in self.lipid_types:
+					if auto_energy_grps:
+						energy_grps += lipid+' '
 						
-						[ system ]
-						{0}
+					if NPT_or_NVT:
+						if auto_T_coupling_grps:
+							T_coupling_grps += lipid+' '
+							
+						if auto_tau_T_coupling_grps:
+							if 'tau-t' in self.protocol[md_step] and auto_tau_T_coupling_grps:
+								Tau_T_coupling_grps += str(self.protocol[md_step]['tau-t'])+' '
+								
+							else:
+								pass
+							
+						if auto_ref_t_T_coupling_grps:
+							if 'ref-t' in self.protocol[md_step] and auto_ref_t_T_coupling_grps:
+								ref_t_T_coupling_grps += str(self.protocol[md_step]['ref-t'])+' '
+								
+							else:
+								pass
 						
-						""".format(System)))
-		
-		f.write("""\n[ molecules ]\n""")
-		for Sol in Solvents:
-			Topology = str("""{0} {1} \n""").format(Sol, Sample[Sol])
-			f.write(Topology)
-		f.close()
-		
-		#==================================================================================
-		# the index file
-		#==================================================================================
-		cmd = str("""echo q | {0}make_ndx -f {1}.withbox.pdb -o {1}.ndx""").format(GROMACS_LOC_prefixPath,System)
-		sub.call(cmd, shell=True)
-		
-		#==================================================================================
-		# Output the files for other steps
-		#==================================================================================
-		Output = str("""{0}.withbox.pdb""").format(System)
-		Index = str("""{0}.ndx""").format(System)
-		return { 'SYSTEM': System, 'OUTPUT': Output, 'INDEX':Index}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def TopologyDefoSu(Sample, PathToDefault):
-	Headings = ["atomtypes","nonbond_params","moleculetype","atoms"]
-	IsuTopology = {}
-	IdefoTopology = {}
-	DefoAtomtype = ""
-	DefoNonBondParams = ""
-	DefoMolType = ""
-	DefoAtoms = ""
-	
-	IncludeSuTopologyFile = PathToDefault+"""/SU/SU_{0}.itp""".format(Sample['SU']['Version'])
-	
-	IncludeDefoTopologyFile = PathToDefault+"""/DEFO/DEFO_{0}.itp""".format(Sample['DEFO']['Version'])
-	
-	with open(IncludeSuTopologyFile,'r') as ITPSu:
-		for Head in Headings:
-			for heading_and_lines in Utility.group_by_heading(ITPSu, Head):
-				lines = []
-				if Head is not 'moleculetype':
-					if Head is not 'atoms':
-						lines.extend([';;;;;;; SU_{0}\n'.format(Sample['SU']['Version'])])
-				lines.extend(heading_and_lines[2:])
-				IsuTopology.update({Head:''.join(lines)})
-	
-	PosResSu = Utility.RemoveUnwantedIndent("""
-										
-										;POSITION_FOR_SU_POSRES\n\n
-										
-										""")
-	
-	if '[ moleculetype ]' in IsuTopology['moleculetype'] or '[moleculetype]' in IsuTopology['moleculetype']:
-		IsuTopology['moleculetype'] = IsuTopology['moleculetype'].replace('[ moleculetype ]', PosResSu+'[ moleculetype ]' )
-	IsuTopology['moleculetype'] = '[ moleculetype ]\n'+IsuTopology['moleculetype']+'\n'+PosResSu
-			
-		
-	with open(IncludeDefoTopologyFile,'r') as ITPDefo:
-		for Head in Headings:
-			for heading_and_lines in Utility.group_by_heading(ITPDefo, Head):
-				lines = []
-				if Head is not 'moleculetype':
-					if Head is not 'atoms':
-						lines.extend([';;;;;;; DEFO_{0}\n'.format(Sample['DEFO']['Version'])])
-				lines.extend(heading_and_lines[2:])
-				IdefoTopology.update({Head:''.join(lines)})
-	
-	if os.path.isfile("""martini_v2.2_{2}_{0}_DEFO_{1}.itp""".format(Sample['SU']['Version'], Sample['DEFO']['Version'],Sample['SU']['SuType'])):
-		os.remove("""martini_v2.2_{2}_{0}_DEFO_{1}.itp""".format(Sample['SU']['Version'], Sample['DEFO']['Version'], Sample['SU']['SuType']))
-	
-	TempOut = ''
-	
-	Output = open("""martini_v2.2_{2}_{0}_DEFO_{1}.itp""".format(Sample['SU']['Version'], Sample['DEFO']['Version'], Sample['SU']['SuType']),'a+')
-	
-	with open(PathToDefault+"""/martini_v2.2.itp""",'r') as DefMartini:
-		
-		for line in DefMartini:
-			if 'nonbond_params' in line:
-				TempOut += IsuTopology['atomtypes']
-				TempOut += '\n'
-			if 'PLACE_FOR_SU' in line:
-				TempOut += IsuTopology['nonbond_params']
-				TempOut += '\n'
-			else:
-				TempOut += line
-		
-		
-		for line in TempOut.splitlines():
-			if 'nonbond_params' in line:
-				Output.write(IdefoTopology['atomtypes'])
-				Output.write('\n')
-			if 'PLACE_FOR_DEFO' in line:
-				Output.write(IdefoTopology['nonbond_params'])
-				Output.write('\n')
-			else:
-				Output.write(line)
-				Output.write('\n')
-	
-	
-	#Output.write("\n;;;;;;; DEFO_{0}\n".format(Sample['DEFO']['Version']))
-	#Output.write("[ moleculetype ]\n"+IdefoTopology['moleculetype']+'\n')
-	#Output.write("[ atoms ]\n"+IdefoTopology['atoms'])
-	"""
-	Output.write(Utility.RemoveUnwantedIndent("""
-	
-	#ifdef DEFO_POSRES
-	#include "defo_posres.itp"
-	#endif
-
-	"""))
-
-	"""
-	Output.write("\n;;;;;;; SU_{0}\n".format(Sample['SU']['Version']))
-	Output.write(IsuTopology['moleculetype']+'\n')
-	Output.close()
-
-
-def TopologyDefo(Sample, PathToDefault):
-	Headings = ["atomtypes","nonbond_params","moleculetype","atoms"]
-	Itopology = {}
-	DefoAtomtype = ""
-	DefoNonBondParams = ""
-	DefoMolType = ""
-	DefoAtoms = ""
-	
-	IncludeTopologyFile = PathToDefault+"""/DEFO/DEFO_{0}.itp""".format(Sample['DEFO']['Version'])
-	
-	with open(IncludeTopologyFile,'r') as ITPDefo:
-		for Head in Headings:
-			for heading_and_lines in Utility.group_by_heading( ITPDefo, Head):
-				lines = []
-				if Head is not 'moleculetype':
-					if Head is not 'atoms':
-						lines.extend([';;;;;;; DEFO_{0}\n'.format(Sample['DEFO']['Version'])])
-				lines.extend(heading_and_lines[2:])
-				Itopology.update({Head:''.join(lines)})
-	
-	if os.path.isfile("""martini_v2.2_DEFO_{0}.itp""".format(Sample['DEFO']['Version'])):
-		os.remove("""martini_v2.2_DEFO_v{0}.itp""".format(Sample['DEFO']['Version']))
-			
-	Output = open("""martini_v2.2_DEFO_{0}.itp""".format(Sample['DEFO']['Version']),'a')
-	with open(PathToDefault+"""/martini_v2.2.itp""",'r') as DefMartini:
-		
-		for line in DefMartini:
-			if 'nonbond_params' in line:
-				Output.write(Itopology['atomtypes'])
-				#Output.write('[ nonbond_params ]')
-			if 'PLACE_FOR_DEFO' in line:
-				Output.write(Itopology['nonbond_params'])
-				Output.write('')
-			else:
-				Output.write(line)
-				
-	Output.close()
-
-
-def TopologySu(Sample, PathToDefault):
-	Headings = ["atomtypes","nonbond_params","moleculetype","atoms"]
-	IsuTopology = {}
-	DefoAtomtype = ""
-	DefoNonBondParams = ""
-	DefoMolType = ""
-	DefoAtoms = ""
-	
-	IncludeSuTopologyFile = PathToDefault+"""/SU/SU_{0}.itp""".format(Sample['SU']['Version'])
-	
-	with open(IncludeSuTopologyFile,'r') as ITPSu:
-		for Head in Headings:
-			for heading_and_lines in Utility.group_by_heading( ITPSu, Head):
-				lines = []
-				if Head is not 'moleculetype':
-					if Head is not 'atoms':
-						lines.extend([';;;;;;; SU_{0}\n'.format(Sample['SU']['Version'])])
-				lines.extend(heading_and_lines[2:])
-				IsuTopology.update({Head:''.join(lines)})
-	
-	PosResSu = Utility.RemoveUnwantedIndent("""
-										
-										;POSITION_FOR_SU_POSRES
-										
-										""")
-	
-	if '[ moleculetype ]' in IsuTopology['moleculetype'] or '[moleculetype]' in IsuTopology['moleculetype']:
-		IsuTopology['moleculetype'] = IsuTopology['moleculetype'].replace('[ moleculetype ]', PosResSu+'\n[ moleculetype ]' )
-	IsuTopology['moleculetype'] = '[ moleculetype ]\n'+IsuTopology['moleculetype']+'\n'+PosResSu
-	
-	if os.path.isfile("""martini_v2.2_{1}_{0}.itp""".format(Sample['SU']['Version'], Sample['SU']['SuType'])):
-		os.remove(""""martini_v2.2_{1}_{0}.itp""".format(Sample['SU']['Version'], Sample['SU']['SuType']))
-			
-	Output = open("""martini_v2.2_{1}_{0}.itp""".format(Sample['SU']['Version'], Sample['SU']['SuType']),'a')
-	with open(PathToDefault+"""/martini_v2.2.itp""",'r') as DefMartini:
-		
-		for line in DefMartini:
-			if 'nonbond_params' in line:
-				Output.write(IsuTopology['atomtypes'])
-				#Output.write('[ nonbond_params ]')
-			if 'PLACE_FOR_SU' in line:
-				Output.write(IsuTopology['nonbond_params'])
-				Output.write('')
-			else:
-				Output.write(line)
-		
-	Output.write(";;;;;;; SU_{0}\n".format(Sample['SU']['Version']))
-	Output.write(IsuTopology['moleculetype']+'\n')
-	Output.close()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def CopySample(Jobs, currentJob, step, PathToDefault):
-	SampleToCopy = Jobs[ currentJob['PROTOCOL'][step]['samplenumber'] ]
-	SampleToCopyName = Jobs[ currentJob['PROTOCOL'][step]['samplenumber'] ]['JOBID']
-	currentJobName = currentJob['JOBID']
-	
-	copyMethod = currentJob['PROTOCOL'][step]['method']
-	
-	PDBfilepath = glob.glob('../'+SampleToCopyName+'/*.withbox.pdb')[0]
-	TOPfilepath = glob.glob('../'+SampleToCopyName+'/*.top')[0]
-	NDXfilepath = glob.glob('../'+SampleToCopyName+'/*.ndx')[0]
-	
-	if copyMethod:
-		if copyMethod == "structure":
-			if 'DEFO' in SampleToCopy or 'DEFO' in currentJob:
-				if not ('DEFO' in SampleToCopy and 'DEFO' in currentJob):
-					if 'SU' in SampleToCopy:
-						print("DEFO is in {0} but not in {1} while using structure copy method.".format(SampleToCopyName, currentJobName))
-					else:
-						print("DEFO is in {0} but not in {1} while using structure copy method.".format(currentJobName, SampleToCopyName))
-					return -1
-				
-			if 'SU' in SampleToCopy or 'SU' in currentJob:
-				if not ('SU' in SampleToCopy and 'SU' in currentJob):
-					if 'SU' in SampleToCopy:
-						print("SU is in {0} but not in {1} while using structure copy method.".format(SampleToCopyName, currentJobName))
-					else:
-						print("SU is in {0} but not in {1} while using structure copy method.".format(currentJobName, SampleToCopyName))
-					return -1
-			
-			if 'DEFO' in currentJob and 'SU' in currentJob:
-				defoVersionBefore = SampleToCopy['DEFO']['Version']
-				defoVersionCurrent = currentJob['DEFO']['Version']
-				
-				suVersionBefore = SampleToCopy['SU']['Version']
-				suTypeBefore = SampleToCopy['SU']['SuType']
-				
-				suVersionCurrent = currentJob['SU']['Version']
-				suTypeCurrent = currentJob['SU']['SuType']
-				
-				#Add columns for pdb format
-				nbCols = len(suTypeBefore) - len(suTypeCurrent)
-				if nbCols < 0:
-					suTypeBefore += (-nbCols)*' '
-				elif nbCols > 0:
-					suTypeCurrent += nbCols*' '
 					
-				# If copy pdb file when modifying SuType, the pdb file should be changed with the correct SuType
-				# The name should also be changed with the correct version and SuType, the number of SU being the same
-				
-				PDBfile = open(PDBfilepath,'r')
-				PDBfileCurrent = PDBfile.read().replace(suTypeBefore, suTypeCurrent)
-				PDBfile.close()
-				
-				
-				PDBfilenameBefore = PDBfilepath.split('/')[-1]
-				
-				fixedPart = PDBfilenameBefore.split('_')[:-3]
-				defoPart = PDBfilenameBefore.split('_')[-2]
-				suPart = PDBfilenameBefore.split('_')[-1]
-				
-				suPart = suPart.replace(suTypeBefore.strip(' '), suTypeCurrent.strip(' '))
-				suPart = suPart.replace(suVersionBefore, suVersionCurrent)
-				
-				defoPart = defoPart.replace(defoVersionBefore, defoVersionCurrent)
-				
-				PDBfilenameCurrent = fixedPart
-				PDBfilenameCurrent.extend([defoPart, suPart])
-				PDBfilenameCurrent = '_'.join(PDBfilenameCurrent)
-				
-				PDBfile = open(PDBfilenameCurrent, 'w')
-				PDBfile.write(PDBfileCurrent)
-				PDBfile.close()
-				
-				#Topology ##########################################################
-				TOPfile = open(TOPfilepath, 'r')
-				
-				suTypeNVersionBefore = suTypeBefore+'_'+suVersionBefore
-				suTypeNVersionCurrent = suTypeCurrent.strip(' ')+'_'+suVersionCurrent
-				
-				defoTypeNVersionBefore = 'DEFO_'+defoVersionBefore
-				defoTypeNVersionCurrent = 'DEFO_'+defoVersionCurrent
-				
-				#Replacing for new .top file
-				#For headers and [system]
-				TOPfileCurrent = TOPfile.read().replace(suTypeNVersionBefore, suTypeNVersionCurrent)
-				
-				TOPfileCurrent = TOPfileCurrent.replace(defoTypeNVersionBefore, defoTypeNVersionCurrent)
-				
-				#For [molecules]
-				TOPfileCurrent = TOPfileCurrent.replace(suTypeBefore, suTypeCurrent.strip(' '))
-				
-				TOPfile.close()
-				TOPfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.top')
-				TOPfile = open(TOPfilenameCurrent,'w')
-				TOPfile.write(TOPfileCurrent)
-				TOPfile.close()
-				
-				#Topology ITP ##########################################################
-				TopologyDefoSu(currentJob, PathToDefault)
-				
-				#Index #########################################################
-				NDXfile = open(NDXfilepath,'r')
-				NDXfileCurrent = NDXfile.read()
-				NDXfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.ndx')
-				NDXfile.close()
-				
-				NDXfile = open(NDXfilenameCurrent,'w')
-				NDXfile.write(NDXfileCurrent)
-				NDXfile.close()
-				
-				#POSRES ########################################################
-				sub.call('cp ../'+SampleToCopyName+'/*posres*gen*.itp .', shell= True)
-				#POSRES ########################################################
-				sub.call('cp ../'+SampleToCopyName+'/*defo_topo*.itp .', shell= True)
-				#LIPIDS ITP ####################################################
-				sub.call('cp ../'+SampleToCopyName+'/*lipids.itp .', shell= True)
-			
-			
-			elif 'DEFO' not in currentJob and 'SU' in currentJob:
-				suVersionBefore = SampleToCopy['SU']['Version']
-				suTypeBefore = SampleToCopy['SU']['SuType']
-				
-				suVersionCurrent = currentJob['SU']['Version']
-				suTypeCurrent = currentJob['SU']['SuType']
-				
-				#Add columns for pdb format
-				nbCols = len(suTypeBefore) - len(suTypeCurrent)
-				if nbCols < 0:
-					suTypeBefore += (-nbCols)*' '
-				elif nbCols > 0:
-					suTypeCurrent += nbCols*' '
-				
-				PDBfile = open(PDBfilepath,'r')
-				PDBfileCurrent = PDBfile.read().replace(suTypeBefore, suTypeCurrent)
-				PDBfile.close()
-				
-				PDBfilenameBefore = PDBfilepath.split('/')[-1]
-				
-				fixedPart = PDBfilenameBefore.split('_')[:-2]
-				suPart = PDBfilenameBefore.split('_')[-1]
-				
-				suPart = suPart.replace(suTypeBefore.strip(' '), suTypeCurrent.strip(' '))
-				suPart = suPart.replace(suVersionBefore, suVersionCurrent)
-				
-				PDBfilenameCurrent = fixedPart
-				PDBfilenameCurrent.append(suPart)
-				PDBfilenameCurrent = '_'.join(PDBfilenameCurrent)
-				
-				PDBfile = open(PDBfilenameCurrent, 'w')
-				PDBfile.write(PDBfileCurrent)
-				PDBfile.close()
-				
-				#Topology ##########################################################
-				TOPfile = open(TOPfilepath, 'r')
-				
-				suTypeNVersionBefore = suTypeBefore.strip(' ')+'_'+suVersionBefore
-				suTypeNVersionCurrent = suTypeCurrent.strip(' ')+'_'+suVersionCurrent
-				
-				#Replacing for new .top file
-				#For headers and [system]
-				TOPfileCurrent = TOPfile.read().replace(suTypeNVersionBefore, suTypeNVersionCurrent)
-				
-				#For [molecules]
-				TOPfileCurrent = TOPfileCurrent.replace(suTypeBefore, suTypeCurrent.strip(' '))
-				
-				TOPfile.close()
-				TOPfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.top')
-				TOPfile = open(TOPfilenameCurrent,'w')
-				TOPfile.write(TOPfileCurrent)
-				TOPfile.close()
-				
-				#Topology ITP ##########################################################
-				TopologySu(currentJob, PathToDefault)
-				
-				#Index #########################################################
-				NDXfile = open(NDXfilepath,'r')
-				NDXfileCurrent = NDXfile.read()
-				NDXfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.ndx')
-				NDXfile.close()
-				
-				NDXfile = open(NDXfilenameCurrent,'w')
-				NDXfile.write(NDXfileCurrent)
-				NDXfile.close()
-				
-				#POSRES ########################################################
-				sub.call('cp ../'+SampleToCopyName+'/*posres*gen*.itp .', shell= True)
-				#LIPIDS ITP ####################################################
-				sub.call('cp ../'+SampleToCopyName+'/*lipids.itp .', shell= True)
-			
-			
-			elif 'DEFO' in currentJob and 'SU' not in currentJob:
-				defoVersionBefore = SampleToCopy['DEFO']['Version']
-				defoVersionCurrent = currentJob['DEFO']['Version']
-				
-				# If copy pdb file when modifying SuType, the pdb file should be changed with the correct SuType
-				# The name should also be changed with the correct version and SuType, the number of SU being the same
-				
-				PDBfile = open(PDBfilepath,'r')
-				PDBfileCurrent = PDBfile.read()
-				PDBfile.close()
-				
-				
-				PDBfilenameBefore = PDBfilepath.split('/')[-1]
-				
-				fixedPart = PDBfilenameBefore.split('_')[:-2]
-				defoPart = PDBfilenameBefore.split('_')[-1]
-				
-				defoPart = defoPart.replace(defoVersionBefore, defoVersionCurrent)
-				
-				PDBfilenameCurrent = fixedPart
-				PDBfilenameCurrent.append(defoPart)
-				PDBfilenameCurrent = '_'.join(PDBfilenameCurrent)
-				
-				PDBfile = open(PDBfilenameCurrent, 'w')
-				PDBfile.write(PDBfileCurrent)
-				PDBfile.close()
-				
-				#Topology ##########################################################
-				TOPfile = open(TOPfilepath, 'r')
-				
-				defoTypeNVersionBefore = 'DEFO_'+defoVersionBefore
-				defoTypeNVersionCurrent = 'DEFO_'+defoVersionCurrent
-				
-				#Replacing for new .top file
-				#For headers and [system]
-				TOPfileCurrent = TOPfile.read().replace(defoTypeNVersionBefore, defoTypeNVersionCurrent)
-				
-				TOPfile.close()
-				TOPfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.top')
-				
-				TOPfile = open(TOPfilenameCurrent,'w')
-				TOPfile.write(TOPfileCurrent)
-				TOPfile.close()
-				
-				#Topology ITP ##########################################################
-				TopologyDefo(currentJob, PathToDefault)
-				
-				#Index #########################################################
-				NDXfile = open(NDXfilepath,'r')
-				NDXfileCurrent = NDXfile.read()
-				NDXfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.ndx')
-				NDXfile.close()
-				
-				NDXfile = open(NDXfilenameCurrent,'w')
-				NDXfile.write(NDXfileCurrent)
-				NDXfile.close()
-				
-				#POSRES ########################################################
-				sub.call('cp ../'+SampleToCopyName+'/*posres*gen*.itp .', shell= True)
-				#TOPO DEFO #####################################################
-				sub.call('cp ../'+SampleToCopyName+'/*defo_topo*.itp .', shell= True)
-				#LIPIDS ITP ####################################################
-				sub.call('cp ../'+SampleToCopyName+'/*lipids.itp .', shell= True)
-			
-			
-			else:
-				sub.call('cp '+PDBfilepath+' .', shell= True)
-				sub.call('cp '+TOPfilepath+' .', shell= True)
-				sub.call('cp '+NDXfilepath+' .', shell= True)
-				sub.call('cp ../'+SampleToCopyName+'/*.itp .', shell= True)
-				
-				PDBfilenameCurrent = PDBfilepath.split('/')[-1]
-				NDXfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.ndx')
-				
-			
-				
-				
-		elif copyMethod == "all" :
-			sub.call('cp '+PDBfilepath+' .', shell= True)
-			sub.call('cp '+TOPfilepath+' .', shell= True)
-			sub.call('cp '+NDXfilepath+' .', shell= True)
-			sub.call('cp ../'+SampleToCopyName+'/*.itp .', shell= True)
-			
-			PDBfilenameCurrent = PDBfilepath.split('/')[-1]
-			NDXfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.ndx')
-	
-	
-	
-	else:
-		sub.call('cp '+PDBfilepath+' .', shell= True)
-		sub.call('cp '+TOPfilepath+' .', shell= True)
-		sub.call('cp '+NDXfilepath+' .', shell= True)
-		sub.call('cp ../'+SampleToCopyName+'/*.itp .', shell= True)
+			#Creates grps for all solvents found
+			if self.solvent_types is not None:
+				for sol in self.solvent_types:
+					if auto_energy_grps:
+						energy_grps += sol+' '
+						
+					if NPT_or_NVT:
+						if auto_T_coupling_grps:
+							T_coupling_grps += sol+' '
+							
+						if 'tau-t' in self.protocol[md_step] and auto_tau_T_coupling_grps:
+							Tau_T_coupling_grps += str(self.protocol[md_step]['tau-t'])+' '
+							
+						if 'ref-t' in self.protocol[md_step] and auto_ref_t_T_coupling_grps:
+							ref_t_T_coupling_grps += str(self.protocol[md_step]['ref-t'])+' '
 		
-		PDBfilenameCurrent = PDBfilepath.split('/')[-1]
-		NDXfilenameCurrent = PDBfilenameCurrent.replace('.withbox.pdb','.ndx')
-	
-	System = PDBfilenameCurrent.strip('.withbox.pdb')
-	return { 'SYSTEM': System, 'OUTPUT': PDBfilenameCurrent, 'INDEX':NDXfilenameCurrent}
-
-
-
-def WriteMDP(Sample, step, defaultMDP, Version):
-	# Get the parameters for the step
-	stepMD = Sample['PROTOCOL'][step]
-	
-	if 'DEFO' in Sample:
-		stepAfterInit = int(step)-1
-		presetName = Sample['DEFO']['defoProtocol'][stepAfterInit].strip(' ')
-		defoPresetForStep = Sample['DEFO']['presets'][presetName]
-		
-	if 'SU' in Sample:
-		stepAfterInit = int(step)-1
-		presetName = Sample['SU']['suProtocol'][stepAfterInit].strip(' ')
-		suPresetForStep = Sample['SU']['presets'][presetName]
-		SU_TYPE = Sample['SU']['SuType']
-	
-	#Showing the final parameters
-	print("Writing step {0} ==========================".format(stepMD['stepType']))
-	######for param in stepMD:
-		######if param != 'stepType':
-			######print(param +' = '+str(stepMD[param]))
-	
-	# Preparation with Parameters.csv before writing .mdp files ================
-	
-	#Bool to check that the run is of NVT or NPT type
-	NPT_or_NVT = False
-	
-	#Look if the run is NPT or NVT
-	if stepMD['stepType'].startswith('NPT') or stepMD['stepType'].startswith('NVT'):
-		NPT_or_NVT = True
-		# if THERMOSTAT is in Parameters.csv the values set here will override the values set
-		# for NPT and NVT runs
-		if 'THERMOSTAT' in Sample:
-			if 'ref-t' in Sample['THERMOSTAT']:
-				Sample['PROTOCOL'][step].update( {'ref-t': Sample['THERMOSTAT']['ref-t'] } )
-	
-	#Energy and Temperature groups
-	Egrps = ''
-	Tcgrps = ''
-	# Multiply tau-t and ref-t by the number of grps
-	Tau_Tcgrps = ''
-	T_Tcgrps = ''
-	autoEGrps = True
-	autoTcGrps = True
-	autoTau_TcGrps = True
-	autoT_TcGrps = True
-	#Creates grps for all lipid found except if tau-t and ref-t contain multiple values
-	#Exception
-	if 'energygrps' in Sample['PROTOCOL'][step]:
-		if ' ' in str(Sample['PROTOCOL'][step]['energygrps']):
-			Egrps += str(Sample['PROTOCOL'][step]['energygrps'])
-			autoEGrps = False
-			
-	if 'tc-grps' in Sample['PROTOCOL'][step]:
-		if ' ' in str(Sample['PROTOCOL'][step]['tc-grps']):
-			Tcgrps += str(Sample['PROTOCOL'][step]['tc-grps'])
-			autoTcGrps = False
-			
-	if 'tau-t' in Sample['PROTOCOL'][step]:
-		if ' ' in str(Sample['PROTOCOL'][step]['tau-t']):
-			Tau_Tcgrps += str(Sample['PROTOCOL'][step]['tau-t'])
-			autoTau_TcGrps = False
-			
-	if 'ref-t' in Sample['PROTOCOL'][step]:
-		if ' ' in str(Sample['PROTOCOL'][step]['ref-t']):
-			T_Tcgrps += str(Sample['PROTOCOL'][step]['ref-t'])
-			autoT_TcGrps = False
-			
-	#Automatic generation
-	if autoEGrps or autoTcGrps or autoTau_TcGrps or autoT_TcGrps:
-		for lipid in LipidsList:
-			if lipid in Sample:
-				if autoEGrps:
-					Egrps += lipid+' '
-				if(NPT_or_NVT):
-					if autoTcGrps:
-						Tcgrps += lipid+' '
-					if autoTau_TcGrps:
-						if 'tau-t' in Sample['PROTOCOL'][step] and autoTau_TcGrps:
-							Tau_Tcgrps += str(Sample['PROTOCOL'][step]['tau-t'])+' '
-						else:
-							pass
-					if autoT_TcGrps:
-						if 'ref-t' in Sample['PROTOCOL'][step] and autoT_TcGrps:
-							T_Tcgrps += str(Sample['PROTOCOL'][step]['ref-t'])+' '
-						else:
-							pass
-					
-		#Creates grps for all solvents found
-		for sol in SolventsList:
-			if sol in Sample:
-				if autoEGrps:
-					Egrps += sol+' '
-				if NPT_or_NVT:
-					if autoTcGrps:
-						Tcgrps += sol+' '
-						if 'tau-t' in Sample['PROTOCOL'][step] and autoTau_TcGrps:
-							Tau_Tcgrps += str(Sample['PROTOCOL'][step]['tau-t'])+' '
-						if 'ref-t' in Sample['PROTOCOL'][step] and autoT_TcGrps:
-							T_Tcgrps += str(Sample['PROTOCOL'][step]['ref-t'])+' '
-	
-	#Updates the sample dictionnary with the values created above
-	if(NPT_or_NVT):
-		Sample['PROTOCOL'][step].update({ 'tc-grps': Tcgrps })
-		Sample['PROTOCOL'][step].update({ 'tau-t': Tau_Tcgrps })
-		Sample['PROTOCOL'][step].update({ 'ref-t': T_Tcgrps })
-		
-	#Creates grps for DEFO and modifies the parameters in .mdp if in the preset
-	if 'DEFO' in Sample:
-		defoMdpParams = '\n\n ;;; Parameters for Defo ;;; \n\n'
-		Egrps += 'DEFO'
-		if 'ref-t' in defoPresetForStep or 'tau-t' in defoPresetForStep: 
-			Tcgrps += 'defo'
-		
-		for defoParam, defoParamValue in defoPresetForStep.items():
-			if defoParam not in ('posres','FCX','FCY','FCZ'):
-				if defoParam in Sample['PROTOCOL'][step]:
-					currValue = str(Sample['PROTOCOL'][step][defoParam])
-					Sample['PROTOCOL'][step][defoParam] = currValue + ' ' + str(defoParamValue) + ' '
-				else:
-					defoMdpParams += defoParam + '		= '+ str(defoParamValue) + ' \n'
-		
+		#Updates the sample dictionnary with the values created above
 		if(NPT_or_NVT):
-			Sample['PROTOCOL'][step].update({ 'tc-grps': Tcgrps })
-	
-	#Creates grps for SU and modifies the parameters in .mdp if in the preset
-	if 'SU' in Sample:
-		suMdpParams = '\n\n ;;; Parameters for Su ;;; \n\n'
-		Egrps += ' '+ SU_TYPE
-		if 'ref-t' in suPresetForStep or 'tau-t' in suPresetForStep: 
-			Tcgrps += ' '+ SU_TYPE
+			self.protocol[md_step].update({ 'tc-grps': T_coupling_grps })
+			self.protocol[md_step].update({ 'tau-t': Tau_T_coupling_grps })
+			self.protocol[md_step].update({ 'ref-t': ref_t_T_coupling_grps })
+			
+		#Creates grps for DEFO and modifies the parameters in .mdp if in the preset
+		if self.defo is not None:
+			self.defo_mdp_params = '\n\n ;;; Parameters for Defo ;;; \n\n'
+			energy_grps += 'defo '
+			if 'ref-t' in defo_preset_for_md_step or 'tau-t' in defo_preset_for_md_step: 
+				T_coupling_grps += 'defo '
+			
+			for defo_param, defo_param_value in defo_preset_for_md_step.items():
+				if defo_param not in ('posres','FCX','FCY','FCZ'):
+					if defo_param in self.protocol[md_step]:
+						current_value = str(self.protocol[md_step][defo_param])
+						self.protocol[md_step][defo_param] = current_value + ' ' + str(defo_param_value) + ' '
+					else:
+						self.defo_mdp_params += defo_param + '		= '+ str(defo_param_value) + ' \n'
+			
+			if NPT_or_NVT:
+				self.protocol[md_step].update({ 'tc-grps': T_coupling_grps })
 		
-		for suParam, suParamValue in suPresetForStep.items():
-			if suParam not in ('posres','FCX','FCY','FCZ'):
-				if suParam in Sample['PROTOCOL'][step]:
-					currValue = str(Sample['PROTOCOL'][step][suParam])
-					Sample['PROTOCOL'][step][suParam] = currValue + ' ' + str(suParamValue) + ' '
-				
-				else:
-					suMdpParams += suParam + '		= '+ str(suParamValue) + ' \n'
-		suMdpParams += 'wall-atomtype' + '		= '+ str(Sample['SU']['SuType']) + ' \n'
-		if(NPT_or_NVT):
-			Sample['PROTOCOL'][step].update({ 'tc-grps': Tcgrps })
+		#Creates grps for SU and modifies the parameters in .mdp if in the preset
+		if self.su is not None:
+			self.su_mdp_params = '\n\n ;;; Parameters for Su ;;; \n\n'
+			#if 'freezegrps' not in su_preset_for_md_step:
+			energy_grps += 'su '
 			
-	#Updates the Energy groups
-	Sample['PROTOCOL'][step].update({ 'energygrps': Egrps })
-	
-	# End of preparation =======================================================
-	
-	
-	
-	# Beginning of writing .mdp ================================================
-	
-	#Looks for the parameters in Default MDP file and set the values
-	#as chosen in Parameters.csv
-	OUTPUT = open(stepMD['stepType']+'.mdp','w')
-	
-	#Position restraining for DEFO and Su if in preset
-	
-	if 'DEFO' in Sample and 'SU' not in Sample:
-		if 'posres'  in defoPresetForStep:
-			if defoPresetForStep['posres'] == 'on': 
-				PosresMaccro = "DEFO_POSRES_"+stepMD['stepType']
-				OUTPUT.write("define = -D"+PosresMaccro+"\n")
-				
-				#Modifying Posres for defo
-				PosresGenFile = open('defo_posres_gen.itp','r')
-				PosresFileName = 'defo_posres_'+stepMD['stepType']+'.itp'
-				
-				PosresFileDefo = open(PosresFileName,'w')
-				PosresDefo = PosresGenFile.read()
-				
-				for FC in ('FCX','FCY','FCZ'):
-					if FC in defoPresetForStep:
-						PosresDefo = PosresDefo.replace(FC, str(defoPresetForStep[FC]))
-					else:
-						PosresDefo = PosresDefo.replace(FC, '0')
-						
-				PosresFileDefo.write(PosresDefo)
-				
-				#Including the posres file in the molecule
-				DefoTopologyFileName = "defo_topo.itp"
-				DefoTopologyFile = open(DefoTopologyFileName,'a')
-				DefoTopologyFile.write(Utility.RemoveUnwantedIndent("""
-														
-														#ifdef {0}
-															#include "{1}"
-														#endif
-														
-														""").format(PosresMaccro, PosresFileName))
-				DefoTopologyFile.close()
+			if 'ref-t' in su_preset_for_md_step or 'tau-t' in su_preset_for_md_step: 
+				T_coupling_grps += 'su '
 			
-	elif 'SU' in Sample and 'DEFO' not in Sample:
-		if 'posres' in suPresetForStep:
-			if suPresetForStep['posres'] == 'on' :
-				PosresMaccro = "SU_POSRES_"+stepMD['stepType']
-				OUTPUT.write("define = -D"+PosresMaccro+"\n")
-				
-				PosresGenFile = open('su_posres_gen.itp','r')
-				PosresFileName = 'su_posres_'+stepMD['stepType']+'.itp'
-				
-				
-				PosresFileSu = open(PosresFileName,'w')
-				PosresSu = PosresGenFile.read()
-				
-				for FC in ('FCX','FCY','FCZ'):
-					if FC in suPresetForStep:
-						PosresSu = PosresSu.replace(FC, str(suPresetForStep[FC]))
-					else:
-						PosresSu = PosresSu.replace(FC, '0')
-						
-				PosresFileSu.write(PosresSu)
-				
-				
-				SuTopologyFileName = """martini_v2.2_{2}_{0}_DEFO_{1}.itp""".format(Sample['SU']['Version'], Sample['DEFO']['Version'], Sample['SU']['SuType'])
-				SuTopologyFile = open(SuTopologyFileName,'r')
-				SuTopology = SuTopologyFile.read()
-				SuTopologyFile.close()
-				
-				
-				Marker = ";POSITION_FOR_SU_POSRES"
-				Preproc = """#ifdef {0}\n	#include "{1}"\n#endif\n;POSITION_FOR_SU_POSRES """.format(PosresMaccro, PosresFileName)
-				
-				SuTopologyFile = open(SuTopologyFileName,'w')
-				SuTopology = SuTopology.replace(Marker, Preproc)
-				SuTopologyFile.write(SuTopology)
-				SuTopologyFile.close()
-			
-	elif 'SU' in Sample and 'DEFO' in Sample:
-		if 'posres' in suPresetForStep or 'posres' in defoPresetForStep:
-			if 'posres' in defoPresetForStep:
-				if defoPresetForStep['posres'] == 'on' :
-					PosresMaccro = "DEFO_POSRES_"+stepMD['stepType']
-					OUTPUT.write("define = -D"+PosresMaccro+"\n")
+			for su_param, su_param_value in su_preset_for_md_step.items():
+				if su_param not in ('posres','FCX','FCY','FCZ'):
+					if su_param in self.protocol[md_step]:
+						current_value = str(self.protocol[md_step][su_param])
+						self.protocol[md_step][su_param] = current_value + ' ' + str(su_param_value) + ' '
 					
-					NbPosres = len(glob.glob('defo*posres*gen*itp'))
+					else:
+						self.su_mdp_params += su_param + '		= '+ str(su_param_value) + ' \n'
+			
+			if NPT_or_NVT:
+				self.protocol[md_step].update({ 'tc-grps': T_coupling_grps })
+				
+		#Updates the Energy groups
+		self.protocol[md_step].update({ 'energygrps': energy_grps })
+		
+		# End of preparation =======================================================
+	
+	
+	
+	
+	def writing_mdp(self, md_step, default_mdp):
+		""" Method to write mdp parameters to file
+		"""
+		# Beginning of writing .mdp ================================================
+		
+		#Looks for the parameters in Default MDP file and set the values
+		#as chosen in Parameters.csv
+		
+		md_step_after_init = int(md_step)-1
+		
+		posres_define = ""
+		with open(self.protocol[md_step]['stepType']+'.mdp','w') as output:
+		
+			#Position restraining for DEFO and Su if in preset
+			if self.defo is not None:
+				preset_name = self.defo['defoProtocol'][md_step_after_init].strip(' ')
+				if preset_name:
+					print("Parameters for defos during this step will be:")
+					defo_preset_for_md_step = self.defo['presets'][preset_name]
+					print("	{0} : {1}\n".format(preset_name, defo_preset_for_md_step))
 					
-					if NbPosres >= 2:
-						for defoLayer in ('DEFM','DEFB'):
-							#Modifying Posres for defo
-							PosresGenFile = open('defo_posres_{0}_gen.itp'.format(defoLayer),'r')
-							PosresFileName = 'defo_posres_'+defoLayer+'_'+stepMD['stepType']+'.itp'
+					if 'posres' in defo_preset_for_md_step:
+						if defo_preset_for_md_step['posres'] == 'on' :
+							posres_maccro = "DEFO_POSRES_"+ self.protocol[md_step]['stepType']
+							posres_define += " -D{0}".format(posres_maccro)
 							
-							PosresFileDefo = open(PosresFileName,'w')
-							PosresDefo = PosresGenFile.read()
+							nb_posres = len(glob.glob('defo*posres*gen*itp'))
+							
+							for defo_layer in self.defo_dict:
+								#Modifying Posres for defo
+								posres_gen_file = open('defo_posres_{0}_gen.itp'.format(defo_layer),'r')
+								posres_file_name = 'defo_posres_'+defo_layer+'_'+self.protocol[md_step]['stepType']+'.itp'
+								
+								posres_file_defo = open(posres_file_name,'w')
+								posres_defo = posres_gen_file.read()
+								
+								for FC in ('FCX','FCY','FCZ'):
+									if FC in defo_preset_for_md_step:
+										posres_defo = posres_defo.replace(FC, str(defo_preset_for_md_step[FC]))
+									else:
+										posres_defo = posres_defo.replace(FC, '0')
+										
+								posres_file_defo.write(posres_defo)
+								
+								#Including the posres file in the molecule
+								defo_topology_file_name = "defos_topo.itp"
+								defo_topology_file = open(defo_topology_file_name,'r')
+								defo_topology = defo_topology_file.read()
+								defo_topology_file.close()
+								
+								marker = ";PLACE_FOR_{0}_POSRES".format(defo_layer)
+								preprocessor = """#ifdef {0}\n	#include "{1}"\n#endif\n;PLACE_FOR_{2}_POSRES """.format(posres_maccro, 
+																														posres_file_name,
+																														defo_layer)
+								
+								defo_topology = defo_topology.replace(marker, preprocessor)
+								
+								with open(defo_topology_file_name,'w') as defo_topology_file:
+									defo_topology_file.write(defo_topology)
+								
+							###else:
+								###posres_gen_file = open('defo_posres_gen.itp','r')
+								###posres_file_name = 'defo_posres_'+self.protocol[md_step]['stepType']+'.itp'
+								
+								###posres_file_defo = open(posres_file_name,'w')
+								###posres_defo = posres_gen_file.read()
+								
+								###for FC in ('FCX','FCY','FCZ'):
+									###if FC in defo_preset_for_md_step:
+										###posres_defo = posres_defo.replace(FC, str(defo_preset_for_md_step[FC]))
+									###else:
+										###posres_defo = posres_defo.replace(FC, '0')
+										
+								###posres_file_defo.write(posres_defo)
+								
+								####Including the posres file in the molecule
+								###defo_topology_file_name = "defos_topo.itp"
+								
+								###with open(defo_topology_file_name,'a') as defo_topology_file:
+									###defo_topology_file.write(ut.RemoveUnwantedIndent("""
+																			
+																			####ifdef {0}
+																				####include "{1}"
+																			####endif
+																			
+																			###""").format(posres_maccro, posres_file_name))
+								
+			if self.su is not None:
+				preset_name = self.su['suProtocol'][md_step_after_init].strip(' ')
+				
+				if preset_name:
+					print("Parameters for su during this step will be:")
+					su_preset_for_md_step = self.su['presets'][preset_name]
+					print("	{0} : {1}\n".format(preset_name, su_preset_for_md_step))
+					
+					if 'posres' in su_preset_for_md_step:
+						if su_preset_for_md_step['posres'] == 'on' :
+								
+							posres_maccro = "SU_POSRES_" + self.protocol[md_step]['stepType']
+							posres_define += " -D{0}".format(posres_maccro)
+							
+							posres_gen_file = open('su_posres_gen.itp','r')
+							posres_file_name = 'su_posres_' + self.protocol[md_step]['stepType']+'.itp'
+							
+							
+							posres_file_su = open(posres_file_name,'w')
+							posres_su = posres_gen_file.read()
 							
 							for FC in ('FCX','FCY','FCZ'):
-								if FC in defoPresetForStep:
-									PosresDefo = PosresDefo.replace(FC, str(defoPresetForStep[FC]))
+								if FC in su_preset_for_md_step:
+									posres_su = posres_su.replace(FC, str(su_preset_for_md_step[FC]))
 								else:
-									PosresDefo = PosresDefo.replace(FC, '0')
+									posres_su = posres_su.replace(FC, '0')
 									
-							PosresFileDefo.write(PosresDefo)
+							posres_file_su.write(posres_su)
 							
-							#Including the posres file in the molecule
-							DefoTopologyFileName = "defo_topo.itp"
-							DefoTopologyFile = open(DefoTopologyFileName,'r')
-							DefoTopology = DefoTopologyFile.read()
-							DefoTopologyFile.close()
+							self.itp_file = "martini_v2.2"
+							self.itp_file +="_{0}{1}".format(self.su['SuType'], self.su['Version'])
+							if self.defo is not None:
+								self.itp_file +="_DEF{0}".format(self.defo['Version'])
+							self.itp_file += ".itp"
 							
-							Marker = ";PLACE_FOR_{0}_POSRES".format(defoLayer)
-							Preproc = """#ifdef {0}\n	#include "{1}"\n#endif\n;PLACE_FOR_{2}_POSRES """.format(PosresMaccro, PosresFileName, defoLayer)
+							su_topology_file_name = self.itp_file
+							su_topology_file = open(su_topology_file_name,'r')
+							su_topology = su_topology_file.read()
+							su_topology_file.close()
 							
-							DefoTopology = DefoTopology.replace(Marker, Preproc)
 							
-							DefoTopologyFile = open(DefoTopologyFileName,'w')
-							DefoTopologyFile.write(DefoTopology)
-							DefoTopologyFile.close()
-					else:
-						PosresGenFile = open('defo_posres_gen.itp','r')
-						PosresFileName = 'defo_posres_'+stepMD['stepType']+'.itp'
+							marker = ";POSITION_FOR_SU_POSRES"
+							preprocessor = """#ifdef {0}\n	#include "{1}"\n#endif\n;POSITION_FOR_SU_POSRES """.format(posres_maccro,
+																													posres_file_name)
+							
+							su_topology = su_topology.replace(marker, preprocessor)
+							
+							with open(su_topology_file_name,'w') as su_topology_file:
+								su_topology_file.write(su_topology)
+			
+			
+			output.write("define = {0}".format(posres_define))
+			
+			copy_original_line = True
+			for i, line in enumerate(default_mdp):
+				if not line.startswith(';'):
+					for key in self.protocol[md_step]:
+						if key in line and key != '' and (line.partition(' ')[0] == key or line.partition('=')[0] == key):
+							output.write(key+'			= '+ str(self.protocol[md_step][key])+'\n')
+							copy_original_line = False
+							continue
 						
-						PosresFileDefo = open(PosresFileName,'w')
-						PosresDefo = PosresGenFile.read()
+					if copy_original_line:
+						output.write(line)
 						
-						for FC in ('FCX','FCY','FCZ'):
-							if FC in defoPresetForStep:
-								PosresDefo = PosresDefo.replace(FC, str(defoPresetForStep[FC]))
-							else:
-								PosresDefo = PosresDefo.replace(FC, '0')
-								
-						PosresFileDefo.write(PosresDefo)
-						
-						#Including the posres file in the molecule
-						DefoTopologyFileName = "defo_topo.itp"
-						DefoTopologyFile = open(DefoTopologyFileName,'a')
-						DefoTopologyFile.write(Utility.RemoveUnwantedIndent("""
-																
-																#ifdef {0}
-																	#include "{1}"
-																#endif
-																
-																""").format(PosresMaccro, PosresFileName))
-						DefoTopologyFile.close()
-						
-			if 'posres' in suPresetForStep:
-				if suPresetForStep['posres'] == 'on' :
-					PosresMaccro = "SU_POSRES_"+stepMD['stepType']
-					OUTPUT.write("define = -D"+PosresMaccro+"\n")
+					copy_original_line=True
 					
-					PosresGenFile = open('su_posres_gen.itp','r')
-					PosresFileName = 'su_posres_'+stepMD['stepType']+'.itp'
-					
-					
-					PosresFileSu = open(PosresFileName,'w')
-					PosresSu = PosresGenFile.read()
-					
-					for FC in ('FCX','FCY','FCZ'):
-						if FC in suPresetForStep:
-							PosresSu = PosresSu.replace(FC, str(suPresetForStep[FC]))
-						else:
-							PosresSu = PosresSu.replace(FC, '0')
-							
-					PosresFileSu.write(PosresSu)
-					
-					
-					SuTopologyFileName = """martini_v2.2_{2}_{0}_DEFO_{1}.itp""".format(Sample['SU']['Version'], Sample['DEFO']['Version'], Sample['SU']['SuType'])
-					SuTopologyFile = open(SuTopologyFileName,'r')
-					SuTopology = SuTopologyFile.read()
-					SuTopologyFile.close()
-					
-					
-					Marker = ";POSITION_FOR_SU_POSRES"
-					Preproc = """#ifdef {0}\n	#include "{1}"\n#endif\n;POSITION_FOR_SU_POSRES """.format(PosresMaccro, PosresFileName)
-					
-					SuTopologyFile = open(SuTopologyFileName,'w')
-					SuTopology = SuTopology.replace(Marker, Preproc)
-					SuTopologyFile.write(SuTopology)
-					SuTopologyFile.close()
-		
-	CopyOriginalLine = True
-	for i, line in enumerate(defaultMDP):
-		if not line.startswith(';'):
-			for key in stepMD:
-				if key in line and key != '' and (line.partition(' ')[0] == key or line.partition('=')[0] == key):
-					OUTPUT.write(key+'			= '+ str(stepMD[key])+'\n')
-					CopyOriginalLine = False
-					continue
-			if(CopyOriginalLine):
-				OUTPUT.write(line)
-			CopyOriginalLine=True
-
-	OUTPUT = open(stepMD['stepType']+'.mdp','a+')
-	OUTPUT.write('\n ;Parameters not in default file : \n\n')
-	
-	# Open the file again to add the parameters not in default MDP
-	COMPARE = open(stepMD['stepType']+'.mdp','r').read()
-	for key in stepMD:
-		if key not in COMPARE and key != 'stepType':
-			OUTPUT.write(key+'			= '+ str(stepMD[key])+'\n')
-	
-	# Writes parameters related to Defo at the end
-	if 'DEFO' in Sample:
-		OUTPUT.write(defoMdpParams)
-	
-	# Automatic filling for defo (not done yet as it is not 
-	# really useful ) 
-	if(0): #Currently off as not yet implemented
-		if 'DEFO' in Sample and Sample['TYPE'] == 'BILAYER':
-			Lipid = ''
-			for lipid in LipidsList:
-				if lipid in Sample:
-					Lipid = lipid
-			if Sample['DEFO']['Height'] == 'follow':
-				if 'SU' in Sample:
-					if Version.startswith('4'):
-						#finding current lipid used
-						OUTPUT.write('pull-group1		= {0}\n'.format(Lipid))
-					else:
-						#finding current lipid used
-						pullParams = """
-									pull-ngroups			= 2
-									pull-group1-name			= defoBi
-									pull-group1-pbcatom			= 0
-									
-									pull-group2-name			= defoMono
-									pull-group2-pbcatom = 0
-									
-									pull-ncoords			= 2
-									pull-coord1-groups
-									pull-coord2-groups			= 0 2
-									""".format()
-						OUTPUT.write('pull-group1-name		= {0}\n'.format(Lipid))
+		with open(self.protocol[md_step]['stepType']+'.mdp','a+') as output:
+			output.write('\n ;Parameters not in default file : \n\n')
+			
+			# Open the file again to add the parameters not in default MDP
+			COMPARE = open(self.protocol[md_step]['stepType']+'.mdp','r').read()
+			
+			for key in self.protocol[md_step]:
+				if key not in COMPARE and key != 'stepType':
+					output.write(key+'			= '+ str(self.protocol[md_step][key])+'\n')
+			
+			defo_parameters = ""
+			# Writes parameters related to Defo at the end
+			if self.defo is not None:
+				defo_parameters += self.defo_mdp_params
 				
+			defo_su_parameters = ""
+			# Writes parameters related to Su at the end
+			if self.su is not None:
+				parameters_not_to_write = ('posres','FCX','FCY','FCZ','ref-t','tau-t')
+				
+				if self.defo is not None:
+					
+					md_step_after_init = int(md_step)-1
+					preset_name_su = self.su['suProtocol'][md_step_after_init].strip(' ')
+					su_preset_for_md_step = self.su['presets'][preset_name_su]
+					
+					preset_name_def = self.defo['defoProtocol'][md_step_after_init].strip(' ')
+					defo_preset_for_md_step = self.defo['presets'][preset_name_def]
+					
+					
+					for i, line in enumerate(defo_parameters.split('\n')):
+						if not line.startswith(';'):
+							for key in su_preset_for_md_step:
+								if key in line:
+									previous_value = line.partition('=')[2]
+									defo_su_parameters += "{0}	={1} {2}\n".format(key, previous_value, str(su_preset_for_md_step[key]))
+									continue
+
+					defo_su_parameters += "\n ;;; Parameters for Defo ;;;  \n"
+					
+					for key in defo_preset_for_md_step:
+						if key not in parameters_not_to_write and key+'	' not in defo_su_parameters:
+							defo_su_parameters += "{0}			= {1}\n".format(key, defo_preset_for_md_step[key])
+							
+					defo_su_parameters += "\n ;;; Parameters for Su ;;; \n"
+					
+					for key in su_preset_for_md_step:
+						if key not in parameters_not_to_write and key+'	' not in defo_su_parameters:
+							defo_su_parameters += "{0}			= {1}\n".format(key,su_preset_for_md_step[key])
+							
+				else:
+					defo_su_parameters += self.su_mdp_params
 			else:
-				pass
-		
-	# Writes parameters related to Su at the end
-	if 'SU' in Sample:
-		OUTPUT.write(suMdpParams)
-	#How to implement FREEZE ?
-	
-	defaultMDP.seek(0)
-
-	OUTPUT.close()
-
-
-
-def CreateDefoBi(Sample,Softwares, TMT, DZ):
-	"""
-	Create the defo for the bilayer when there is no wall.
-	"""
-	
-	if Sample['DEFO']['Height'] == 'box':
-		L_defo = LZS
-	if Sample['DEFO']['Height'] == 'bilayer':
-		L_defo = LZ2+TMT+DZ/4.0
-	if Sample['DEFO']['Height'] == 'follow':
-		L_defo = 2*TMT+DZ/2.0
-	NbLayers = int(L_defo/float(Sample['DEFO']['DzDefo']))
-	
-	#Defo per Layer
-	defoPerLayer = int(Sample['DEFO']['DpL']) + 1
-	#Total number of defo
-	nbDefo = defoPerLayer*NbLayers
-	#Radius for the hole
-	radiusDefo = float(Sample['DEFO']['Radius'])
-	
-	#=====================================================
-	# Inserting water in the defo (Currently OFF)
-	#=====================================================
-	if(0): #Set to 1 to insert solvents in the Defo
-		NbSolvIn = 0
-		if SolventType == 'W':
-			# Density x Volume
-			NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.))
-		if SolventType == 'OCO':
-			# Density x Volume
-			NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.)/2.)
-		if SolventType == 'PW':
-			# Density x Volume
-			NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.)/3.)
+				defo_su_parameters = defo_parameters
 			
-	#=====================================================
-	# Writing the defo geometry xyz -> pdb
-	#=====================================================
-	DefoXYZ_filename = 'defo.xyz'
-	if os.path.exists(DefoXYZ_filename):
-		os.remove(DefoXYZ_filename)
-	XYZout = open(DefoXYZ_filename,"a")
-	XYZout.write(str(nbDefo)+'\n\n')
-	
-	DefoOutside = []
-	DefoInside = []
-	DefoTotal = []
-	Defonumb = 0
-	
-	if defoPerLayer != 1:
-		for i in range(0, NbLayers):
-			ZcurrentDefo = float(Sample['DEFO']['DzDefo'])*i
-			for j in np.arange(0., 360., 360./(defoPerLayer-1)):
-				angle = math.radians(j)
-				XYZout.write(Utility.RemoveUnwantedIndent(
-					"""
-					DEF  {0}  {1}  {2} \n
-					""".format(radiusDefo*math.cos(angle), radiusDefo*math.sin(angle), ZcurrentDefo)
-					))
-				Defonumb += 1
-				DefoOutside.append(Defonumb)
-			XYZout.write(Utility.RemoveUnwantedIndent(
-					"""
-					DEF  0.0 0.0 {0} \n
-					""".format(ZcurrentDefo)
-					))
-			Defonumb += 1
-			DefoInside.append(Defonumb)
+			output.write("\n ;;; PARAMETERS FOR SU AND DEFO ;;;  \n")
+			output.write(defo_su_parameters)
 			
+			if self.wall is not None:
+				output.write("\n ;;; Parameters for W ;;; \n")
+				preset_name = self.wall['wallProtocol'][md_step_after_init].strip(' ')
+				if preset_name:
+					print("Parameters for wall during this step will be:")
+					wall_preset_for_md_step = self.wall['presets'][preset_name]
+
+					print("	{0} : {1}\n".format(preset_name, wall_preset_for_md_step))
+					
+					for key in wall_preset_for_md_step:
+						output.write("{0}			= {1}\n".format(key, 
+													wall_preset_for_md_step[key]))
 		
-		DefoTotal.extend(DefoInside)
-		DefoTotal.extend(DefoOutside)
-		DefoTotal.sort()
-	else:
-		for i in range(0, NbLayers):
-			ZcurrentDefo = float(Sample['DEFO']['DzDefo'])*i
-			XYZout.write(Utility.RemoveUnwantedIndent(
-					"""
-					DEF  0.0 0.0 {0} \n
-					""".format(ZcurrentDefo)
-					))
-			Defonumb += 1
-			DefoTotal.append(Defonumb)
-	
-	XYZout.close()
-	
-	#Formating the defos
-	formatDEFO = open("format_DEFB.vmd","w")
-	formatDEFO.write(Utility.RemoveUnwantedIndent(
+		default_mdp.seek(0)
+		
+		
+		
+		
+		
+	def create_topology(self):
+		""" Method for creating the topology of defo and su
 		"""
-		mol load xyz {0}
-		set all [atomselect top "all"]
+		topo_headings = ["atomtypes","nonbond_params","moleculetype","atoms"]
+		# out put file name
+		self.itp_file = "martini_v2.2"
+		
+		self.include_su_topology = {}
+		
+		if self.su is not None:
+			include_su_topology_file = """{0}/SU/SU_{1}.itp""".format(self.path_to_default, self.su['Version'])
+		
+			with open(include_su_topology_file,'r') as itpsu:
+				for head in topo_headings:
+					for heading_and_lines in ut.group_by_heading(itpsu, head):
+						lines = []
+						if head is not 'moleculetype':
+							if head is not 'atoms':
+								lines.extend([';;;;;;; SU_{0}\n'.format(self.su['Version'])])
+						lines.extend(heading_and_lines[2:])
+						self.include_su_topology.update({head:''.join(lines)})
 			
-		$all set resname DEFB
-		$all set name DEF
-		$all set type DEF
-		$all set chain X
+			posres_su = ut.RemoveUnwantedIndent("""
+											
+											;POSITION_FOR_SU_POSRES\n\n
+											
+											""")
+		
+			if '[ moleculetype ]' in self.include_su_topology['moleculetype'] or '[moleculetype]' in self.include_su_topology['moleculetype']:
+				self.include_su_topology['moleculetype'] = self.include_su_topology['moleculetype'].replace('[ moleculetype ]', posres_su + '[ moleculetype ]' )
+				
+			self.include_su_topology['moleculetype'] = '[ moleculetype ]\n' + self.include_su_topology['moleculetype'] + '\n' + posres_su
 			
-		package require pbctools
-		pbc set {{0.5 0.5 {1}}}
+			self.itp_file +="_{0}{1}".format(self.su['SuType'], self.su['Version'])
 			
-		$all writepdb {2}
-		unset all
+		
+		
+		self.include_defo_topology = {}
+		if self.defo is not None:
+			include_defo_topology_file = """{0}/DEFO/DEFO_{1}.itp""".format(self.path_to_default, self.defo['Version'])
 			
-		exit
-		""".format(DefoXYZ_filename, L_defo, DefoXYZ_filename.replace('xyz','pdb'))
-		))
-	formatDEFO.close()
-	
-	cmd = str("""{0} -dispdev text -e format_DEFB.vmd > format_DEFB.log""").format(Softwares['VMD'])
-	sub.call(cmd, shell=True)
-	
-	#=====================================================
-	# Writing basic topology for defo (without contraints)
-	#=====================================================
-	PosresDefo = """;;;;;;POSRES FOR DEFO\n"""
-	PosresDefo += Utility.RemoveUnwantedIndent("""
-					[position_restraints]
-					;ai   funct   fcx     fcy     fcz
-					
-					""")
-	TopoDefo = """;;;;;; DEFO FOR BILAYER\n"""
-	TopoDefo += Utility.RemoveUnwantedIndent("""
-					[moleculetype]
-					;molname    nrexcl
-					DEFB 1
-					
-					[atoms]
-					;id     type     resnr    residue  atom    cgnr    charge   mass
-					
-					""")
-	for defnb in DefoTotal:
-		TopoDefo += """ {0}     DEF     1    DEFB    DEF     {0}     0      {1}\n""".format(defnb, Sample['DEFO']['Mass'])
-		PosresDefo += """ {0}    1     FCX   FCY   FCZ\n""".format(defnb)
-	
-	
-	#=====================================================
-	# Checking for contraints
-	#=====================================================
-	if 'Interactions' in Sample['DEFO']:
-		if defoPerLayer != 1:
-			if Sample['DEFO']['Interactions'] == 'bond':
-					TopoDefo += Utility.RemoveUnwantedIndent("""
-								
-							[bonds]
-							; i j func length force
-							
-							""")
-					
-					#Set the bonds at the edges of the layer
-					# 0.2 prefactor as martini needs [nm]
-					lengthBondP = round(0.2*float(Sample['DEFO']['Radius'])*math.sin( math.pi/float(defoPerLayer-1) ),2)
-					for i in range(0, NbLayers):
-						j = i*(defoPerLayer-1)
-						k = j + defoPerLayer-2
-						for DEF in DefoOutside[j:k+1]:
-							nextDEF = DEF + 1
-							if DEF == DefoOutside[k]:
-								nextDEF = DefoOutside[j]
-							TopoDefo += """ {0} {1}   {2}   {3}  {4}\n""".format(DEF, nextDEF, 
-																										Sample['DEFO']['FtypeBond'],
-																										lengthBondP,
-																										Sample['DEFO']['FbondP'])
-							
-					#Set the bonds inside the layer
-					lengthBondPIn = round(0.1*float(Sample['DEFO']['Radius']),2)
-					for i,DEFC in zip(range(0, NbLayers), DefoInside):
-						j = i*(defoPerLayer-1)
-						k = j + defoPerLayer-2
-						for DEF in DefoOutside[j:k+1]:
-							TopoDefo += """ {0} {1}   6   {2}  {3}\n""".format(DEF, DEFC,
-																lengthBondPIn,Sample['DEFO']['FbondP'])
-							
-					#Set the bonds along normal to the layer
-					#Distance in z [nm] (thus the 0.1 prefactor)
-					lengthBondN = round(0.1*float(Sample['DEFO']['DzDefo']),2)
-					
-					for DEF in DefoTotal:
-						DEFAbove = DEF + defoPerLayer
-						if DEFAbove not in DefoTotal:
-							break
-						TopoDefo += """ {0} {1}   6   {2}  {3}\n""".format(DEF, DEFAbove,
-																lengthBondN,Sample['DEFO']['FbondP'])
+			with open(include_defo_topology_file,'r') as itpdefo:
+				for head in topo_headings:
+					for heading_and_lines in ut.group_by_heading(itpdefo, head):
+						lines = []
+						if head is not 'moleculetype':
+							if head is not 'atoms':
+								lines.extend([';;;;;;; DEFO_{0}\n'.format(self.defo['Version'])])
+						lines.extend(heading_and_lines[2:])
+						self.include_defo_topology.update({head:''.join(lines)})
+			
+			self.itp_file +="_DEF{0}".format(self.defo['Version'])
+			
+		self.include_wall_topology = {}
+		if self.wall is not None:
+			include_wall_topology_file = """{0}/WALL/WALL_{1}.itp""".format(self.path_to_default, self.wall['Version'])
+			
+			with open(include_wall_topology_file,'r') as itpdefo:
+				for head in topo_headings:
+					for heading_and_lines in ut.group_by_heading(itpdefo, head):
+						lines = []
+						if head is not 'moleculetype':
+							if head is not 'atoms':
+								lines.extend([';;;;;;; WALL_{0}\n'.format(self.wall['Version'])])
+						lines.extend(heading_and_lines[2:])
+						self.include_wall_topology.update({head:''.join(lines)})
+			
+			self.itp_file +="_WALL{0}".format(self.wall['Version'])
 						
-			elif Sample['DEFO']['Interactions'] == 'angles':
-				pass
+		
+		self.itp_file += ".itp"
+		if os.path.isfile(self.itp_file):
+			os.remove(self.itp_file)
+		
+		
+		
+		with open(self.itp_file, 'a+') as output:
+			temp_out = ""
+			temp_out2 = ""
+			with open(self.path_to_default + "/martini_v2.2.itp",'r') as def_martini:
+				
+				if self.su is not None:
+					for line in def_martini:
+						if 'nonbond_params' in line:
+							temp_out += self.include_su_topology['atomtypes']
+							temp_out += '\n[ nonbond_params ]\n'
+							
+						elif 'PLACE_FOR_SU' in line:
+							temp_out += self.include_su_topology['nonbond_params']
+							temp_out += '\n'
+							
+						else:
+							temp_out += line
+				else:
+					temp_out = def_martini.read()
+				
+				
+				if self.defo is not None:
+					for line in temp_out.splitlines():
+						if 'nonbond_params' in line:
+							temp_out2 += self.include_defo_topology['atomtypes']
+							temp_out2 += '\n[ nonbond_params ]\n'
+							
+						elif 'PLACE_FOR_DEFO' in line:
+							temp_out2 += self.include_defo_topology['nonbond_params']
+							if self.su is not None:
+								temp_out2 += 'DEF SU 1 0.0 0.0 ;\n'
+							temp_out2 += '\n'
+							
+						else:
+							temp_out2 += line
+							temp_out2 += '\n'
+				else:
+					temp_out2 = temp_out
+							
+				if self.wall is not None:
+					for line in temp_out2.splitlines():
+						if 'nonbond_params' in line:
+							output.write(self.include_wall_topology['atomtypes'])
+							output.write('\n[ nonbond_params ]\n')
+							
+						elif 'PLACE_FOR_WALL' in line:
+							output.write(self.include_wall_topology['nonbond_params'])
+							output.write('\n')
+							
+						else:
+							output.write(line)
+							output.write('\n')
+				
+				else:
+					output.write(temp_out2)
+				
+				if self.su is not None:
+					output.write("\n;;;;;;; SU_{0}\n".format(self.su['Version']))
+					output.write(self.include_su_topology['moleculetype']+'\n')
+					
+					
+		#=======================================================================
+		# the topology file
+		#=======================================================================
+		topology = """#include "{0}"\n""".format(self.itp_file)
+		
+		if self.__class__.__name__ == "Membrane":
+			topology += """#include "martini_v2.0_lipids.itp"\n"""
+			sub.call("""cp {0}/martini_v2.0_lipids.itp  .""".format(self.path_to_default), shell= True)
 			
-			elif Sample['DEFO']['Interactions'] == 'bond&angle':
-				TopoDefo += Utility.RemoveUnwantedIndent("""
-							
-							[bonds]
-							; i j func length force
-							
-							""")
-					
-				#Set the bonds at the edges of the layer
-				# 0.2 prefactor as martini needs [nm]
-				TopoDefo +="\n;In-plane bonds (outer-outer-vertices)\n"
-				lengthBondP = round(0.2*float(Sample['DEFO']['Radius'])*math.sin( math.pi/float(defoPerLayer-1) ),2)
-				for i in range(0, NbLayers):
-					j = i*(defoPerLayer-1)
-					k = j + defoPerLayer-2
-					for DEF in DefoOutside[j:k+1]:
-						nextDEF = DEF + 1
-						if DEF == DefoOutside[k]:
-							nextDEF = DefoOutside[j]
-						TopoDefo += """ {0} {1}   {2}   {3}  {4}\n""".format(DEF, nextDEF, 
-																			Sample['DEFO']['FtypeBond'],
-																			lengthBondP,
-																			Sample['DEFO']['FbondP'])
-				#Set the bonds inside the layer
-				TopoDefo +="\n;In-plane bonds (center-to-outer-vertices)\n"
-				lengthBondPIn = round(0.1*float(Sample['DEFO']['Radius']),2)
-				for i,DEFC in zip(range(0, NbLayers), DefoInside):
-					j = i*(defoPerLayer-1)
-					k = j + defoPerLayer-2
-					for DEF in DefoOutside[j:k+1]:
-						TopoDefo += """ {0} {1}  {2}  {3}  {4}\n""".format(DEF, DEFC, Sample['DEFO']['FtypeBond'],
-													lengthBondPIn, Sample['DEFO']['FbondP'])
-				
-				
-				#Set the bonds along normal to the layer
-				#Distance in z [nm] (thus the 0.1 prefactor)
-				TopoDefo +="\n;Out-of-plane bonds\n"
-				lengthBondN = round(0.1*float(Sample['DEFO']['DzDefo']),2)
-				for DEF in DefoTotal:
-					DEFAbove = DEF + defoPerLayer
-					if DEFAbove not in DefoTotal:
-						break
-					TopoDefo += """ {0} {1} {2}  {3}  {4}\n""".format(DEF, DEFAbove, Sample['DEFO']['FtypeBond'],
-												lengthBondN, Sample['DEFO']['FbondP'])
-				
-				TopoDefo += Utility.RemoveUnwantedIndent("""
-							
-						[angles]
-						; i j k  angle   force
-						
-						""")
-				#Set the angles in plane
-				TopoDefo +="\n;In-plane angles  DEF-Center-nextDEF \n"
-				angle = 360./(defoPerLayer-1)
-				for i,DEFC in zip(range(0, NbLayers), DefoInside):
-					j = i*(defoPerLayer-1)
-					k = j + defoPerLayer-2
-					for DEF in DefoOutside[j:k+1]:
-						nextDEF = DEF + 1
-						if DEF == DefoOutside[k]:
-							nextDEF = DefoOutside[j]
-						TopoDefo += """ {0} {1} {2}   {3}   {4}  {5}\n""".format(DEF, DEFC, nextDEF,
-																				Sample['DEFO']['FtypeAngle'],
-																				angle, 
-																				Sample['DEFO']['FangleP'])
-				
-				TopoDefo +="\n;In-plane angles Center-DEF-nextDEF\n"
-				outAngle = 0.5*(180. - angle) 
-				for i,DEFC in zip(range(0, NbLayers), DefoInside):
-					j = i*(defoPerLayer-1)
-					k = j + defoPerLayer-2
-					for DEF in DefoOutside[j:k+1]:
-						nextDEF = DEF + 1
-						if DEF == DefoOutside[k]:
-							nextDEF = DefoOutside[j]
-						TopoDefo += """ {1} {0} {2}   {3}   {4}  {5}\n""".format(DEF, DEFC, nextDEF,
-																					Sample['DEFO']['FtypeAngle'],
-																					outAngle,
-																					Sample['DEFO']['FangleP'])
-				
-				TopoDefo +="\n;In-plane angles Center-nextDEF-DEF\n"
-				for i,DEFC in zip(range(0, NbLayers), DefoInside):
-					j = i*(defoPerLayer-1)
-					k = j + defoPerLayer-2
-					for DEF in DefoOutside[j:k+1]:
-						nextDEF = DEF + 1
-						if DEF == DefoOutside[k]:
-							nextDEF = DefoOutside[j]
-						TopoDefo += """ {1} {0} {2}   {3}   {4}  {5}\n""".format(DEF, DEFC, nextDEF,
-																				Sample['DEFO']['FtypeAngle'],
-																				outAngle, 
-																				Sample['DEFO']['FangleP'])
+		elif self.__class__.__name__  == "Solvent":
+			topology += """#include "martini_v2.0_solvents.itp"\n"""
+			sub.call("cp {0}/martini_v2.0_solvents.itp ./".format(self.path_to_default), shell= True)
 			
-				#Set the angles out-of-plane
-				TopoDefo +="\n;Out-of-plane angles Center-DEF-DEFAbove\n"
-				for i,DEFC in zip(range(0, NbLayers), DefoInside):
-					j = i*(defoPerLayer-1)
-					k = j + defoPerLayer-2
-					
-					for DEF in DefoOutside[j:k+1]:
-						DEFAbove = DEF + defoPerLayer
-						
-						if DEFAbove not in DefoTotal:
-							break
-						
-						TopoDefo += """ {1} {0} {2}   {3}   90.  {4}\n""".format(DEF, DEFC, DEFAbove,
-																					Sample['DEFO']['FtypeAngle'],
-																					Sample['DEFO']['FangleN'])
+		#Add the topology for the defos (bilayer and monolayer)
+		if self.defo is not None:
+			topology += ut.RemoveUnwantedIndent("""
 				
-				TopoDefo +="\n;Out-of-plane angles DEF-Center-DEFCAbove\n"
-				for i,DEFC in zip(range(0, NbLayers), DefoInside):
-					j = i*(defoPerLayer-1)
-					k = j + defoPerLayer-2
-					DEFCAbove = DEFC + defoPerLayer
+				#include "defos_topo.itp"
+				
+				""")
+			
+		
+		#Copy the topology files for martini forcefield
+		
+		if self.su is not None:
+			sub.call("""cp {0}/SU/su_posres_gen.itp  .""".format(self.path_to_default), shell= True)
+			
+		with open(self.system+'.top','a') as topo_file:
+			topo_file.write(topology)
+			topo_file.write("\n[ system ]\n")
+
+			topology = "{0}\n".format(self.system)
+			topo_file.write(topology)
+
+			topo_file.write("\n[ molecules ]\n")
+			
+			if self.lipid_types:
+				for lipid in self.lipid_types:
+					lipid_number = self.sample_molecules[lipid]
 					
-					if DEFCAbove not in DefoInside:
-						break
-					
-					for DEF in DefoOutside[j:k+1]:
-						TopoDefo += """ {0} {1} {2}   {3}   90.  {4}\n""".format(DEF, DEFC, DEFCAbove,
-																				Sample['DEFO']['FtypeAngle'],
-																				Sample['DEFO']['FangleN'])
+					if self.mono is not None:
+						lipid_number += float(self.mono['NbLipidsM'])
+						
+					topo_file.write( "{0} {1}\n".format(lipid, lipid_number) )
+				
+			
+			for sol in self.solvent_types:
+				topo_file.write("{0} {1}\n".format(sol, self.sample_molecules[sol]))
+				
+			if self.defo is not None:
+				for defo in self.defo_dict:
+					topo_file.write("{0} 1\n".format(defo))
+				
+			
+			if self.su is not None:
+				if self.nb_su is not None:
+					topo_file.write("{0} {1}\n".format(self.su['SuType'], self.nb_su))
+	
+	
+	def pass_outputs(self):
+		return self.system, self.output_file, self.index_file
+
+
+
+
+
+
+
+
+
+
+
+
+class Membrane(BaseProject):
+	""" Class for building membranes.
+	This includes bilayer and trilayer with/without defos, substrate
+	"""
+	def __init__(self, sample, softwares, path_to_default):
+		super(Membrane, self).__init__(sample, softwares, path_to_default)
+		
+		
+		self.nb_lipid_monolayer = {}
+		self.nb_solvent_per_monolayer = {}
+		self.lipid_type = None
+		self.solvent_type = None
+		
+		self.finding_molecules()
+		
+		self.lipid_types = [self.lipid_type]
+		self.solvent_types = [self.solvent_type]
+		
+		self.nb_sol_bottom = self.nb_solvent_per_monolayer[self.solvent_type]
+		self.nb_sol_top = self.nb_solvent_per_monolayer[self.solvent_type]
+		
+		
+		
+		# Setting the total monolayer thickness and
+		# the volume constraining the tails and heads
+		self.tmt = None
+		self.dz = None
+		
+		if self.lipid_type == 'DSPC':
+			self.tmt = 30.0
+			self.dz = 7.0
+		elif self.lipid_type in ('DPPC','DLPC'):
+			self.tmt = 30.0
+			self.dz = 10.0
 		else:
-			if Sample['DEFO']['Interactions'] == 'bond':
-				TopoDefo += Utility.RemoveUnwantedIndent("""
-							
-							[bonds]
-							; i j func length force
-							
-							""")
-					
-				#Set the bonds along normal to the layer
-				#Distance in z [nm] (thus the 0.1 prefactor)
-				TopoDefo +="\n;Out-of-plane bonds\n"
-				lengthBondN = 0.1*float(Sample['DEFO']['DzDefo'])
-				for DEF in DefoTotal:
-					DEFAbove = DEF + 1
-					if DEFAbove not in DefoTotal:
-						break
-					TopoDefo += """ {0} {1} {2}  {3}  {4}\n""".format(DEF, DEFAbove, Sample['DEFO']['FtypeBond'],
-												lengthBondN, Sample['DEFO']['FbondN'])
-				
-					
-			if Sample['DEFO']['Interactions'] == 'bond&angle':
-				TopoDefo += Utility.RemoveUnwantedIndent("""
-							
-							[bonds]
-							; i j func length force
-							
-							""")
-					
-				#Set the bonds along normal to the layer
-				#Distance in z [nm] (thus the 0.1 prefactor)
-				TopoDefo +="\n;Out-of-plane bonds\n"
-				lengthBondN = float(Sample['DEFO']['DzDefo'])
-				for DEF in DefoTotal:
-					DEFAbove = DEF + 1
-					if DEFAbove not in DefoTotal:
-						break
-					TopoDefo += """ {0} {1} {2}  {3}  {4}\n""".format(DEF, DEFAbove, Sample['DEFO']['FtypeBond'],
-												lengthBondN, Sample['DEFO']['FbondN'])
-				
-				TopoDefo += Utility.RemoveUnwantedIndent("""
-							
-						[angles]
-						; i j k  angle   force
-						
-						""")
+			assert(False), "Your Parameters.csv contains a lipid not yet defined in Prepare.py"
+		
+		# Setting the bilayer position
+		self.bilayer_height = None
+		if 'BilayerHeight' in sample['GEOMETRY']:
+			self.bilayer_height = sample['GEOMETRY']['BilayerHeight']
+		else:
+			self.bilayer_height = self.dimensions['LZ']/2.0
+		
+		self.bottom_z = 0.0
+		self.m1_head_min, self.m1_head_max, self.m1_tail_min, self.m1_tail_max = (None,)*4
+		self.m2_head_min, self.m2_head_max, self.m2_tail_min, self.m2_tail_max = (None,)*4
+		self.m3_head_min, self.m3_head_max, self.m3_tail_min, self.m3_tail_max = (None,)*4
+		
+		self.update_tails_and_heads_positions()
+		
+		self.adjust_bilayer_position()
+		self.update_tails_and_heads_positions()
+		
+		self.system = "{0}_{1}{2}_{3}{4}".format(self.type, self.sample_molecules[self.lipid_type],
+																	self.lipid_type, self.sample_molecules[self.solvent_type], 
+																	self.solvent_type)
+		#Adding the monolayer
+		self.nb_sol_vapor = None
+		if self.mono is not None: #self.type == 'TRILAYER':
+			#if self.lz_vaccum is not None:
+				#self.nb_sol_vapor = int( 0.007 * self.dimensions['LX'] * self.dimensions['LY'] * (self.lz_vaccum - self.dimensions['LZ'] - self.tmt) /1000)
 			
-				#Set the angles out-of-plane
-				TopoDefo +="\n;Out-of-plane angles Center-DEF-DEFAbove\n"
-				for DEF in DefoTotal[1:]:
-					DEFBelow = DEF - 1
-					DEFAbove = DEF + 1
-					
-					if DEFAbove not in DefoTotal or DEFBelow not in DefoTotal:
-						continue
-					
-					TopoDefo += """ {0} {1} {2}   {3}   180.  {4}\n""".format(DEFBelow, DEF, DEFAbove,
-																				Sample['DEFO']['FtypeAngle'],
-																				Sample['DEFO']['FangleN'])
+			self.add_monolayer()
+			
+			self.system += "_{0}M{1}".format(self.sample_molecules[self.lipid_type], self.mono['NbLipidsM'])
+			
 		
-	TopoFileDefo = open('defo_topo.itp','w')
-	TopoFileDefo.write(TopoDefo)
-	TopoFileDefo.close()
+		#Adding the defo
+		self.nb_defo = 0
+		self.defo_dict = {}
+		
+		if self.defo is not None:
+			self.nb_defo, self.defo_dict = self.add_defo()
+			self.system += "_{0}DEF{1}".format(self.nb_defo, self.defo['Version'])
+		
+		#Adding the substrate
+		self.nb_su = None
+		
+		if self.su is not None:
+			self.add_substrate()
+			self.system += "_{0}{1}{2}".format(self.nb_su, self.su['SuType'], self.su['Version'])
+			
+		if self.wall is not None:
+			self.system += "_WALL"
+		
+		# Writing packmol_input while keeping track of the molecules in the sample
+		self.nb_index = 2 # start at 2 because the index has already [system] and [other]
+		self.write_packmol_input()
+		
+		if self.lz_vaccum is not None:
+			self.dimensions['LZ'] = self.lz_vaccum
+		
+		# Calling packmol, vmd and gmx make_index
+		self.create_sample(self.nb_index)
+		
+		# creating the topology for su and defo if in sample
+		self.create_topology()
 	
-	PosresFileDefo = open('defo_posres_gen.itp','w')
-	PosresFileDefo.write(PosresDefo)
-	PosresFileDefo.close()
 	
-	return (DefoXYZ_filename, radiusDefo, L_defo, nbDefo)
-
-
-
-def CreateDefoBiAndMono(Sample,Softwares, TMT, DZ, LZ2, THICKNESS):
 	
-	if Sample['DEFO']['Height'] == 'box':
-		#Set the Defo height from the substrate to the mono layer
-		L_defo = Sample['LZ'] - THICKNESS
-	if Sample['DEFO']['Height'] == 'bilayer':
-		#Set the Defo height from the substrate to the top of the bilayer
-		L_defo = LZ2 + TMT - THICKNESS + DZ/4.0
-	if Sample['DEFO']['Height'] == 'mono':
-		#Set the Defo height from the substrate to the top of the monolayer
-		L_defo = LZM + TMT - THICKNESS + DZ/4.0
-	if Sample['DEFO']['Height'] == 'follow':
+	
+	def adjust_bilayer_position(self):
+		""" Method checking that the bilayer does not overlap with box borders in Z direction
+		"""
+		lbz = self.dimensions['LZ']/2.0
+		
+		#Checking that the Bilayer lipids do not overlap with the Monolayer lipids and the substrate
+		if (self.bilayer_height - self.tmt) < 0.0:
+			self.bilayer_height -= self.bilayer_height - self.tmt
+			
+		if (self.bilayer_height + self.tmt) > self.dimensions['LZ']:
+			self.bilayer_height += self.dimensions['LZ'] - self.bilayer_height - self.tmt
+			
+		#Checking that the Solvent is not too dense
+		if self.bilayer_height < lbz: #Too much Solvent below
+			volume_lbz = self.dimensions['LX']*self.dimensions['LY']*(lbz - self.tmt)
+			density_sol = self.nb_solvent_per_monolayer[self.solvent_type]/volume_lbz
+			
+			#volume of solvent to remove
+			vol_to_remove = lbz - self.bilayer_height
+			vol_to_remove *= self.dimensions['LX']*self.dimensions['LY']
+			
+			#Nb of particles to remove
+			nb_particles_to_relocate = int(density_sol * vol_to_remove)
+			
+			self.nb_sol_bottom -= nb_particles_to_relocate
+			self.nb_sol_top += nb_particles_to_relocate
+			
+		if self.bilayer_height > lbz: #Too much Solvent above
+			volume_lbz = self.dimensions['LX']*self.dimensions['LY']
+			volume_lbz *= self.dimensions['LZ'] - lbz - self.tmt
+			
+			density_sol = self.nb_solvent_per_monolayer[self.solvent_type]/volume_lbz
+			
+			vol_to_remove = self.bilayer_height - lbz
+			vol_to_remove *= self.dimensions['LX']*self.dimensions['LY']
+			nb_particles_to_relocate = int(density_sol * vol_to_remove)
+			
+			self.nb_sol_bottom += nb_particles_to_relocate
+			self.nb_sol_top -= nb_particles_to_relocate
+	
+	
+	
+	def update_tails_and_heads_positions(self):
+		""" Method updating the positions of heads and tails
+		"""
+		self.m1_head_min = self.bilayer_height - self.tmt
+		self.m1_head_max = self.bilayer_height - self.tmt + self.dz
+		self.m1_tail_min = self.bilayer_height - self.dz
+		self.m1_tail_max = self.bilayer_height
+
+		self.m2_head_min = self.bilayer_height + self.tmt - self.dz
+		self.m2_head_max = self.bilayer_height + self.tmt
+		self.m2_tail_min = self.bilayer_height
+		self.m2_tail_max = self.bilayer_height + self.dz
+	
+	
+	
+	
+	
+	def finding_molecules(self):
+		""" Method to find the molecules and associate their number from csv file.
+		"""
+		for lipid in self.lipid_list:
+			if lipid in self.sample_molecules:
+				self.nb_lipid_monolayer.update( {lipid : int(self.sample_molecules[lipid]/2)} )
+				self.lipid_type = lipid
+				
+		for sol in self.solvent_list:
+			if sol in self.sample_molecules:
+				self.nb_solvent_per_monolayer.update( {sol:int(self.sample_molecules[sol]/2)} )
+				self.solvent_type = sol
+	
+	
+	
+	
+	def add_monolayer(self):
+		""" Method adding the positions of heads and tails for monolayer
+		"""
+		if self.mono['LzM'] in ('top','default'):
+			self.mono['LzM'] = self.dimensions['LZ']
+		
+		self.m3_head_min = self.mono['LzM'] 
+		self.m3_head_max = self.mono['LzM'] + self.dz
+		self.m3_tail_min = self.mono['LzM'] + self.tmt - self.dz
+		self.m3_tail_max = self.mono['LzM'] + self.tmt
+		
+		#add the monolayer at the top of box or chose the position and move the solvent ?
+		
+		
+		
+		
+	
+	
+	
+	def add_substrate(self):
+		""" Method to add the substrate at the bottom of box
+		"""
+		thickness = float(self.su['Thickness'])
+		# Shifting all the coordinates in Z
+		self.bilayer_height += thickness
+		
+		self.m1_head_min += thickness
+		self.m1_head_max += thickness
+		self.m1_tail_min += thickness
+		self.m1_tail_max += thickness
+		
+		self.m2_head_min += thickness
+		self.m2_head_max += thickness
+		self.m2_tail_min += thickness
+		self.m2_tail_max += thickness
+		
+		self.bottom_z += thickness
+		
+		if self.mono is not None:
+			self.m3_head_min += thickness 
+			self.m3_head_max += thickness
+			self.m3_tail_min += thickness
+			self.m3_tail_max += thickness
+			
+		
+		self.nb_su = int( float(self.su['Density']) * self.dimensions['LX'] * self.dimensions['LY'] * thickness / 1000 )
+		
+		#Pushing the box limits
+		self.dimensions['LZ'] += thickness
+	
+	
+	
+	
+	def add_defo(self):
+		"""Method to add defo in the Membrane
+		"""
+		if self.defo['Height'] == 'box':
+			#Set the Defo height from the substrate to the mono layer
+			length_defo_bi = self.dimensions['LZ']
+			
+		elif self.defo['Height'] == 'bilayer':
+			#Set the Defo height from the substrate to the top of the bilayer
+			length_defo_bi = self.bilayer_height + self.tmt + self.dz/4.0
+			
+		elif self.defo['Height'] == 'mono':
+			#Set the Defo height from the substrate to the top of the monolayer
+			length_defo_bi = self.dimensions['LZ'] + self.tmt + self.dz/4.0
+			
+		elif self.defo['Height'] == 'follow':
+			#Set the Defo height from the bottom of the bilayer to its top
+			length_defo_bi = 2*self.tmt + self.dz/2.0
+			
+		
+		defo_per_layer = int(self.defo['DpL']) + 1
+		
 		#Set a dictionnary for automation in defos creation
-		defoDict = {"DEFB":{'Length': 0.0, 'NbLayers': 0,'nbDefo':0,'DefoOutside': [], 'DefoInside': [], 'DefoTotal': [], 'XYZfile':'defoBi.xyz','formatDefo':"format_DEFOB.vmd",'chain':'X','topo':'DEFB.itp'},
-					"DEFM":{'Length': 0.0, 'NbLayers': 0,'nbDefo':0,'DefoOutside': [], 'DefoInside': [], 'DefoTotal': [], 'XYZfile':'defoMono.xyz','formatDefo':"format_DEFOM.vmd",'chain':'Y','topo':'DEFM.itp'}
-					}
-		#Set the Defo height from the bottom of the bilayer to its top
-		L_defoMono = TMT+DZ/4.0
-		L_defoBi = 2*TMT+DZ/2.0
+		defo_dict = {"DEFB": None}
 		
-		NbLayersMono = int(L_defoMono/float(Sample['DEFO']['DzDefo']))
-		NbLayersBi = int(L_defoBi/float(Sample['DEFO']['DzDefo']))
+		nb_layers_bi = int(length_defo_bi/float(self.defo['DzDefo']))
+		defo_dict['DEFB'] = {'length': length_defo_bi, 'nb layers': nb_layers_bi,'nb defo':0,'defo outside': [], 
+										'defo inside': [], 'defo total': [], 'xyz file':'defo_bilayer.xyz',
+										'format defo':"format_DEFB.vmd",'chain':'X', 'topo':'defo_bilayer_topo.itp'}
 		
-		defoDict['DEFB']['Length'] = L_defoBi
-		defoDict['DEFM']['Length'] = L_defoMono
-		defoDict['DEFB']['NbLayers'] = NbLayersBi
-		defoDict['DEFM']['NbLayers'] = NbLayersMono
-		defoDict['DEFB']['nbDefo'] = NbLayersBi
-		defoDict['DEFM']['nbDefo'] = NbLayersMono
-	
-	#Defo per Layer
-	defoPerLayer = int(Sample['DEFO']['DpL']) + 1
-	
-	if Sample['DEFO']['Height'] == 'follow':
+		if self.mono is not None:
+			defo_dict["DEFM"] = {'length': 0.0, 'nb layers': 0,'nb defo':0,'defo outside': [], 
+										'defo inside': [], 'defo total': [], 'xyz file':'defo_mono.xyz',
+										'format defo':"format_DEFM.vmd",'chain':'Y', 'topo':'defo_monolayer_topo.itp'}
+			
+			L_defoMono = self.tmt + self.dz/4.0
+			nb_layers_mono = int(L_defoMono/float(self.defo['DzDefo']))
+			defo_dict['DEFM']['length'] = L_defoMono
+			defo_dict['DEFM']['nb layers'] = int(nb_layers_bi/2)
+			
+		
 		#Total number of defo
-		defoDict['DEFB']['nbDefo'] = NbLayersBi*defoPerLayer
-		defoDict['DEFM']['nbDefo'] = NbLayersMono*defoPerLayer
+		defo_dict['DEFB']['nb defo'] = nb_layers_bi*defo_per_layer
+		
+		if self.mono is not None:
+			defo_dict['DEFM']['nb defo'] = nb_layers_mono*defo_per_layer
+		
 		#Radius for the hole
-		radiusDefo = float(Sample['DEFO']['Radius'])
-		#Number of Solvent inside the hole
+		radius_defo = float(self.defo['Radius'])
 		
 		#Topology for defo
-		TopoDefo = """;;;;;; DEFOS FOR BILAYER\n"""
+		topo_defo = """;;;;;; DEFOS FOR BILAYER\n"""
+		
+		
+		#Total number of defo
+		nb_defo = 0
+		
 		#Creating and Writing the defos configuration
-		for defoLayer in defoDict:
-			PosresDefo = """;;;;;;POSRES FOR DEFO_{0}\n""".format(defoLayer)
-			PosresDefo += Utility.RemoveUnwantedIndent("""
+		for defo_layer in defo_dict:
+			
+			posres_defo = """;;;;;;POSRES FOR DEFO_{0}\n""".format(defo_layer)
+			posres_defo += ut.RemoveUnwantedIndent("""
 						[position_restraints]
 						;ai   funct   fcx     fcy     fcz
 						
 						""")
-			XYZ = defoDict[defoLayer]['XYZfile']
-			if os.path.exists(XYZ):
-				os.remove(XYZ)
-			XYZout = open(XYZ,'a')
+			
+			xyz = defo_dict[defo_layer]['xyz file']
+			
+			if os.path.exists(xyz):
+				os.remove(xyz)
+			
+			xyz_out = open(xyz,'a')
+			
 			#Writing the number of defo grains for each layer
-			XYZout.write( "{0}\n\n".format(defoDict[defoLayer]['nbDefo']) )
+			xyz_out.write( "{0}\n\n".format(defo_dict[defo_layer]['nb defo']) )
 		
-			Defonumb = 0
-		
+			defo_numb = 0
+
 			#Creating the xyz file for the bilayer
-			for i in range(0, defoDict[defoLayer]['NbLayers']):
-				ZcurrentDefo = float(Sample['DEFO']['DzDefo'])*i
-				for j in np.arange(0., 360., 360./(defoPerLayer-1)):
-					angle = math.radians(j)
-					XYZout.write(Utility.RemoveUnwantedIndent(
-						"""
-						DEF  {0}  {1}  {2} \n
-						""".format(radiusDefo*math.cos(angle), radiusDefo*math.sin(angle), ZcurrentDefo)
-						))
-					Defonumb += 1
-					defoDict[defoLayer]['DefoOutside'].append(Defonumb)
-				XYZout.write(Utility.RemoveUnwantedIndent(
-						"""
-						DEF  0.0 0.0 {0} \n
-						""".format(ZcurrentDefo)
-						))
-				Defonumb += 1
-				defoDict[defoLayer]['DefoInside'].append(Defonumb)
-			XYZout.close()
-			defoDict[defoLayer]['DefoTotal'].extend(defoDict[defoLayer]['DefoInside'])
-			defoDict[defoLayer]['DefoTotal'].extend(defoDict[defoLayer]['DefoOutside'])
-			defoDict[defoLayer]['DefoTotal'].sort()
+			if defo_per_layer != 1:
+				for i in range(0, defo_dict[defo_layer]['nb layers']):
+					z_current_defo = float(self.defo['DzDefo'])*i
+					
+					for j in np.arange(0., 360., 360./(defo_per_layer-1)):
+						angle = math.radians(j)
+						xyz_out.write(ut.RemoveUnwantedIndent(
+							"""
+							DEF  {0}  {1}  {2} \n
+							""".format(radius_defo*math.cos(angle), radius_defo*math.sin(angle), z_current_defo)
+							))
+						defo_numb += 1
+						defo_dict['DEFB']['defo outside'].append(defo_numb)
+					xyz_out.write(ut.RemoveUnwantedIndent(
+							"""
+							DEF  0.0 0.0 {0} \n
+							""".format(z_current_defo)
+							))
+					defo_numb += 1
+					defo_dict['DEFB']['defo inside'].append(defo_numb)
+					
+				
+				defo_dict[defo_layer]['defo total'].extend(defo_dict[defo_layer]['defo inside'])
+				defo_dict[defo_layer]['defo total'].extend(defo_dict[defo_layer]['defo outside'])
+				defo_dict[defo_layer]['defo total'].sort()
+				
+			else:
+				for i in range(0, defo_dict[defo_layer]['nb layers']):
+					z_current_defo = float(self.defo['DzDefo'])*i
+					xyz_out.write(ut.RemoveUnwantedIndent(
+							"""
+							DEF  0.0 0.0 {0} \n
+							""".format(z_current_defo)
+							))
+					defo_numb += 1
+					defo_dict[defo_layer]['defo total'].append(defo_numb)
+			
+			xyz_out.close()
+			
+			
 		
 		
 			#Formating the defos
-			formatDEFO = open(defoDict[defoLayer]['formatDefo'],"w")
-			formatDEFO.write(Utility.RemoveUnwantedIndent(
+			format_defo = open(defo_dict[defo_layer]['format defo'],"w")
+			format_defo.write(ut.RemoveUnwantedIndent(
 				"""
 				mol load xyz {0}
 				set all [atomselect top "all"]
@@ -3939,17 +1357,17 @@ def CreateDefoBiAndMono(Sample,Softwares, TMT, DZ, LZ2, THICKNESS):
 				unset all
 					
 				exit
-				""".format(XYZ, defoLayer, defoDict[defoLayer]['chain'] , defoDict[defoLayer]['Length'], XYZ.replace('xyz','pdb'))
+				""".format(xyz, defo_layer, defo_dict[defo_layer]['chain'] , defo_dict[defo_layer]['length'], xyz.replace('xyz','pdb'))
 				))
-			formatDEFO.close()
+			format_defo.close()
 			
-			cmd = str("""{0} -dispdev text -e {1} > {2}""").format(Softwares['VMD'],defoDict[defoLayer]['formatDefo'],
-																defoDict[defoLayer]['formatDefo'].replace('vmd','log'))
+			cmd = str("""{0} -dispdev text -e {1} > {2}""").format(self.softwares['VMD'], defo_dict[defo_layer]['format defo'],
+																defo_dict[defo_layer]['format defo'].replace('vmd','log'))
 			sub.call(cmd, shell=True)
 			
 								
 							
-			TopoDefo += Utility.RemoveUnwantedIndent("""
+			topo_defo += ut.RemoveUnwantedIndent("""
 							[moleculetype]
 							;molname    nrexcl
 							{0} 1
@@ -3957,252 +1375,835 @@ def CreateDefoBiAndMono(Sample,Softwares, TMT, DZ, LZ2, THICKNESS):
 							[atoms]
 							;id     type     resnr    residu  atom    cgnr    charge
 							
-							""".format(defoLayer))
-			for defnb in defoDict[defoLayer]['DefoTotal']:
-				TopoDefo += """ {0}     DEF     1    {1}    DEF     {0}     0\n""".format(defnb, defoLayer)
-				PosresDefo += """ {0}    1     FCX   FCY   FCZ\n""".format(defnb)
+							""".format(defo_layer))
+			
+			for defnb in defo_dict[defo_layer]['defo total']:
+				topo_defo += " {0}     DEF     1    {1}    DEF     {0}     0\n".format(defnb, defo_layer)
+				posres_defo += " {0}    1     FCX   FCY   FCZ\n".format(defnb)
 				
 			#Checking for contrains
-			if 'Constraints' in Sample['DEFO']:
+			if 'Interactions' in self.defo:
 				"""
-				The length a will depend on the circumradius : a = 2*R*math.sin(pi/(defoPerLayer-1))
-				The angle theta will depend on the number of defoPerLayer theta = 360./(defoPerLayer-1)
+				The length a will depend on the circumradius : a = 2*R*math.sin(pi/(defo_per_layer-1))
+				The angle theta will depend on the number of defo_per_layer theta = 360./(defo_per_layer-1)
 				example with 4 defo per layer and one layer:
-				   2          The bonds will be |  And the angles:
-				 / | \          1-2   5-1       |     1-5-2
+					2          The bonds will be |  And the angles:
+					/ | \          1-2   5-1       |     1-5-2
 				3--5--1         2-3   5-2       |     2-5-3
-				 \ | /          3-4   5-3       |     3-5-4
-				   4            4-1   5-4       |     4-5-1
-				The defo might then be able to rotate ?
-					-> remove total angular momentum separetaly ?
+					\ | /          3-4   5-3       |     3-5-4
+					4            4-1   5-4       |     4-5-1
 				"""
-				if Sample['DEFO']['Constraints'] == 'bond':
-					TopoDefo += Utility.RemoveUnwantedIndent("""
-								
-							[bonds]
-							; i j   funct   length  force.c.
-							
-							""")
-					#Set the bonds in a layer
-					# 0.2 prefactor as martini needs [nm]
-					lengthBondP = round(0.2*float(Sample['DEFO']['Radius'])*math.sin( math.pi/float(defoPerLayer-1) ),2)
-					for i in range(0, defoDict[defoLayer]['NbLayers']):
-						j = i*(defoPerLayer-1)
-						k = j + defoPerLayer-2
-						for DEF in defoDict[defoLayer]['DefoOutside'][j:k+1]:
-							nextDEF = DEF + 1
-							if DEF == defoDict[defoLayer]['DefoOutside'][k]:
-								nextDEF = defoDict[defoLayer]['DefoOutside'][j]
-							TopoDefo += """ {0} {1}   1       {2}    {3}\n""".format(DEF, nextDEF,
-																lengthBondP, Sample['DEFO']['FbondP'])
+				if self.defo['Interactions'] == 'bond':
+					topo_defo += self.bonds_topology(defo_dict[defo_layer])
+
+				elif self.defo['Interactions'] == 'bond&angles':
+					topo_defo += self.bonds_angles_topology( defo_dict[defo_layer])
 					
-					#Set the bonds inside the layer
-					lengthBondPIn = round(0.05*float(Sample['DEFO']['Radius']),2)
-					for i,DEFC in zip(range(0, NbLayers), defoDict[defoLayer]['DefoInside']):
-						j = i*(defoPerLayer-1)
-						k = j + defoPerLayer-2
-						for DEF in defoDict[defoLayer]['DefoOutside'][j:k+1]:
-							TopoDefo += """ {0} {1}   1       {2}    {3}\n""".format(DEFC, DEF,
-																lengthBondPIn, Sample['DEFO']['FbondP'])
-							
-					#Set the bonds along normal to the layer
-					#Distance in z [nm] (thus the 0.1 prefactor)
-					lenghtBondN = round(0.1*float(Sample['DEFO']['DzDefo']),2)
-					
-					for DEF in defoDict[defoLayer]['DefoTotal']:
-						DEFAbove = DEF + defoPerLayer
-						if DEFAbove not in defoDict[defoLayer]['DefoTotal']:
-							break
-						TopoDefo += """ {0} {1}   1       {2}    {3}\n""".format(DEF,DEFAbove,
-																lenghtBondN, Sample['DEFO']['FbondN'])
-						
-					
-				elif Sample['DEFO']['Constraints'] == 'angles':
-					pass
-				elif Sample['DEFO']['Constraints'] == 'bond&angles':
-					pass
 				else:
 					pass
 				
-			TopoDefo += """\n;PLACE_FOR_{0}_POSRES\n\n\n""".format(defoLayer)
+			topo_defo += """\n;PLACE_FOR_{0}_POSRES\n\n\n""".format(defo_layer)
 			
-			PosresFileDefo = open('defo_posres_{0}_gen.itp'.format(defoLayer),'w')
-			PosresFileDefo.write(PosresDefo)
-			PosresFileDefo.close()
+			posres_file_defo = open('defo_posres_{0}_gen.itp'.format(defo_layer),'w')
+			posres_file_defo.write(posres_defo)
+			posres_file_defo.close()
+			
+			nb_defo += len(defo_dict[defo_layer]['defo total'])
 			
 		
 		
-		TopoFileDefo = open('defo_topo.itp','w')
-		TopoFileDefo.write(TopoDefo)
-		TopoFileDefo.close()
-		nbDefo = 0
+		topo_file_defo = open('defos_topo.itp','w')
+		topo_file_defo.write(topo_defo)
+		topo_file_defo.close()
 		
-		return defoDict
 		
-	else:
-		NbLayers = int(L_defo/float(Sample['DEFO']['DzDefo']))
 		
-		#Total number of defo
-		nbDefo = defoPerLayer*NbLayers
-		#Radius for the hole
-		radiusDefo = float(Sample['DEFO']['Radius'])
-		#Number of Solvent inside the hole
-		if(0): #Set to 1 to insert solvents in the Defo
-			NbSolvIn = 0
-			if SolventType == 'W':
-				# Density x Volume
-				NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.))
-			if SolventType == 'OCO':
-				# Density x Volume
-				NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.)/2.)
-			if SolventType == 'PW':
-				# Density x Volume
-				NbSolvIn = int(8.26 * float(2*TMT*radiusDefo*radiusDefo*math.pi/1000.)/3.)
+		return nb_defo, defo_dict
+		
 	
-		#Creating and Writing the defos configuration
-		DefoXYZ_filename = 'defo.xyz'
-		if os.path.exists(DefoXYZ_filename):
-			os.remove(DefoXYZ_filename)
-		XYZout = open(DefoXYZ_filename,"a")
-		XYZout.write(str(nbDefo)+'\n\n')
+	
+	
+	def bonds_topology(self, defo_dict_layer):
+		"""Method for writing bonds topology for the defo"""
 		
-		DefoOutside = []
-		DefoInside = []
-		DefoTotal = []
-		Defonumb = 0
+		defo_per_layer = int(self.defo['DpL']) + 1
 		
-		for i in range(0, NbLayers):
-			ZcurrentDefo = float(Sample['DEFO']['DzDefo'])*i
-			for j in np.arange(0., 360., 360./(defoPerLayer-1)):
-				angle = math.radians(j)
-				XYZout.write(Utility.RemoveUnwantedIndent(
-					"""
-					DEF  {0}  {1}  {2} \n
-					""".format(radiusDefo*math.cos(angle), radiusDefo*math.sin(angle), ZcurrentDefo)
-					))
-				Defonumb += 1
-				DefoOutside.append(Defonumb)
-			XYZout.write(Utility.RemoveUnwantedIndent(
-					"""
-					DEF  0.0 0.0 {0} \n
-					""".format(ZcurrentDefo)
-					))
-			Defonumb += 1
-			DefoInside.append(Defonumb)
+		topo_defo = ut.RemoveUnwantedIndent("""
+					
+					[bonds]
+					; i j   funct   length  force.c.
+					
+					""")
+		#Set the bonds in a layer
+		# 0.2 prefactor as martini needs [nm]
+		
+		if int(self.defo['DpL']) != 0:
+			topo_defo +="\n;Normal bonds  DEF1-DEF2\n"
+			lenght_bond_plane = round(0.2* float(self.defo['Radius']) * math.sin( math.pi/float(defo_per_layer-1) ),2)
 			
-		XYZout.close()
-		DefoTotal.extend(DefoInside)
-		DefoTotal.extend(DefoOutside)
-		DefoTotal.sort()
+			for i in range(0, defo_dict_layer['nb layers']):
+				j = i*(defo_per_layer - 1)
+				k = j + defo_per_layer -2
+				for DEF in defo_dict_layer['defo outside'][j:k+1]:
+					nextDEF = DEF + 1
+					if DEF == defo_dict_layer['defo outside'][k]:
+						nextDEF = defo_dict_layer['defo outside'][j]
+					topo_defo += """ {0} {1}   1       {2}    {3}\n""".format(DEF, nextDEF,
+														lenght_bond_plane, self.defo['FbondP'])
+			
+			#Set the bonds inside the layer
+			topo_defo +="\n;Normal bonds  DEFC-DEF\n"
+			lenght_bond_plane_in = round(0.05*float(self.defo['Radius']), 2)
+			
+			for i,DEFC in zip(range(0, defo_dict_layer['nb layers']), defo_dict_layer['defo inside']):
+				j = i*(defo_per_layer - 1)
+				k = j + defo_per_layer - 2
+				for DEF in defo_dict_layer['defo outside'][j:k+1]:
+					topo_defo += """ {0} {1}   1       {2}    {3}\n""".format(DEFC, DEF,
+																			lenght_bond_plane_in,
+																	self.defo['FbondP'])
+				
+		#Set the bonds along normal to the layer
+		#Distance in z [nm] (thus the 0.1 prefactor)
+		topo_defo +="\n;Normal bonds  DEF-DEFAbove\n"
+		lenght_bond_normal = round(0.1*float(self.defo['DzDefo']), 2)
 		
-		#Formating the defos
-		formatDEFO = open("format_DEFB.vmd","w")
-		formatDEFO.write(Utility.RemoveUnwantedIndent(
-			"""
-			mol load xyz {0}
-			set all [atomselect top "all"]
-				
-			$all set resname DEFB
-			$all set name DEF
-			$all set type DEF
-			$all set chain X
-				
-			package require pbctools
-			pbc set {{0.5 0.5 {1}}}
-				
-			$all writepdb {2}
-			unset all
-				
-			exit
-			""".format(DefoXYZ_filename, L_defo, DefoXYZ_filename.replace('xyz','pdb'))
-			))
-		formatDEFO.close()
-		
-		cmd = str("""{0} -dispdev text -e format_DEFB.vmd > format_DEFB.log""").format(Softwares['VMD'])
-		sub.call(cmd, shell=True)
-		
-		#=====================================================
-		# Writing basic topology for defo (without contraints)
-		#=====================================================
-		PosresDefo = """;;;;;;POSRES FOR DEFO\n"""
-		PosresDefo += Utility.RemoveUnwantedIndent("""
-						[position_restraints]
-						;ai   funct   fcx     fcy     fcz
+		for DEF in defo_dict_layer['defo total']:
+			DEFAbove = DEF + defo_per_layer
+			if DEFAbove not in defo_dict_layer['defo total']:
+				break
+			topo_defo += """ {0} {1}   1       {2}    {3}\n""".format(DEF,DEFAbove,
+															lenght_bond_normal, self.defo['FbondN'])
+		return topo_defo
+	
+	
+	
+	def bonds_angles_topology(self, topo_defo, defo_dict_layer):
+		"""Method for writing bonds and angles topology for the defo"""
+		topo_defo = ut.RemoveUnwantedIndent("""
+							
+						[angles]
+						; i j k  angle   force
 						
 						""")
-		TopoDefo = """;;;;;; DEFO FOR BILAYER\n"""
-		TopoDefo += Utility.RemoveUnwantedIndent("""
-						[moleculetype]
-						;molname    nrexcl
-						DEFB 1
-						
-						[atoms]
-						;id     type     resnr    residu  atom    cgnr    charge
-						
-						""")
-		for defnb in DefoTotal:
-			TopoDefo += """ {0}     DEF     1    DEFB    DEF     {0}     0\n""".format(defnb)
-			PosresDefo += """ {0}    1     FCX   FCY   FCZ\n""".format(defnb)
 		
+		defo_per_layer = int(self.defo['DpL']) + 1
 		
-		#=====================================================
-		# Checking for contraints
-		#=====================================================
-		if 'Constraints' in Sample['DEFO']:
-			if Sample['DEFO']['Constraints'] == 'bond':
-					TopoDefo += Utility.RemoveUnwantedIndent("""
+		if int(self.defo['DpL']) != 0:
+			#Set the angles in plane
+			topo_defo +="\n;In-plane angles  DEF-Center-nextDEF \n"
+			angle = 360./(defo_per_layer-1)
+			
+			for i, DEFC in zip(range(0, defo_dict_layer['nb layers']), defo_dict_layer['defo inside']):
+				j = i*(defo_per_layer-1)
+				k = j + defo_per_layer-2
+				for DEF in defo_dict_layer['defo outside'][j:k+1]:
+					nextDEF = DEF + 1
+					if DEF == defo_dict_layer['defo oustide'][k]:
+						nextDEF = defo_dict_layer['defo oustide'][j]
+					topo_defo += """ {0} {1} {2}   {3}   {4}  {5}\n""".format(DEF, DEFC, nextDEF,
+																			self.defo['FtypeAngle'],
+																			angle, 
+																			self.defo['FangleP'])
+			
+			topo_defo +="\n;In-plane angles Center-DEF-nextDEF\n"
+			outAngle = 0.5*(180. - angle)
+			
+			for i,DEFC in zip(range(0, defo_dict_layer['nb layers']), defo_dict_layer['defo inside']):
+				j = i*(defo_per_layer-1)
+				k = j + defo_per_layer-2
+				for DEF in defo_dict_layer['defo oustide'][j:k+1]:
+					nextDEF = DEF + 1
+					if DEF == defo_dict_layer['defo oustide'][k]:
+						nextDEF = defo_dict_layer['defo oustide'][j]
+					topo_defo += """ {1} {0} {2}   {3}   {4}  {5}\n""".format(DEF, DEFC, nextDEF,
+																				self.defo['FtypeAngle'],
+																				outAngle,
+																				self.defo['FangleP'])
+			
+			topo_defo +="\n;In-plane angles Center-nextDEF-DEF\n"
+			for i,DEFC in zip(range(0, defo_dict_layer['nb layers']), defo_dict_layer['defo inside']):
+				j = i*(defo_per_layer-1)
+				k = j + defo_per_layer-2
+				for DEF in defo_dict_layer['defo oustide'][j:k+1]:
+					nextDEF = DEF + 1
+					if DEF == defo_dict_layer['defo oustide'][k]:
+						nextDEF = defo_dict_layer['defo oustide'][j]
+					topo_defo += """ {1} {0} {2}   {3}   {4}  {5}\n""".format(DEF, DEFC, nextDEF,
+																			self.defo['FtypeAngle'],
+																			outAngle, 
+																			self.defo['FangleP'])
+			
+			#Set the angles out-of-plane
+			topo_defo +="\n;Out-of-plane angles Center-DEF-DEFAbove\n"
+			for i,DEFC in zip(range(0, defo_dict_layer['nb layers']), defo_dict_layer['defo oustide']):
+				j = i*(defo_per_layer-1)
+				k = j + defo_per_layer-2
+				
+				for DEF in defo_dict_layer['defo oustide'][j:k+1]:
+					DEFAbove = DEF + defo_per_layer
+					
+					if DEFAbove not in defo_dict_layer['defo total']:
+						break
+					
+					topo_defo += """ {1} {0} {2}   {3}   90.  {4}\n""".format(DEF, DEFC, DEFAbove,
+																				self.defo['FtypeAngle'],
+																				self.defo['FangleN'])
+		
+			topo_defo +="\n;Out-of-plane angles DEF-Center-DEFCAbove\n"
+			for i, DEFC in zip(range(0, defo_dict_layer['nb layers']), defo_dict_layer['defo total']):
+				j = i*(defo_per_layer-1)
+				k = j + defo_per_layer-2
+				DEFCAbove = DEFC + defo_per_layer
+				
+				if DEFCAbove not in defo_dict_layer['defo inside']:
+					break
+				
+				for DEF in defo_dict_layer['defo outside'][j:k+1]:
+					topo_defo += """ {0} {1} {2}   {3}   90.  {4}\n""".format(DEF, DEFC, DEFCAbove,
+																			self.defo['FtypeAngle'],
+																				self.defo['FangleN'])
+		
+		return topo_defo
+	
+	
+	
+	
+	def write_packmol_input(self):
+		""" Method to write packmol input for membrane creation"""
+		self.packmol_input += """
+							output {0}.pdb""".format(self.system)
+		
+		defo_packmol_input = ""
+		if self.defo is not None:
+			defo_packmol_input = """
+							outside cylinder  {0} {1}  0. 0.  0.  1.  {2}  {3}
+							""".format(self.dimensions['LY']/2., self.dimensions['LY']/2.,
+										self.defo['Radius'], self.dimensions['LZ'])
+		
+		self.packmol_input += """
+							# Bottom layer
+							structure {1}
+								chain A
+								resnumbers 3
+								number {2:g}
+								inside box 0. 0. {3}  {4} {5} {6}
+								constrain_rotation x 180 10
+								constrain_rotation y 180 10
+								{9}
+							end structure
+							
+							# Top layer
+							structure {1}
+								chain B
+								resnumbers 3
+								number {2:g}
+								inside box 0. 0.  {7}  {4} {5} {8}
+								constrain_rotation x 0 10
+								constrain_rotation y 0 10
+								{9}
+							end structure
 								
-							[bonds]
-							; i j   funct   length  force.c.
-							
-							""")
-					
-					#Set the bonds at the edges of the layer
-					# 0.2 prefactor as martini needs [nm]
-					lengthBondP = round(0.2*float(Sample['DEFO']['Radius'])*math.sin( math.pi/float(defoPerLayer-1) ),2)
-					for i in range(0, NbLayers):
-						j = i*(defoPerLayer-1)
-						k = j + defoPerLayer-2
-						for DEF in DefoOutside[j:k+1]:
-							nextDEF = DEF + 1
-							if DEF == DefoOutside[k]:
-								nextDEF = DefoOutside[j]
-							TopoDefo += """ {0} {1}   1       {2}    {3}\n""".format(DEF, nextDEF,
-																lengthBondP, Sample['DEFO']['FbondP'])
-							
-					#Set the bonds inside the layer
-					lengthBondPIn = round(0.05*float(Sample['DEFO']['Radius']),2)
-					for i,DEFC in zip(range(0, NbLayers), DefoInside):
-						j = i*(defoPerLayer-1)
-						k = j + defoPerLayer-2
-						for DEF in DefoOutside[j:k+1]:
-							TopoDefo += """ {0} {1}   1       {2}    {3}\n""".format(DEFC, DEF,
-																lengthBondPIn, Sample['DEFO']['FbondP'])
-							
-					#Set the bonds along normal to the layer
-					#Distance in z [nm] (thus the 0.1 prefactor)
-					lenghtBondN = round(0.1*float(Sample['DEFO']['DzDefo']),2)
-					
-					for DEF in DefoTotal:
-						DEFAbove = DEF + defoPerLayer
-						if DEFAbove not in DefoTotal:
-							break
-						TopoDefo += """ {0} {1}   1       {2}    {3}\n""".format(DEF,DEFAbove,
-																lenghtBondN, Sample['DEFO']['FbondN'])
-						
-			elif Sample['DEFO']['Constraints'] == 'angles':
-				pass
-			elif Sample['DEFO']['Constraints'] == 'bond&angles':
-				pass
-			else:
-				pass
+							""".format(self.system, pdb_file_list[self.lipid_type]['name'],
+										self.nb_lipid_monolayer[self.lipid_type],
+										self.m1_head_min, self.dimensions['LX'],
+										self.dimensions['LY'], self.m1_tail_max,
+										self.m1_tail_min, self.m2_head_max, 
+										defo_packmol_input)
+		# 2 chains for the lipids
+		self.nb_index += 1
+		
+		if self.mono is not None:
+			defo_mono_packmol_input = ""
+			if self.defo is not None:
+				if self.defo['Height'] in ["follow", "box", "mono"]:
+					defo_mono_packmol_input = defo_packmol_input
 			
-		TopoFileDefo = open('defo_topo.itp','w')
-		TopoFileDefo.write(TopoDefo)
-		TopoFileDefo.close()
+			self.packmol_input +="""
+							# Monolayer
+							structure {0}
+								chain C
+								resnumbers 3
+								number {1:g}
+								inside box 0. 0.  {2}  {3} {4} {5}
+								constrain_rotation x 180 10
+								constrain_rotation y 180 10
+								{6}
+							end structure
+							
+							""".format(pdb_file_list[self.lipid_type]['name'], self.mono['NbLipidsM'], self.mono['LzM'],
+										self.dimensions['LX'], self.dimensions['LY'],
+										self.mono['LzM'] + self.tmt,
+										defo_mono_packmol_input)
+			
+		packmol_instruction_W_mol = ""
+		if self.solvent_type =='PW':
+			packmol_instruction_W_mol = """
+								atoms 2 3
+								radius 0.2
+								end atoms"""
+			
+		if self.nb_sol_bottom:
+			self.packmol_input += """
+							# Bottom Solvent
+							structure {0}
+								chain D
+								number {1:g}
+								inside box 0. 0. {2}  {3} {4} {5}
+								{6}
+							end structure
+							""".format(pdb_file_list[self.solvent_type]['name'], self.nb_sol_bottom,
+										self.bottom_z,
+										self.dimensions['LX'], self.dimensions['LY'],
+										self.m1_head_min, packmol_instruction_W_mol)
+			
+			
+		if self.nb_sol_top:
+			self.packmol_input += """
+							# Top solvent
+							structure {0}
+								chain E
+								number {1:g}
+								inside box 0. 0. {2}  {3} {4} {5}
+								{6}
+							end structure
+							""".format(pdb_file_list[self.solvent_type]['name'], self.nb_sol_top,
+										self.m2_head_max,
+										self.dimensions['LX'], self.dimensions['LY'],
+										self.dimensions['LZ'], packmol_instruction_W_mol)
+			
+
 		
-		PosresFileDefo = open('defo_posres_gen.itp','w')
-		PosresFileDefo.write(PosresDefo)
-		PosresFileDefo.close()
 		
-		return (DefoXYZ_filename, nbDefo)
+		#if self.nb_sol_vapor:
+			#self.packmol_input += """
+							## Vapor solvent
+							#structure {0}
+								#chain V
+								#number {1:g}
+								#inside box 0. 0. {2}  {3} {4} {5}
+								#{6}
+							#end structure
+							#""".format(pdb_file_list[self.solvent_type]['name'],self.nb_sol_vapor,
+										#self.mono['LzM']+self.tmt,
+										#self.dimensions['LX'], self.dimensions['LY'],
+										#self.lz_vaccum, packmol_instruction_W_mol)
+			
+		# A chain for solvent
+		self.nb_index += 1
+			
+		if self.defo is not None:
+			if self.defo['Height'] == 'follow':
+				self.packmol_input += """
+							# Bilayer defo
+							structure {0}
+								chain X
+								number 1
+								resnumbers 3
+								fixed {1} {2} {3} 0.0 0.0 0.0
+								radius 0.
+								center
+							end structure
+							""".format(self.defo_dict['DEFB']['xyz file'].replace('xyz','pdb'),
+										self.dimensions['LX']/2.0, self.dimensions['LY']/2.0,
+										self.bilayer_height)
+				
+				if self.mono is not None:
+					self.packmol_input += """
+							# Monolayer defo
+							structure {0}
+								chain Y
+								number 1
+								resnumbers 3
+								fixed {1} {2} {3} 0.0 0.0 0.0
+								radius 0.
+							end structure
+							""".format(self.defo_dict['DEFM']['xyz file'].replace('xyz','pdb'),
+										self.dimensions['LX']/2.0, self.dimensions['LY']/2.0,
+										self.mono['LzM']-self.dz/8.0)
+					self.nb_index += 1
+				
+				
+			else:
+				self.packmol_input += """
+							# defo
+							structure {0}
+								chain X
+								number 1
+								resnumbers 3
+								fixed {1} {2} {3} 0.0 0.0 0.0
+								radius 0.
+							end structure
+							""".format(self.defo_dict['DEFB']['xyz file'].replace('xyz','pdb').
+										self.dimensions['LX']/2.0, self.dimensions['LY']/2.0,
+										self.bottom_z)
+				
+			# for DEF
+			self.nb_index += 1
+						
+		if self.su is not None:
+			self.packmol_input += """
+							# Substrate
+							structure {0}
+								chain S
+								number {1:g}
+								inside box 0. 0. 0.  {2} {3} {4}
+							end structure
+							""".format(pdb_file_list['SU']['name'], self.nb_su, self.dimensions['LX'], self.dimensions['LY'], self.su['Thickness'])
+			
+			# for SU
+			self.nb_index += 1
+					
+			# pdb file for su
+			assert(len(self.su['SuType']) <= 4),"The name of the SU should be 4 letters max (Otherwise problem with PDB file format)" 
+			
+			su_type = self.su['SuType'] + (4 - len(self.su['SuType']))*' '
+			
+			atom_type = None
+			if 'SU' in self.su['SuType']:
+				atom_type = self.su['SuType'][-2:] + (3 - len(self.su['SuType'][-2:]))*' '
+			elif 'S' in self.su['SuType']:
+				atom_type = self.su['SuType'][-3:] + (3 - len(self.su['SuType'][-3:]))*' '
+			
+			su_pdb_content = pdb_file_list['SU']['content'].replace("TEMP", su_type)
+			su_pdb_content = su_pdb_content.replace("TEM", atom_type)
+			
+			with open(pdb_file_list['SU']['name'],'w') as su_pdb:
+				su_pdb.write(ut.RemoveUnwantedIndent(su_pdb_content))
+			
+					
+		with open('packmol_'+self.system+'.input','w') as pack_input:
+			pack_input.write( ut.RemoveUnwantedIndent(self.packmol_input))
+			
+		with open(pdb_file_list[self.lipid_type]['name'],'w') as lipid_pdb:
+			lipid_pdb.write( ut.RemoveUnwantedIndent(pdb_file_list[self.lipid_type]['content']) )
+			
+		with open(pdb_file_list[self.solvent_type]['name'],'w') as solvent_pdb:
+			solvent_pdb.write( ut.RemoveUnwantedIndent(pdb_file_list[self.solvent_type]['content']) )
+	
+	
+	
+	
+	def create_sample(self, index):
+		"""Method calling packmol to create the sample"""
+		packmol_cmd = str("""{0} < packmol_{1}.input > packmol_{1}.output """
+					).format(self.softwares['PACKMOL'], self.system)
+		
+		sub.call(packmol_cmd, shell=True)
+		
+		write_box = str("""
+			mol load pdb {0}.pdb
+			set all [atomselect top "all"]
+
+			package require pbctools
+			pbc set {{{1} {2} {3}}}
+
+			$all writepdb "{0}.withbox.pdb"
+			unset all
+
+			exit
+			""").format(self.system, self.dimensions['LX'], self.dimensions['LY'], self.dimensions['LZ'])
+
+		with open('write_box.vmd','w+') as vmd_script:
+			vmd_script.write(ut.RemoveUnwantedIndent(write_box) )
+		
+		vmd_cmd = """{0} -dispdev text -e write_box.vmd > write_box.log""".format(self.softwares['VMD'])
+		sub.call(vmd_cmd, shell=True)
+		
+		make_index = "chain A\nchain B\n"
+		naming_index = "name {0} bottom{2}\nname {1} top{2}\n".format(self.nb_index, self.nb_index+1,self.lipid_type)
+		count_index = 2
+		
+		
+		if self.nb_sol_bottom != 0:
+			make_index += "chain D\n"
+			naming_index += "name {0} bottom{1}\n".format(self.nb_index+count_index, self.solvent_type)
+			count_index += 1
+			
+		if self.nb_sol_top != 0:
+			make_index += "chain E\n"
+			naming_index += "name {0} top{1}\n".format(self.nb_index+count_index, self.solvent_type)
+			count_index += 1
+		
+		if self.mono is not None: 
+			make_index += "chain C\n"
+			naming_index += "name {0} mono{1}\n".format(self.nb_index+count_index, self.lipid_type)
+			count_index += 1
+		
+		if self.nb_sol_vapor is not None:
+			make_index += "chain V\n"
+			naming_index += "name {1} vap{3}\n".format(self.nb_index+count_index, self.solvent_type)
+			count_index += 1
+		
+		if self.su is not None:
+			make_index += "chain S\n"
+			naming_index += "name {0} su\n".format(self.nb_index+count_index)
+			count_index += 1
+		
+		if self.defo is not None:
+			if self.defo['Height'] == 'follow':
+				make_index += "chain X\n"
+				naming_index += "name {0} defo_bilayer\n".format(self.nb_index+count_index)
+				
+				if self.mono is not None:
+					make_index += "chain Y\n"
+					naming_index += "name {0} defo_mono\n".format(self.nb_index+count_index+1)
+					naming_index += "{0} | {1}\nname {2} defo\n".format(self.nb_index+count_index, self.nb_index+count_index+1, self.nb_index+count_index+2)
+					count_index += 3
+					
+				else:
+					naming_index += "name {0} defo\n".format(self.nb_index+count_index)
+					count_index += 1
+							
+				
+			else:
+				make_index += "chain X\n"
+				naming_index += "name {0} defo\n".format(self.nb_index+count_index)
+				count_index += 1
+			
+		
+		#naming the bilayer
+		naming_index += "{0} | {1}\nname {2} bilayer\nq\n".format(self.nb_index, self.nb_index+1, self.nb_index+count_index)
+		
+		self.nb_index += count_index
+		# Writing the script to file
+		make_index_str = make_index + naming_index
+		
+		with open('make_index.input','w+') as make_index_script:
+			make_index_script.write(make_index_str)
+		
+		# Calling the script
+		with open('make_index.output','w') as outfile:
+			errfile = open('make_index.err','w')
+			make_index_cmd = str("""{0}make_ndx -f {1}.withbox.pdb -o {1}.ndx < make_index.input"""
+												).format(self.softwares['GROMACS_LOC'], self.system)
+			sub.call(make_index_cmd, shell=True, stdout=outfile, stderr=errfile)
+			
+			errfile.close()
+		
+		self.output_file = "{0}.withbox.pdb".format(self.system)
+		self.index_file = "{0}.ndx".format(self.system)
+		
+		ApL = self.dimensions['LX'] * self.dimensions['LY']
+		
+		if self.defo is not None:
+			ApL -= 3.141516 * float(self.defo['Radius'])**2
+		
+		ApL /= self.nb_lipid_monolayer[self.lipid_type]
+		
+		message = """
+				================================
+				================================
+				Packmol finished initial input file
+				{0} {1} || {2} {3} ||""".format(self.lipid_type, self.sample_molecules[self.lipid_type],
+											self.solvent_type, self.sample_molecules[self.solvent_type])
+		if self.mono is not None:
+			message += " mono{0} {1} ||".format(self.lipid_type, self.mono['NbLipidsM'])
+			
+		if self.defo is not None:
+			message += " DEF{0} {1} ".format(self.defo['Version'], self.nb_defo)
+		
+		if self.su is not None:
+			message += " SU{0} {1} ".format(self.su['Version'], self.nb_su)
+				
+		message += """
+				box sizes : {0}, {1}, {2}
+				Area per lipid = {3} A**2
+				===============================
+				===============================
+				""".format(self.dimensions['LX'], self.dimensions['LY'], self.dimensions['LZ'], ApL)
+		
+		print(ut.RemoveUnwantedIndent(message))
+	
+	
+	
+	
+
+
+
+
+
+
+
+class Solvent(BaseProject):
+	""" Class for creating solvent samples
+	"""
+	def __init__(self, sample, softwares, path_to_default):
+		super(Solvent, self).__init__(sample, softwares, path_to_default)
+		
+		self.solvent_types = []
+		
+		self.LX = 0.0
+		self.LY = 0.0
+		self.LZ = 0.0
+		
+		if self.fillmode is not None:
+			if self.fillmode == 'FULL':
+				self.LX = self.dimensions['LX']
+				self.LY = self.dimensions['LY']
+				self.LZ = self.dimensions['LZ']
+				
+			elif self.fillmode == 'BOX':
+				self.LX = self.LY = self.LZ = self.dimensions['LX']
+			elif self.fillmode == 'SPHERE':
+				self.center = (self.dimensions['LX']/2., self.dimensions['LY']/2., self.dimensions['LZ']/2.) 
+				
+			elif self.fillmode == 'HALF-X':
+				self.LX = self.dimensions['LX']/2.0 
+				self.LY = self.dimensions['LY']
+				self.LZ = self.dimensions['LZ']
+				
+			elif self.fillmode == 'HALF-Y':
+				self.LX = self.dimensions['LX']
+				self.LY = self.dimensions['LY']/2.0 
+				self.LZ = self.dimensions['LZ']
+				
+			elif self.fillmode == 'HALF-Z':
+				self.LX = self.dimensions['LX']
+				self.LY = self.dimensions['LY']
+				self.LZ = self.dimensions['LZ']/2.0
+				
+			else:
+				self.LX = self.dimensions['LX']
+				self.LY = self.dimensions['LY']
+				self.LZ = self.dimensions['LZ']
+		else:
+			self.LX = self.dimensions['LX']
+			self.LY = self.dimensions['LY']
+			self.LZ = self.dimensions['LZ']
+				
+		self.finding_molecules(sample)
+		
+		self.system = self.system = "{0}".format(self.type)
+		for sol in self.solvent_types:
+			self.system += "_{0}{1}".format(self.sample_molecules[sol], sol)
+		
+		self.bottom_z = 0.0
+		
+		#Adding the substrate
+		self.nb_su = None
+		
+		if self.su is not None:
+			self.add_substrate()
+			self.system += "_{0}{1}{2}".format(self.nb_su, self.su['SuType'], self.su['Version'])
+		
+		if self.wall is not None:
+			self.system += "_WALL"
+		
+		self.nb_index = 2
+		self.write_packmol_input()
+		
+		if self.lz_vaccum is not None:
+			self.dimensions['LZ'] = self.lz_vaccum
+		# Calling packmol, vmd and gmx make_index
+		self.create_sample()
+		
+		# creating the topology for su and defo if in sample
+		self.create_topology()
+		
+		
+	
+	def finding_molecules(self, sample):
+		""" Method to find the molecules and associate their number from csv file.
+		"""
+		for sol in self.solvent_list:
+			if sol in self.sample_molecules:
+				self.solvent_types.append(sol)
+	
+	
+	
+	
+	def add_substrate(self):
+		""" Method to add the substrate at the bottom of box
+		"""
+		# Shifting all the coordinates in Z
+		self.bottom_z += float(self.su['Thickness'])
+		#Pushing the box limits
+		self.LZ += float(self.su['Thickness'])
+		self.dimensions['LZ'] += float(self.su['Thickness'])
+		
+		self.nb_su = int( float(self.su['Density']) * self.dimensions['LX'] * self.dimensions['LY'] * float(self.su['Thickness']) / 1000 )
+	
+	
+	
+	def write_packmol_input(self):
+		""" Method to write packmol input for membrane creation"""
+		self.packmol_input += """
+							output {0}.pdb
+							""".format(self.system)
+		
+		shift = 0.
+		nb_solvent = float(len(self.solvent_types))
+		
+		if self.fillmode == 'SPHERE':
+			prev_radius = 0.0
+			for chain, sol in enumerate(self.solvent_types):
+				packmol_instruction_mol = ""
+				
+				if sol =='PW':
+					packmol_instruction_mol = """
+									atoms 2 3
+									radius 0.2
+									end atoms"""
+				outside_of = ""
+				if nb_solvent > 1:
+					outside_of = "outside sphere {1} {2} {3} {4}".format(self.center[0],
+																		self.center[1],
+																		self.center[2],
+																		prev_radius)
+				self.packmol_input += """
+								
+								structure {0}
+									chain {1}
+									number {2:g}
+									inside sphere {3} {4} {5} {6}
+									{7}
+									{8}
+								end structure
+								""".format(pdb_file_list[sol]['name'], chain,
+											self.sample_molecules[sol], 
+											self.center[0], self.center[1], self.center[2],
+											self.radius/nb_solvent,
+											outside_of,
+											packmol_instruction_mol)
+				prev_radius = self.radius
+				shift += self.radius / nb_solvent
+		else:
+			for chain, sol in enumerate(self.solvent_types):
+				packmol_instruction_mol = ""
+				
+				if sol =='PW':
+					packmol_instruction_mol = """
+									atoms 2 3
+									radius 0.2
+									end atoms"""
+					
+				self.packmol_input += """
+								
+								structure {0}
+									chain {1}
+									number {2:g}
+									inside box 0. 0. {3}  {4} {5} {6}
+									{7}
+								end structure
+								""".format(pdb_file_list[sol]['name'], chain,
+											self.sample_molecules[sol], self.bottom_z + shift,
+											self.LX, self.LY, self.LZ/nb_solvent + shift,
+											packmol_instruction_mol)
+								
+				shift += self.dimensions['LZ'] / nb_solvent
+				
+			self.nb_index += 1
+		
+		if self.su is not None:
+			self.packmol_input += """
+							# Substrate
+							structure {0}
+								chain S
+								number {1:g}
+								inside box 0. 0. 0.  {2} {3} {4}
+							end structure
+							""".format(pdb_file_list['SU']['name'], self.nb_su, self.dimensions['LX'],
+										self.dimensions['LY'], self.su['Thickness'])
+			
+			# for SU
+			self.nb_index += 1
+					
+			# pdb file for su
+			assert(len(self.su['SuType']) <= 4),"The name of the SU should be 4 letters max (Otherwise problem with PDB file format)" 
+			
+			su_type = self.su['SuType'] + (4 - len(self.su['SuType']))*' '
+			
+			atom_type = None
+			if 'SU' in self.su['SuType']:
+				atom_type = self.su['SuType'][-2:] + (3 - len(self.su['SuType'][-2:]))*' '
+			elif 'S' in self.su['SuType']:
+				atom_type = self.su['SuType'][-3:] + (3 - len(self.su['SuType'][-3:]))*' '
+			
+			su_pdb_content = pdb_file_list['SU']['content'].replace("TEMP", su_type)
+			su_pdb_content = su_pdb_content.replace("TEM", atom_type)
+			
+			with open(pdb_file_list['SU']['name'],'w') as su_pdb:
+				su_pdb.write(ut.RemoveUnwantedIndent(su_pdb_content))
+			
+					
+		with open('packmol_'+self.system+'.input','w') as pack_input:
+			pack_input.write( ut.RemoveUnwantedIndent(self.packmol_input) )
+		
+		for sol in self.solvent_types:
+			with open(pdb_file_list[sol]['name'],'w') as solvent_pdb:
+				solvent_pdb.write( ut.RemoveUnwantedIndent(pdb_file_list[sol]['content']) )
+	
+	
+	
+	
+	
+	def create_sample(self):
+		packmol_cmd = str("{0} < packmol_{1}.input > "
+							"packmol_{1}.output ").format(self.softwares['PACKMOL'], self.system)
+		
+		sub.call(packmol_cmd, shell=True)
+		
+		write_box = str("""
+			mol load pdb {0}.pdb
+			set all [atomselect top "all"]
+
+			package require pbctools
+			pbc set {{{1} {2} {3}}}
+
+			$all writepdb "{0}.withbox.pdb"
+			unset all
+
+			exit
+			""").format(self.system, self.dimensions['LX'], self.dimensions['LY'], self.dimensions['LZ'])
+
+		with open('write_box.vmd','w+') as vmd_script:
+			vmd_script.write(ut.RemoveUnwantedIndent(write_box) )
+		
+		vmd_cmd = """{0} -dispdev text -e write_box.vmd > write_box.log""".format(self.softwares['VMD'])
+		sub.call(vmd_cmd, shell=True)
+		
+		make_index = ""
+		naming_index = ""
+		
+		count_index = 0
+		
+		if self.su is not None:
+			make_index += "chain S\n"
+			naming_index += "name {0} su\n".format(self.nb_index+count_index)
+			count_index += 1
+		
+		naming_index += "q\n"
+		# Writing the script to file
+		make_index_str = make_index + naming_index
+		
+		with open('make_index.input','w+') as make_index_script:
+			make_index_script.write(make_index_str)
+		
+		# Calling the script
+		with open('make_index.output','w') as outfile:
+			errfile = open('make_index.err','w')
+			make_index_cmd = str("""{0}make_ndx -f {1}.withbox.pdb -o {1}.ndx < make_index.input"""
+												).format(self.softwares['GROMACS_LOC'], self.system)
+			sub.call(make_index_cmd, shell=True, stdout=outfile, stderr=errfile)
+			
+			errfile.close()
+		
+		self.output_file = "{0}.withbox.pdb".format(self.system)
+		self.index_file = "{0}.ndx".format(self.system)
+		
+		message = """
+				================================
+				================================
+				Packmol finished initial input file
+				"""
+		for sol in self.solvent_types:
+			message += "{0} {1}".format(sol, self.sample_molecules[sol])
+		
+		message += """
+				box size : {0}, {1}, {2}
+				===============================
+				===============================
+				""".format(self.dimensions['LX'], self.dimensions['LY'], self.dimensions['LZ'])
+		
+		print(ut.RemoveUnwantedIndent(message))
