@@ -196,14 +196,15 @@ class BaseProject(object):
 		
 		if self.packmol_seed is not None:
 			self.packmol_input = """
-							# Packmol seed was set using {0}
-							seed {1:d}\ntolerance 3.0
-							filetype pdb\n""".format(sample['SEED'], self.packmol_seed)
+								# Packmol seed was set using {0}
+								seed {1:d}
+								tolerance 3.0
+								filetype pdb\n""".format(sample['SEED'], self.packmol_seed)
 		else:
 			self.packmol_input = """
-							# Packmol seed was set using default
-							tolerance 3.0
-							filetype pdb\n"""
+								# Packmol seed was set using default
+								tolerance 3.0
+								filetype pdb\n"""
 			
 			
 	
@@ -252,7 +253,7 @@ class BaseProject(object):
 		cmd += "density={0}\n".format(density)
 		cmd += "thickness={0}\n".format(float(thickness)/10.)
 		
-		shell = 0.2
+		shell = 0.3
 		cmd += "shell={0}\n".format(shell)
 		
 		cmd += "### Computing the number of substrate particles to add\n"
@@ -375,12 +376,23 @@ class BaseProject(object):
 	def add_wall_in_run(self, sample, md_step, previous_cmd_files):
 		""" Method writing bash commands to include walls in the middle of the runs
 		"""
+		file_input = previous_cmd_files['OUTPUT']
+		
 		self.wall = self.protocol[md_step]
+		cmd = "# BEGIN ####### INCLUDING WALL #######\n"
+		cmd += "### Reading the box vectors\n"
+		cmd += "read -r LX LY LZ<<<$(tail -n1 {0})\n\n".format(file_input)
 		
 		self.system += "_WALL"
 		self.create_topology()
 		
-		return self.system
+		if self.su is not None:
+			cmd += "### Appending the substrate particles at the end of the topology used for wall\n"
+			cmd += "printf " + repr("%s %d\n") + """ {0} $nb_su """.format(self.su['SuType'])+ """>> {0}\n\n""".format(self.system+'.top')
+		
+		cmd += "# END ####### INCLUDING WALL #######\n"
+		
+		return cmd, self.system
 		
 		
 		
@@ -760,6 +772,7 @@ class BaseProject(object):
 			if self.wall is not None:
 				output.write("\n ;;; Parameters for W ;;; \n")
 				preset_name = self.wall['wallProtocol'][md_step_after_init].strip(' ')
+				
 				if preset_name:
 					print("Parameters for wall during this step will be:")
 					wall_preset_for_md_step = self.wall['presets'][preset_name]
@@ -1198,6 +1211,8 @@ class Membrane(BaseProject):
 		self.m2_head_max += thickness
 		self.m2_tail_min += thickness
 		self.m2_tail_max += thickness
+		
+		self.mono['LzM'] += thickness
 		
 		self.bottom_z += thickness
 		
@@ -2029,8 +2044,8 @@ class Solvent(BaseProject):
 	def write_packmol_input(self):
 		""" Method to write packmol input for membrane creation"""
 		self.packmol_input += """
-							output {0}.pdb
-							""".format(self.system)
+								output {0}.pdb
+								""".format(self.system)
 		
 		shift = 0.
 		nb_solvent = float(len(self.solvent_types))

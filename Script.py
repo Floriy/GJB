@@ -18,7 +18,7 @@ LipidsList = ['DSPC','DPPC','DLPC']
 
 SolventsList = ['W','OCO','PW']
 
-parameters_csv = {'SU': 'Parameters_su.csv', 'ADD_SU': 'Parameters_su.csv',
+parameters_csv = {'SU': 'Parameters_su.csv', 'GADD_SU': 'Parameters_su.csv', 'PADD_SU': 'Parameters_su.csv',
 				  'WALL':'Parameters_wall.csv', 'ADD_WALL': 'Parameters_wall.csv',
 				  'DEFO': 'Parameters_defo.csv'}
 
@@ -73,7 +73,7 @@ def main(argv=sys.argv):
 			for row in reader:
 				info = row[0].strip()
 				value = row[1].strip()
-				PBS[info] = value
+				TGCC[info] = value
 	
 	with open(parameter_file,'r') as Input_Params:
 		inputParamsReader = csv.reader(Input_Params, delimiter=',', skipinitialspace=True)
@@ -398,7 +398,7 @@ def main(argv=sys.argv):
 					"""
 				
 				
-				if row[0].startswith('ADD_SU') or row[0].startswith('ADD_WALL'):
+				if row[0].startswith('GADD_SU') or row[0].startswith('ADD_WALL'):
 					name = row[0].strip()
 					
 					stepNb = str(stepNumber)
@@ -408,14 +408,14 @@ def main(argv=sys.argv):
 					for param in range(1, len(row), 2):
 						
 						if row[param]:
-							if row[param] == 'PROTOCOL':
+							if row[param].strip() == 'PROTOCOL':
 								Protocol = ['']*(stepNumber)
 								if '+' in row[param+1]:
 									Protocol.extend(row[param+1].split('+'))
 								else:
 									Protocol.extend([row[param+1].strip(' ')])
 									
-								if name.startswith('ADD_SU'):
+								if name.startswith('GADD_SU') or name.startswith('PADD_SU'):
 									Jobs[jobNumber]['PROTOCOL'][stepNb].update( {'suProtocol' : Protocol} )
 									
 								elif name.startswith('ADD_WALL'):
@@ -427,10 +427,10 @@ def main(argv=sys.argv):
 							
 						else:
 							break
-						
+					
 					folder = name
 					
-					if folder.startswith('ADD_SU'):
+					if folder.startswith('GADD_SU') or folder.startswith('PADD_SU'):
 						folder = 'SU'
 					elif folder.startswith('ADD_WALL'):
 						folder = 'WALL'
@@ -499,6 +499,13 @@ def main(argv=sys.argv):
 							wallProtocol = row[index+2].split('+')
 							Jobs[jobNumber]['WALL'].update( {'wallProtocol' : wallProtocol} )
 						
+						if protocol == 'RUNTYPE':
+							# Either PROD or PREP for production and preparation resp.
+							runProtocol = ['PREP']
+							runProtocol.extend(row[index+2].split('+'))
+							Jobs[jobNumber]['RUNTYPE'] = {'runProtocol' : runProtocol}
+						
+						
 					
 					continue
 				
@@ -535,6 +542,9 @@ def main(argv=sys.argv):
 										Jobs[jobNumber]['PROTOCOL'][stepNb][param] = int(paramValue)
 								else:
 									Jobs[jobNumber]['PROTOCOL'][stepNb][param] = paramValue.strip(' ')
+				
+				if row[0].strip() == 'END_OF_PROJECT':
+					break
 
 	#**********************************************#
 	#**********************************************#
@@ -587,7 +597,7 @@ def main(argv=sys.argv):
 		
 		#Creates the sample directory
 		directory = "{0}/{1}".format(project_name, name)
-		if(not os.path.isdir(directory)):
+		if not os.path.isdir(directory):
 			os.mkdir(directory)
 
 		script_file = open("{0}/run.sh".format(directory),'w')
@@ -691,6 +701,7 @@ def main(argv=sys.argv):
 			
 			#Executes the steps
 			for md_step in range(0, len(current_job['PROTOCOL'])):
+				
 				md_step = str(md_step)
 				
 				
@@ -710,7 +721,22 @@ def main(argv=sys.argv):
 					previous_cmd_files['SYSTEM'], previous_cmd_files['OUTPUT'], previous_cmd_files['INDEX'] = Sample.pass_outputs()
 				
 					continue
-
+				
+				#============================================================
+				#					STEP IS INPUT (need .gro, .ndx, .top, .itp)
+				#============================================================
+				if current_job['PROTOCOL'][md_step]['stepType'].startswith('INPUT'):
+					sub.call( "cp {0} .".format(current_job['PROTOCOL'][md_step]['GRO']), shell=True)
+					sub.call( "cp {0} .".format(current_job['PROTOCOL'][md_step]['TOP']), shell=True)
+					sub.call( "cp {0} .".format(current_job['PROTOCOL'][md_step]['NDX']), shell=True)
+					
+					previous_cmd_files = {'SYSTEM': None, 'OUTPUT': None, 'INDEX': None}
+					previous_cmd_files['SYSTEM'] = current_job['PROTOCOL'][md_step]['TOP'].replace('.top','')
+					previous_cmd_files['OUTPUT'] = current_job['PROTOCOL'][md_step]['TOP'].split('/')[-1]
+					previous_cmd_files['INDEX'] = current_job['PROTOCOL'][md_step]['NDX']
+				
+					continue
+				
 				#============================================================
 				#					STEP IS SAMPLE COPY
 				#============================================================
@@ -730,9 +756,9 @@ def main(argv=sys.argv):
 					continue
 				
 				#============================================================
-				#					STEP IS ADDING SUBSTRATE
+				#					STEP IS ADDING SUBSTRATE WITH GROMACS
 				#============================================================
-				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('ADD_SU') :
+				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('GADD_SU') :
 					cmd,  file_output, file_index, system = Sample.add_substrate_in_run(current_job, md_step, previous_cmd_files, 
 																						prefix_gromacs_grompp, prefix_gromacs_mdrun)
 					
@@ -750,8 +776,14 @@ def main(argv=sys.argv):
 				#					STEP IS ADDING WALL
 				#============================================================
 				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('ADD_WALL') :
-					info_wall = Sample.add_wall_in_run(md_step)
+					cmd, system = Sample.add_wall_in_run(current_job, md_step, previous_cmd_files)
 					
+					script_file.write(cmd)
+					
+					sofar_cmd = "echo 'Adding wall done' >> {0}_SoFar.txt\n\n\n".format(name)
+					script_file.write(sofar_cmd)
+					
+					previous_cmd_files['SYSTEM'] = system
 					continue
 				#============================================================
 				#						STEP IS EM
@@ -909,7 +941,7 @@ def main(argv=sys.argv):
 							echo "End of run for {1}"
 							cp -r /scratch/{2}/gromacs/{0}/{1} ${{LOCALDIR}}/{1}_OUTPUT
 							rm -r /scratch/{2}/gromacs/{0}
-							""".format(project_name, name, PBS['username'])
+							""".format(project_name, name, TGCC['username'])
 				
 				tgcc_file_content = """
 						#! /bin/sh -x
@@ -950,7 +982,7 @@ def main(argv=sys.argv):
 						rm -rf ${{MYTMPDIR}}
 						
 						echo "===================== END  JOB $SLURM_JOBID =============================== "
-						""".format(name, TGCC['mail'], TGCC['queue'], current_job['ppn'],TGCC['group'], TGCC['time_s'], parameter_file)
+						""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'], TGCC['time_s'], parameter_file)
 				
 				with open(name+'.ccc_msub','w') as tgcc_file:
 					tgcc_file.write( ut.RemoveUnwantedIndent(tgcc_file_content) )
@@ -989,20 +1021,18 @@ def main(argv=sys.argv):
 				
 			elif cmd_param.send == 'pbs':
 				send_cmd = "cd {0} \n qsub {0}.pbs \n cd .. \n".format(name)
-				send_cmd += "qstat -n -u {0}\necho ' To follow you JOBS, type qstat -n -u {0} ' \n".format(PBS['username'])
 				
 			elif cmd_param.send == 'tgcc':
 				send_cmd = "cd {0} \n ccc_msub {0}.ccc_msub \n cd .. \n".format(name)
-				send_cmd += "ccc_mpp -u {0}\n\necho ' To follow you JOBS, type ccc_mpp -u {0} ' \n".format(TGCC['username'])
 				
 			script_to_send.write(send_cmd)
 		
 		see_jobs_cmd = ""
 		if cmd_param.send == 'pbs':
-			see_jobs_cmd = "qstat -n -u {0}\necho ' To follow you JOBS, type qstat -n -u {0} ' \n".format(PBS['username'])
+			see_jobs_cmd = "qstat -n -u {0}\necho ' To follow your JOBS, type qstat -n -u {0} ' \n".format(PBS['username'])
 		
 		elif cmd_param.send == 'tgcc':
-			see_jobs_cmd = "ccc_mpp -u {0}\n\necho ' To follow you JOBS, type ccc_mpp -u {0} ' \n".format(TGCC['username'])
+			see_jobs_cmd = "ccc_mpp -u {0}\n\necho ' To follow your JOBS, type ccc_mpp -u {0} ' \n".format(TGCC['username'])
 		
 		script_to_send.write(see_jobs_cmd)
 		script_to_send.close()

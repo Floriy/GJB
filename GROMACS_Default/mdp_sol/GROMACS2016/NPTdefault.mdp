@@ -32,7 +32,7 @@ cutoff-scheme            = Verlet
 nstlist                  = 10
 ns-type                  = grid
 pbc                      = xyz
-verlet-buffer-drift      = 0.005
+verlet-buffer-tolerance      = 0.005
 
 
  ; OPTIONS FOR ELECTROSTATICS AND VDW = 
