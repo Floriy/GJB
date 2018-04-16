@@ -191,7 +191,7 @@ class BaseProject(object):
 		if sample['SEED'] == 'time':
 			self.packmol_seed = int(time.time())
 		elif sample['SEED'] == 'jobnum':
-			self.packmol_seed = Sample['JOBNUM'] * 123456789
+			self.packmol_seed = sample['JOBNUM'] * 123456789
 			
 		
 		if self.packmol_seed is not None:
