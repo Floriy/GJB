@@ -10,6 +10,7 @@ import subprocess as sub
 import copy
 import shutil
 import argparse
+import glob
 
 import Utility as ut
 import Prepare
@@ -82,9 +83,9 @@ def main(argv=sys.argv):
 		jobNumber = 0
 		
 		for row in inputParamsReader:
-			
+			row_name = row[0].strip()
 			# Get the project name
-			if row[0] == 'PROJECT' :
+			if row_name == 'PROJECT' :
 				project_name = row[1]
 				continue
 			
@@ -93,11 +94,11 @@ def main(argv=sys.argv):
 			if not test_row: continue
 			
 			#Skip lines starting with '#' or empty lines
-			if '#' in row[0] or not test_row: continue
+			if '#' in row_name or not test_row: continue
 			
 			# Each time a 'JOBID' is found a new job is created
 			# it to separate different samples
-			if row[0] == 'JOBID':
+			if row_name == 'JOBID':
 				jobNumber += 1
 				#Step of the run : EM, NVE, NVT, NPT ...
 				stepNumber = 0
@@ -106,35 +107,35 @@ def main(argv=sys.argv):
 			
 			# Before reading information on each job the program stores the path to the Softwares and gromacs default files from Parameters.csv
 			if jobNumber < 1 : 
-				if row[0] == 'GROMACS_LOC':
+				if row_name == 'GROMACS_LOC':
 					Softwares.update({row[0].strip(' '): row[1].strip(' '), row[2].strip(' '): row[3].strip(' ')})
 					continue
 				
-				if row[0] == 'VMD':
+				if row_name == 'VMD':
 					Softwares.update({row[0].strip(' '): row[1].strip(' ')})
 					continue
 				
-				if row[0] == 'PACKMOL':
+				if row_name == 'PACKMOL':
 					Softwares.update({row[0].strip(' '): row[1].strip(' ')})
 					continue
 				
-				if row[0] == 'GROMACS_DEFAULT':
+				if row_name == 'GROMACS_DEFAULT':
 					path_to_default = row[1].strip(' ')
 			
 			# Then if the program has reach a job, it will store all information available from Parameters.csv
 			else:
 				# Stores the node, number of nodes and processors per node.
-				if row[0] == 'NODE' :
+				if row_name == 'NODE' :
 					Jobs[jobNumber].update({row[0].strip(' '): row[1].strip(' '), row[2].strip(' '): row[3].strip(' '), row[4].strip(' '): row[5].strip(' ')})
 					continue
 				
 				# Stores the options to pass to mdrun
-				if row[0] == 'MDRUN_OPT':
+				if row_name == 'MDRUN_OPT':
 					Jobs[jobNumber].update({row[0].strip(' '): row[1].strip(' ')})
 					continue
 				
 				# Stores the elements in the sample for the job
-				if row[0] == 'SAMPLE':
+				if row_name == 'SAMPLE':
 					Jobs[jobNumber]['SAMPLE'] = {}
 					for element in range(1, len(row), 2):
 						if row[element]:
@@ -143,7 +144,7 @@ def main(argv=sys.argv):
 					continue
 				
 				# For a general thermostat parameters. 
-				if row[0] == 'THERMOSTAT':
+				if row_name == 'THERMOSTAT':
 					Jobs[jobNumber].update({ 'THERMOSTAT': {}})
 					
 					for param in range(1, len(row), 2):
@@ -165,7 +166,7 @@ def main(argv=sys.argv):
 					continue
 				
 				# For general barostat parameters.
-				if row[0] == 'BAROSTAT':
+				if row_name == 'BAROSTAT':
 					Jobs[jobNumber].update({ 'BAROSTAT': {}})
 					
 					for param in range(1, len(row), 2):
@@ -188,12 +189,12 @@ def main(argv=sys.argv):
 				
 				
 				# Stores the type of the sample for the job
-				if row[0] == 'TYPE':
+				if row_name == 'TYPE':
 					Jobs[jobNumber].update({row[0].strip(' '): row[1].strip(' ')})
 					continue
 				
 				# Stores the dimensions of the sample for the job
-				if row[0] == 'GEOMETRY' :
+				if row_name == 'GEOMETRY' :
 					Jobs[jobNumber]['GEOMETRY'] = {}
 					for dimension in range(1, len(row), 2):
 						if row[dimension]:
@@ -211,7 +212,7 @@ def main(argv=sys.argv):
 					continue
 				
 				# Stores the parameters for the monolayer of the sample for the job
-				if row[0] == 'MONO' :
+				if row_name == 'MONO' :
 					Jobs[jobNumber]['MONO'] = {}
 					
 					for mono_param in range(1, len(row), 2):
@@ -231,7 +232,7 @@ def main(argv=sys.argv):
 				
 				"""
 				## Stores information on the defo: defo per layer, Height, DzDefo, Radius, Version, TauDefo (thermostat), Tdefo (thermostat)
-				#if row[0].startswith('DEFO'):
+				#if row_name.startswith('DEFO'):
 					#Jobs[jobNumber].update({ 'DEFO': {}})
 					
 					#for paramDefo in range(1, len(row), 2):
@@ -288,7 +289,7 @@ def main(argv=sys.argv):
 				"""
 				
 				# Stores information on the support: version, density, nblipids
-				if row[0].startswith('SU') or row[0].startswith('WALL') or row[0].startswith('DEFO'):
+				if row_name.startswith('SU') or row_name.startswith('WALL') or row_name.startswith('DEFO'):
 					name = row[0].strip()
 					Jobs[jobNumber].update({ name: {}})
 					
@@ -344,9 +345,49 @@ def main(argv=sys.argv):
 									
 								
 					continue
+				
+				if row_name.startswith('INPUT'):
+					stepNb = str(stepNumber)
+					Jobs[jobNumber]['PROTOCOL'].update( { stepNb: {'stepType' : row[0].strip(' ')}  })
+					
+					for dimension in range(1, len(row), 2):
+						if row[dimension]:
+							dimValue = row[dimension+1].strip(' ')
+							
+							if ut.is_number(dimValue):
+								Jobs[jobNumber]['PROTOCOL'][stepNb].update( { row[dimension].strip(' '): float(dimValue) })
+								
+							else:
+								Jobs[jobNumber]['PROTOCOL'][stepNb].update( { row[dimension].strip(' '): dimValue })
+								
+						else:
+							break
+						
+					stepNumber += 1
+					continue
+				
+				if row_name.startswith('TRANSLATE'):
+					stepNb = str(stepNumber)
+					Jobs[jobNumber]['PROTOCOL'].update( { stepNb: {'stepType' : row[0].strip(' ')}  })
+					
+					for dimension in range(1, len(row), 2):
+						if row[dimension]:
+							dimValue = row[dimension+1].strip(' ')
+							
+							if ut.is_number(dimValue):
+								Jobs[jobNumber]['PROTOCOL'][stepNb].update( { row[dimension].strip(' '): float(dimValue) })
+								
+							else:
+								Jobs[jobNumber]['PROTOCOL'][stepNb].update( { row[dimension].strip(' '): dimValue })
+								
+						else:
+							break
+						
+					stepNumber += 1
+					continue
 				"""
 				## Stores information on the support: version, density, nblipids
-				#if row[0].startswith('WALL'):
+				#if row_name.startswith('WALL'):
 					#Jobs[jobNumber].update({ 'WALL': {}})
 					
 					#for paramWall in range(1, len(row), 2):
@@ -398,7 +439,7 @@ def main(argv=sys.argv):
 					"""
 				
 				
-				if row[0].startswith('GADD_SU') or row[0].startswith('ADD_WALL'):
+				if row_name.startswith('GADD_SU') or row_name.startswith('ADD_WALL'):
 					name = row[0].strip()
 					
 					stepNb = str(stepNumber)
@@ -483,7 +524,7 @@ def main(argv=sys.argv):
 					continue
 				
 				
-				if row[0].startswith('PROTOCOL'):
+				if row_name.startswith('PROTOCOL'):
 					Jobs[jobNumber].update( {'PROTOCOL': {}} )
 					
 					for index, protocol in enumerate(row[1:]):
@@ -511,7 +552,7 @@ def main(argv=sys.argv):
 				
 				
 				# Job protocol. associates each parameter with an index
-				if(row[0].startswith('COPY') or row[0].startswith('INIT') or row[0].startswith('EM') or row[0].startswith('NVE') or row[0].startswith('NVT') or row[0].startswith('NPT')):
+				if(row_name.startswith('COPY') or row_name.startswith('INIT') or row_name.startswith('EM') or row_name.startswith('NVE') or row_name.startswith('NVT') or row_name.startswith('NPT')):
 					
 					stepNb = str(stepNumber)
 					#Creates a dictionary for the step with an associated protocol step number to keep track of the order of execution
@@ -528,7 +569,7 @@ def main(argv=sys.argv):
 					continue
 				
 				#Job protocol. Associates each parameter with its value based on the index
-				if(row[0].strip() == ''):
+				if(row_name.strip() == ''):
 					stepNb = str(stepNumber-1)
 					for param, paramValue in Jobs[jobNumber]['PROTOCOL'][stepNb].items():
 						if param != 'stepType':
@@ -543,7 +584,7 @@ def main(argv=sys.argv):
 								else:
 									Jobs[jobNumber]['PROTOCOL'][stepNb][param] = paramValue.strip(' ')
 				
-				if row[0].strip() == 'END_OF_PROJECT':
+				if row_name.strip() == 'END_OF_PROJECT':
 					break
 
 	#**********************************************#
@@ -552,7 +593,7 @@ def main(argv=sys.argv):
 	#**********************************************#
 	#**********************************************#
 	#**********************************************#
-
+	
 	#Finding the software version. If not found ask the user.
 
 	print('Gromacs local :', Softwares['GROMACS_LOC'])
@@ -725,22 +766,56 @@ def main(argv=sys.argv):
 				#============================================================
 				#					STEP IS INPUT (need .gro, .ndx, .top, .itp)
 				#============================================================
-				if current_job['PROTOCOL'][md_step]['stepType'].startswith('INPUT'):
-					sub.call( "cp {0} .".format(current_job['PROTOCOL'][md_step]['GRO']), shell=True)
-					sub.call( "cp {0} .".format(current_job['PROTOCOL'][md_step]['TOP']), shell=True)
-					sub.call( "cp {0} .".format(current_job['PROTOCOL'][md_step]['NDX']), shell=True)
+				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('INPUT'):
+					""" This step will copy the file you put in Parameters.csv.
+						If a defo is in the file you are copying you need to specify the version using:
+						DEFO, Version, version_number, ...
+						You can also change the bonds parameter and Mass if wanted.
+						the protocol will be define in the same way as INPUT
+					"""
+					print("Looking for .gro file: {0}".format(current_job['PROTOCOL'][md_step]['GRO']))
+					file_found = glob.glob(current_job['PROTOCOL'][md_step]['GRO'])
+					
+					assert(file_found), "{0} not found".format(current_job['PROTOCOL'][md_step]['GRO'])
+					gro_file = file_found[0]
+					path = '/'.join(gro_file.split('/')[:-1])
+					
+					gro_file = gro_file.split('/')[-1]
+					print("Using: {0}".format(gro_file) )
+		   
+					if 'TOP' not in current_job['PROTOCOL'][md_step]:
+						top_file = '_'.join(gro_file.split('_')[:-2]) + '.top'
+					else:
+						top_file = current_job['PROTOCOL'][md_step]['TOP']
+					
+					if 'NDX' not in current_job['PROTOCOL'][md_step]:
+						ndx_file = '_'.join(gro_file.split('_')[:-2]) + '.ndx'
+					else:
+						ndx_file = current_job['PROTOCOL'][md_step]['NDX']
+						
+					itp_files = glob.glob(path+'/*.itp')
+					
+					sub.call( "cp {0} .".format( '{0}/{1}'.format(path, gro_file) ), shell=True)
+					sub.call( "cp {0} .".format( '{0}/{1}'.format(path, top_file) ), shell=True)
+					sub.call( "cp {0} .".format( '{0}/{1}'.format(path, ndx_file) ), shell=True)
+					
+					for itp in itp_files:
+						sub.call( "cp {0} .".format(itp), shell=True)
 					
 					previous_cmd_files = {'SYSTEM': None, 'OUTPUT': None, 'INDEX': None}
-					previous_cmd_files['SYSTEM'] = current_job['PROTOCOL'][md_step]['TOP'].replace('.top','')
-					previous_cmd_files['OUTPUT'] = current_job['PROTOCOL'][md_step]['TOP'].split('/')[-1]
-					previous_cmd_files['INDEX'] = current_job['PROTOCOL'][md_step]['NDX']
+					previous_cmd_files['SYSTEM'] = top_file.replace('.top','')
+					previous_cmd_files['OUTPUT'] = gro_file
+					previous_cmd_files['INDEX'] = ndx_file
 				
 					continue
 				
 				#============================================================
 				#					STEP IS SAMPLE COPY
 				#============================================================
+				
 				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('COPY') :
+					assert(1), "Copy not yet implemented"
+					"""
 					CopyFrom = Jobs[ Jobs[job_number]['PROTOCOL'][step]['samplenumber'] ]['JOBID'] 
 					try:
 						CopiedJob = Prepare.CopySample(Jobs, current_job, md_step, path_to_default)
@@ -754,11 +829,30 @@ def main(argv=sys.argv):
 					previous_cmd_files = copy.deepcopy(CopiedJob)
 					
 					continue
+					"""
+				#============================================================
+				#					STEP IS INPUT (need .gro, .ndx, .top, .itp)
+				#============================================================
+				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('TRANSLATE'):
+					TX = 0.1*current_job['PROTOCOL'][md_step]['X']
+					TY = 0.1*current_job['PROTOCOL'][md_step]['Y']
+					TZ = 0.1*current_job['PROTOCOL'][md_step]['Z']
+					
+					output_file = previous_cmd_files['OUTPUT'].replace('.gro','_TRANSX{0}Y{1}Z{2}.gro'.format(TX, TY, TZ) )
+		
+					cmd = "    printf {0} | {1} trjconv -f {2} -s {2} -o {3} -trans {4} {5} {6} -pbc atom\n\n".format(repr("System\n"), prefix_gromacs_grompp,
+																												previous_cmd_files['OUTPUT'],
+																												output_file,
+																												TX, TY, TZ)
+					
+					sub.call(cmd, shell=True)
+					previous_cmd_files['OUTPUT'] = output_file
+					continue
 				
 				#============================================================
 				#					STEP IS ADDING SUBSTRATE WITH GROMACS
 				#============================================================
-				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('GADD_SU') :
+				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('GADD_SU'):
 					cmd,  file_output, file_index, system = Sample.add_substrate_in_run(current_job, md_step, previous_cmd_files, 
 																						prefix_gromacs_grompp, prefix_gromacs_mdrun)
 					
@@ -776,13 +870,14 @@ def main(argv=sys.argv):
 				#					STEP IS ADDING WALL
 				#============================================================
 				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('ADD_WALL') :
-					cmd, system = Sample.add_wall_in_run(current_job, md_step, previous_cmd_files)
+					cmd, system , file_output = Sample.add_wall_in_run(current_job, md_step, previous_cmd_files, prefix_gromacs_grompp, prefix_gromacs_mdrun)
 					
 					script_file.write(cmd)
 					
 					sofar_cmd = "echo 'Adding wall done' >> {0}_SoFar.txt\n\n\n".format(name)
 					script_file.write(sofar_cmd)
 					
+					previous_cmd_files['OUTPUT'] = file_output
 					previous_cmd_files['SYSTEM'] = system
 					continue
 				#============================================================
@@ -799,19 +894,19 @@ def main(argv=sys.argv):
 					Sample.writing_mdp(md_step, EMdefault)
 
 					Comment = str("#Energy Minimization using parameters in {0}.mdp:\n#Input : "
-								"{1}\n#Output: {2}_{3}-{0}_out.gro \n\n").format(current_job['PROTOCOL'][md_step]['stepType'],
+								"{1}\n#Output: {2}_{3}-{0}.gro \n\n").format(current_job['PROTOCOL'][md_step]['stepType'],
 																				previous_cmd_files['OUTPUT'],previous_cmd_files['SYSTEM'],
 																				current_job['JOBNUM'])
 					script_file.write(Comment)
 
-					cmd = str("{0}grompp -f {1}.mdp -po {2}-{1}_out.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} "
+					cmd = str("{0}grompp -f {1}.mdp -po {2}-{1}.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} "
 								"|& tee grompp_out/grompp_{5}_{1}.output\n\n").format(prefix_gromacs_grompp,
 																					current_job['PROTOCOL'][md_step]['stepType'],
 																					previous_cmd_files['SYSTEM'],previous_cmd_files['OUTPUT'], 
 																					previous_cmd_files['INDEX'],current_job['JOBNUM'])
 					script_file.write(cmd)
 
-					cmd = str("{0}mdrun -deffnm {2}_{3}-{1} -c {2}_{3}-{1}_out.gro {4}"
+					cmd = str("{0}mdrun -deffnm {2}_{3}-{1} -c {2}_{3}-{1}.gro {4}"
 								" |& tee mdrun_out/mdrun_{3}_{1}.output \n\n").format(prefix_gromacs_mdrun, current_job['PROTOCOL'][md_step]['stepType'],
 																						previous_cmd_files['SYSTEM'], current_job['JOBNUM'], pulling_output)
 					script_file.write(cmd)
@@ -819,7 +914,7 @@ def main(argv=sys.argv):
 					cmd = "echo '{0} done' >> {1}_SoFar.txt\n\n\n".format(current_job['PROTOCOL'][md_step]['stepType'], name)
 					script_file.write(cmd)
 
-					output_filename = "{1}_{2}-{0}_out.gro".format(current_job['PROTOCOL'][md_step]['stepType'], previous_cmd_files['SYSTEM'], current_job['JOBNUM'])
+					output_filename = "{1}_{2}-{0}.gro".format(current_job['PROTOCOL'][md_step]['stepType'], previous_cmd_files['SYSTEM'], current_job['JOBNUM'])
 					previous_cmd_files['OUTPUT'] = output_filename
 					
 					continue
@@ -831,20 +926,20 @@ def main(argv=sys.argv):
 					Comment = ""
 					
 					if current_job['PROTOCOL'][md_step]['stepType'].startswith('NVE'):
-						Comment = str("""#NVE using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}_out.gro \n\n""").format(current_job['PROTOCOL'][md_step]['stepType'],
+						Comment = str("""#NVE using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}.gro \n\n""").format(current_job['PROTOCOL'][md_step]['stepType'],
 																														previous_cmd_files['OUTPUT'], previous_cmd_files['SYSTEM'], current_job['JOBNUM'])
 						Sample.preparing_mdp(md_step)
 						Sample.writing_mdp(md_step, NVEdefault)
 						
 					elif current_job['PROTOCOL'][md_step]['stepType'].startswith('NVT'):
-						Comment = str("""#NVT using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}_out.gro \n\n""").format(current_job['PROTOCOL'][md_step]['stepType'],
+						Comment = str("""#NVT using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}.gro \n\n""").format(current_job['PROTOCOL'][md_step]['stepType'],
 																														previous_cmd_files['OUTPUT'], previous_cmd_files['SYSTEM'], current_job['JOBNUM'])
 						Sample.preparing_mdp(md_step)
 						Sample.writing_mdp(md_step, NVTdefault)
 						
 					
 					elif current_job['PROTOCOL'][md_step]['stepType'].startswith('NPT'):
-						Comment = str("""#NPT using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}_out.gro \n\n""").format(current_job['PROTOCOL'][md_step]['stepType'],
+						Comment = str("""#NPT using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}.gro \n\n""").format(current_job['PROTOCOL'][md_step]['stepType'],
 																														previous_cmd_files['OUTPUT'], previous_cmd_files['SYSTEM'], current_job['JOBNUM'])
 						Sample.preparing_mdp(md_step)
 						Sample.writing_mdp(md_step, NPTdefault)
@@ -857,13 +952,13 @@ def main(argv=sys.argv):
 					if 'DEFO' in current_job:
 						pulling_output = "-pf {0}_pf.xvg -px {0}_px.xvg".format( current_job['PROTOCOL'][md_step]['stepType'])
 
-					grompp_cmd = str("{0}grompp -f {1}.mdp -po {2}-{1}_out.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} "
+					grompp_cmd = str("{0}grompp -f {1}.mdp -po {2}-{1}.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} "
 								"|& tee grompp_out/grompp_{5}_{1}.output\n\n""").format(prefix_gromacs_grompp, current_job['PROTOCOL'][md_step]['stepType'], 
 																						previous_cmd_files['SYSTEM'], previous_cmd_files['OUTPUT'], previous_cmd_files['INDEX'],
 																						current_job['JOBNUM'])
 					script_file.write(grompp_cmd)
 
-					mdrun_cmd = str("{0}mdrun {4} -deffnm {2}_{3}-{1}  -c {2}_{3}-{1}_out.gro {5} "
+					mdrun_cmd = str("{0}mdrun {4} -deffnm {2}_{3}-{1}  -c {2}_{3}-{1}.gro {5} "
 								"|& tee mdrun_out/mdrun_{3}_{1}.output \n\n").format(prefix_gromacs_grompp, current_job['PROTOCOL'][md_step]['stepType'], 
 																					previous_cmd_files['SYSTEM'], current_job['JOBNUM'], current_job['MDRUN_OPT'],
 																					pulling_output)
@@ -873,7 +968,7 @@ def main(argv=sys.argv):
 					script_file.write(sofar_cmd)
 					
 
-					output_filename = "{1}_{2}-{0}_out.gro".format(current_job['PROTOCOL'][md_step]['stepType'], previous_cmd_files['SYSTEM'], current_job['JOBNUM'])
+					output_filename = "{1}_{2}-{0}.gro".format(current_job['PROTOCOL'][md_step]['stepType'], previous_cmd_files['SYSTEM'], current_job['JOBNUM'])
 					previous_cmd_files['OUTPUT'] = output_filename
 					
 					continue
@@ -951,6 +1046,7 @@ def main(argv=sys.argv):
 						#MSUB -r {0}	  # job name (automatically generated)
 						#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
 						#MSUB -V          # transfer the variable of ENVIRONNEMENT
+						#MSUB -@ {7}:begin,end
 						#MSUB -oe %I.eo   # input and output of JOB
 						
 						# the number of nodes is deduced automatically from the number of cores (fixed nb core/node = 16 on curie noeud fin)
@@ -982,7 +1078,7 @@ def main(argv=sys.argv):
 						rm -rf ${{MYTMPDIR}}
 						
 						echo "===================== END  JOB $SLURM_JOBID =============================== "
-						""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'], TGCC['time_s'], parameter_file)
+						""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'], TGCC['time_s'], parameter_file, TGCC['mail'])
 				
 				with open(name+'.ccc_msub','w') as tgcc_file:
 					tgcc_file.write( ut.RemoveUnwantedIndent(tgcc_file_content) )

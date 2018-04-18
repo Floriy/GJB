@@ -244,7 +244,7 @@ class BaseProject(object):
 		thickness = self.su['Thickness']
 		
 		file_input = previous_cmd_files['OUTPUT']
-		file_output = file_input.replace('out.gro','_{0}{1}d{2}.gro'.format(self.su['SuType'], self.su['Version'], self.su['Density']))
+		file_output = file_input.replace('out.gro','{0}{1}d{2}.gro'.format(self.su['SuType'], self.su['Version'], self.su['Density']))
 		
 		cmd = "# BEGIN ####### INSERTING THE SUBSTRATE BELOW THE SAMPLE #######"
 		cmd += "### Reading the box vectors\n"
@@ -266,8 +266,10 @@ class BaseProject(object):
 		# Manipulating the sample 
 		cmd += "### Removing pbc to manipulate it correcly\n"
 		
-		cmd += "printf {0} | {1} trjconv -f {2} -s {3} -n {4} -o {5} -pbc res\n".format(repr("0\n"), prefix_gromacs_grompp, file_input, file_input.replace('_out.gro','.tpr'),
+		cmd += "printf {0} | {1} trjconv -f {2} -s {3} -n {4} -o {5} -pbc res\n".format(repr("0\n"), prefix_gromacs_grompp, file_input, file_input,
 																						self.index_file, 'fixed_pbc.gro')
+		
+		#file_input.replace('.gro','.tpr'),
 		
 		cmd += "{0} editconf -f {1} -o {2} -pbc no\n".format(prefix_gromacs_grompp,
 																'fixed_pbc.gro', 'temp_for_adding_su_1.gro')
@@ -325,22 +327,22 @@ class BaseProject(object):
 			print(e)
 			
 		cmd += "### Energy minimisation for the substrate\n"
-		cmd += str("{0}grompp -f EM_su_insertion.mdp -po EM_su_insertion_out.mdp -c {1} -p su_insertion.top -maxwarn 10 -o EM_su_insertion.tpr "
+		cmd += str("{0}grompp -f EM_su_insertion.mdp -po EM_su_insertion.mdp -c {1} -p su_insertion.top -maxwarn 10 -o EM_su_insertion.tpr "
 								"|& tee grompp_out/grompp_EM_su_insertion.output\n\n").format(prefix_gromacs_grompp, 'sub.gro',
 																					previous_cmd_files['SYSTEM'])
 								
 		
 		
-		cmd += str("{0}mdrun -deffnm EM_su_insertion -c EM_su_insertion_out.gro "
+		cmd += str("{0}mdrun -deffnm EM_su_insertion -c EM_su_insertion.gro "
 					" |& tee mdrun_out/mdrun_EM_su_insertion.output \n\n").format(prefix_gromacs_mdrun)
 		
 		cmd += "### Removing pbc for energy minimlized su to manipulate it correcly\n"
 		cmd += "{0} editconf -f {1} -o {2} -pbc no\n\n".format(prefix_gromacs_grompp,
-																'EM_su_insertion_out.gro','EM_su_insertion_out_nopbc.gro' )
+																'EM_su_insertion.gro','EM_su_insertion_nopbc.gro' )
 		
 		#Inserting the substrate into the sample
 		cmd += "### Inserting the substrate in the sample\n"
-		cmd += str("{0} insert-molecules -f {1} -ci EM_su_insertion_out_nopbc.gro -nmol 1 -o {2} "
+		cmd += str("{0} insert-molecules -f {1} -ci EM_su_insertion_nopbc.gro -nmol 1 -o {2} "
 					"-rot none -ip position.dat \n\n").format(prefix_gromacs_grompp,
 																'temp_for_adding_su_3.gro',
 																file_output,
@@ -363,7 +365,7 @@ class BaseProject(object):
 		with open('position.dat','w') as pos_dat:
 			pos_dat.write("0. 0. 0.\n")
 		
-		
+		self.index_file = file_index
 		
 		cmd += "### Appending the substrate particles at the end of the topology\n"
 		cmd += "printf " + repr("%s %d\n") + """ {0} $nb_su """.format(self.su['SuType'])+ """>> {0}\n\n""".format(self.system+'.top')
@@ -373,15 +375,56 @@ class BaseProject(object):
 		return cmd, file_output, file_index, self.system
 		
 	
-	def add_wall_in_run(self, sample, md_step, previous_cmd_files):
+	def add_wall_in_run(self, sample, md_step, previous_cmd_files, prefix_gromacs_grompp, prefix_gromacs_mdrun):
 		""" Method writing bash commands to include walls in the middle of the runs
 		"""
 		file_input = previous_cmd_files['OUTPUT']
+		file_output = file_input.replace('.gro','_WALL.gro')
 		
 		self.wall = self.protocol[md_step]
 		cmd = "# BEGIN ####### INCLUDING WALL #######\n"
 		cmd += "### Reading the box vectors\n"
 		cmd += "read -r LX LY LZ<<<$(tail -n1 {0})\n\n".format(file_input)
+		
+		cmd += "### Get the index of atoms having an negative z\n"
+		cmd += "printf {0} | {1} select -f {2} -on neg_z.ndx\n\n".format(repr('z < 0 \n'),prefix_gromacs_grompp, file_input)
+		
+		cmd += "    ### Removing pbc to manipulate it correcly\n"
+		cmd += "    printf {0} | {1} trjconv -f {2} -s {2} -n {3} -o {4} -pbc nojump\n".format(repr("System\n"), prefix_gromacs_grompp, file_input,
+																						 self.index_file, 'fixed_pbc.gro')
+		
+		cmd += "### Loop on the index to find the minimum z\n"
+		cmd += "declare -a indexes=( $(tail -n+2 neg_z.ndx) )\n"
+		cmd += "declare -x min=0.0\n"
+		cmd += "for i in ${indexes[@]}\ndo\n"
+		cmd += "    line=( $(cat {0} | grep $i) )\n".format('fixed_pbc.gro')
+		cmd += str("""    min=$(awk -vZ=${line[5]} -vM=$min """
+					"""'BEGIN{ printf "%f", Z<M?Z:M  }')\ndone\n\n""")
+		
+		# Manipulating the sample
+		cmd += "echo $min\n"
+		cmd += "### Creating the new box and shifting all the previous atoms (0, 0, min)\n"
+		#cmd += """if (( $(echo "$min < 0.0" | bc -l) )); then\n"""
+		cmd += "    offset=0.3\n"
+		cmd += """    trans=$(echo "- $min+$offset" | bc -l)\n"""
+		cmd += """    nnLZ=$(awk -vZ=$LZ -vM=$trans 'BEGIN{ print Z+M }')\n"""
+		cmd += """ echo $nnLZ \n"""
+		
+		
+		cmd += "    {0} editconf -f {1} -o {2} -pbc no\n".format(prefix_gromacs_grompp,
+																'fixed_pbc.gro', 'temp_for_adding_wall_1.gro')
+		
+		cmd += "    {0} editconf -f {1} -o {2} -box $LX $LY $nnLZ -c no\n".format(prefix_gromacs_grompp,
+																'temp_for_adding_wall_1.gro', 'temp_for_adding_wall_2.gro')
+		
+		
+		cmd += "    {0} editconf -f {1} -o {2} -translate 0. 0. $trans\n\n".format(prefix_gromacs_grompp,
+																			'temp_for_adding_wall_2.gro',
+																			file_output)
+		#cmd += "else\n    cp {0} {1}\n\n".format(file_input, file_output)
+		
+		#cmd+="fi\n\n"
+		
 		
 		self.system += "_WALL"
 		self.create_topology()
@@ -392,7 +435,7 @@ class BaseProject(object):
 		
 		cmd += "# END ####### INCLUDING WALL #######\n"
 		
-		return cmd, self.system
+		return cmd, self.system, file_output
 		
 		
 		
