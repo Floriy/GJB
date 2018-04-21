@@ -205,6 +205,8 @@ class BaseProject(object):
 								# Packmol seed was set using default
 								tolerance 3.0
 								filetype pdb\n"""
+		self.packmol_input += """
+								sidemax 1000000"""
 			
 			
 	
