@@ -650,7 +650,7 @@ def main(argv=sys.argv):
 		
 		if cmd_param.send == 'local':
 			copy_to = """
-							#!/bin/bash
+							#!/bin/bash +x
 							mkdir -p ../{0}_OUTPUT
 							cp * ../{0}_OUTPUT/
 							cd ../{0}_OUTPUT/
@@ -662,7 +662,7 @@ def main(argv=sys.argv):
 			
 		elif cmd_param.send == 'pbs':
 			copy_to = """
-						#!/bin/bash
+						#!/bin/bash +x
 						mkdir -p /scratch/{2}/gromacs/{0}
 						cd ..
 						LOCALDIR="$(pwd)"
@@ -959,7 +959,7 @@ def main(argv=sys.argv):
 					script_file.write(grompp_cmd)
 
 					mdrun_cmd = str("{0}mdrun {4} -deffnm {2}_{3}-{1}  -c {2}_{3}-{1}.gro {5} "
-								"|& tee mdrun_out/mdrun_{3}_{1}.output \n\n").format(prefix_gromacs_grompp, current_job['PROTOCOL'][md_step]['stepType'], 
+								"|& tee mdrun_out/mdrun_{3}_{1}.output \n\n").format(prefix_gromacs_mdrun, current_job['PROTOCOL'][md_step]['stepType'], 
 																					previous_cmd_files['SYSTEM'], current_job['JOBNUM'], current_job['MDRUN_OPT'],
 																					pulling_output)
 					script_file.write(mdrun_cmd)

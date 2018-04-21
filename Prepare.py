@@ -244,7 +244,7 @@ class BaseProject(object):
 		thickness = self.su['Thickness']
 		
 		file_input = previous_cmd_files['OUTPUT']
-		file_output = file_input.replace('out.gro','{0}{1}d{2}.gro'.format(self.su['SuType'], self.su['Version'], self.su['Density']))
+		file_output = file_input.replace('.gro','_{0}{1}d{2}.gro'.format(self.su['SuType'], self.su['Version'], self.su['Density']))
 		
 		cmd = "# BEGIN ####### INSERTING THE SUBSTRATE BELOW THE SAMPLE #######"
 		cmd += "### Reading the box vectors\n"
@@ -266,7 +266,8 @@ class BaseProject(object):
 		# Manipulating the sample 
 		cmd += "### Removing pbc to manipulate it correcly\n"
 		
-		cmd += "printf {0} | {1} trjconv -f {2} -s {3} -n {4} -o {5} -pbc res\n".format(repr("0\n"), prefix_gromacs_grompp, file_input, file_input,
+		cmd += "printf {0} | {1} trjconv -f {2} -s {3} -n {4} -o {5} -pbc res\n".format(repr("0\n"), prefix_gromacs_grompp, file_input, 
+																						file_input.replace('.gro','.tpr'),
 																						self.index_file, 'fixed_pbc.gro')
 		
 		#file_input.replace('.gro','.tpr'),
