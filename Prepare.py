@@ -723,6 +723,8 @@ class BaseProject(object):
 							self.itp_file +="_{0}{1}".format(self.su['SuType'], self.su['Version'])
 							if self.defo is not None:
 								self.itp_file +="_DEF{0}".format(self.defo['Version'])
+							if self.wall is not None:
+								self.itp_file +="_WALL{0}".format(self.wall['Version'])
 							self.itp_file += ".itp"
 							
 							su_topology_file_name = self.itp_file
