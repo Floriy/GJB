@@ -909,13 +909,28 @@ def main(argv=sys.argv):
 					cmd = str("{0}mdrun -deffnm {2}_{3}-{1} -c {2}_{3}-{1}.gro {4}"
 								" |& tee mdrun_out/mdrun_{3}_{1}.output \n\n").format(prefix_gromacs_mdrun, current_job['PROTOCOL'][md_step]['stepType'],
 																						previous_cmd_files['SYSTEM'], current_job['JOBNUM'], pulling_output)
+								
+					
 					script_file.write(cmd)
-
+					
 					cmd = "echo '{0} done' >> {1}_SoFar.txt\n\n\n".format(current_job['PROTOCOL'][md_step]['stepType'], name)
 					script_file.write(cmd)
 
 					output_filename = "{1}_{2}-{0}.gro".format(current_job['PROTOCOL'][md_step]['stepType'], previous_cmd_files['SYSTEM'], current_job['JOBNUM'])
 					previous_cmd_files['OUTPUT'] = output_filename
+					
+					
+					cmd = str("### Correcting the box vectors if LZ is too large ###\n"
+								"if [ -a {0} ]; then read -r LX LY LZ <<< $(tail -n1 {0}); "
+								"""if [ "$LZ" == "" ]; then """
+								"""echo "LZ was too big, correcting the box vectors format"; """
+								"LZ=$(cut -c 9- <<< $LY); LY=$(cut -c -8 <<< $LY); "
+								"sed -i '$ d' {0}; "
+								"""echo "$LX $LY $LZ" >> {0}; """
+								"fi;fi\n\n").format(output_filename)
+					
+					script_file.write(cmd)
+
 					
 					continue
 
@@ -971,6 +986,17 @@ def main(argv=sys.argv):
 					output_filename = "{1}_{2}-{0}.gro".format(current_job['PROTOCOL'][md_step]['stepType'], previous_cmd_files['SYSTEM'], current_job['JOBNUM'])
 					previous_cmd_files['OUTPUT'] = output_filename
 					
+					cmd = str("### Correcting the box vectors if LZ is too large ###\n"
+								"if [ -a {0} ]; then read -r LX LY LZ <<< $(tail -n1 {0}); "
+								"""if [ "$LZ" == "" ]; then """
+								"""echo "LZ was too big, correcting the box vectors format"; """
+								"LZ=$(cut -c 9- <<< $LY); LY=$(cut -c -8 <<< $LY); "
+								"sed -i '$ d' {0}; "
+								"""echo "$LX $LY $LZ" >> {0}; """
+								"fi;fi\n\n").format(output_filename)
+					
+					script_file.write(cmd)
+					
 					continue
 			
 			end_of_run = ""
@@ -1020,7 +1046,7 @@ def main(argv=sys.argv):
 						echo "Run GMX"
 						date
 
-						./run.sh  $PBS_JOBID >  $PBS_O_WORKDIR/$PBS_JOBNAME-$PBS_JOBID.out
+						./run.sh  $PBS_JOBID >>  $PBS_O_WORKDIR/$PBS_JOBNAME-$PBS_JOBID.out
 
 						echo "End of GMX"
 						date
@@ -1072,7 +1098,7 @@ def main(argv=sys.argv):
 						
 						rsync ${{SLURM_SUBMIT_DIR}}/* ${{MYTMPDIR}} 
 						cd ${{MYTMPDIR}} 
-						./run.sh  > ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}.out
+						./run.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}.out
 						rsync -r ./* ${{OUTPUTDIR}}/.
 						cd ${{SLURM_SUBMIT_DIR}}
 						rm -rf ${{MYTMPDIR}}

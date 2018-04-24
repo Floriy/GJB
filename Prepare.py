@@ -219,6 +219,37 @@ class BaseProject(object):
 	def add_substrate(self):
 		pass
 	
+	def check_pbc(self):
+		""" Method to check the pbc vectors at the end of .gro files
+		"""
+		with open('check_pbc.sh','w') as check_pbc:
+			check_pbc.write( str("#!/bin/bash +x\n"
+							"read -r LX LY LZ <<< $(tail -n1 {0}.gro); "
+							"""if [ "$LZ" == "" ]; then """
+							"""echo "LZ was too big, correcting the vectors format"; """
+							"LZ=$(cut -c 9- <<< $LY); LY=$(cut -c -8 <<< $LY); "
+							"sed -i '$ d' {0}.gro; "
+							"""echo "$LX $LY $LZ" >> {0}.gro; """
+							"fi\n").format(self.system) )
+		
+		sub.call('chmod u+x check_pbc.sh; ./check_pbc.sh', shell=True)
+	
+	def write_check_pbc(self, input_file):
+		""" Method to check the pbc vectors at the end of .gro files
+		"""
+		check_pbc_cmd = str("\n\n### Check pbc box vectors at the end of {0} ###\n"
+						"if [ -a {0} ]; then "
+						"read -r LX LY LZ <<< $(tail -n1 {0}); "
+						"""if [ "$LZ" == "" ]; then """
+						"""echo "LZ was too big, correcting the vectors format"; """
+						"LZ=$(cut -c 9- <<< $LY); LY=$(cut -c -8 <<< $LY); "
+						"sed -i '$ d' {0}; "
+						"""echo "$LX $LY $LZ" >> {0}; """
+						"fi;fi\n\n\n").format(input_file)
+		
+		return check_pbc_cmd
+		 
+	
 	def add_substrate_in_run(self, sample, md_step, previous_cmd_files, prefix_gromacs_grompp, prefix_gromacs_mdrun):
 		""" Method writing bash commands to include the substrate in the middle of the runs
 		"""
@@ -272,20 +303,25 @@ class BaseProject(object):
 																						file_input.replace('.gro','.tpr'),
 																						self.index_file, 'fixed_pbc.gro')
 		
-		#file_input.replace('.gro','.tpr'),
+		cmd += self.write_check_pbc('fixed_pbc.gro')
 		
 		cmd += "{0} editconf -f {1} -o {2} -pbc no\n".format(prefix_gromacs_grompp,
 																'fixed_pbc.gro', 'temp_for_adding_su_1.gro')
+		
+		cmd += self.write_check_pbc('temp_for_adding_su_1.gro')
 		
 		cmd += "### Creating the new box and shifting all the previous atoms (0, 0, thickness)\n"
 		cmd += """translate=$(awk -vT=$thickness -vS=$shell 'BEGIN{ print T+S }')\n\n"""
 		cmd += "{0} editconf -f {1} -o {2} -box $LX $LY $nLZ -c no\n".format(prefix_gromacs_grompp,
 																'temp_for_adding_su_1.gro', 'temp_for_adding_su_2.gro')
 		
+		cmd += self.write_check_pbc('temp_for_adding_su_2.gro')
 		
 		cmd += "{0} editconf -f {1} -o {2} -translate 0. 0. $translate\n\n".format(prefix_gromacs_grompp,
 																			'temp_for_adding_su_2.gro',
 																			'temp_for_adding_su_3.gro')
+		
+		cmd += self.write_check_pbc('temp_for_adding_su_3.gro')
 		
 		# Creating the substrate
 		cmd += "### Creating the substrate with box size (LX, LY, thickness)\n"
@@ -301,11 +337,14 @@ class BaseProject(object):
 		cmd += "printf " + repr("[ system ]\nSUBSTRATE\n") + ">> su_insertion.top\n"
 		cmd += "printf " + repr("[ molecules ]\n%s %d\n") +""" {0} $nb_su """.format(self.su['SuType']) + ">> su_insertion.top\n\n"
 		
+		
 		#Modifying the rcut otherwise problem with gromacs
 		try:
 			path_to_EMmdp = self.path_to_default+'/SU/EM_su_insertion.mdp'
 			new_rcut = float(self.su['Thickness'])/20.
+			copyfile(path_to_EMmdp,'EM_su_insertion.mdp')
 			
+			"""
 			#if float(self.su['Thickness'])/20. < 1.2:
 				#with open(path_to_EMmdp,'r') as input_mdp:
 					#with open('EM_su_insertion.mdp','w') as output_mdp:
@@ -324,11 +363,13 @@ class BaseProject(object):
 								
 								#copy_original_line=True
 			#else:
-			copyfile(path_to_EMmdp,'EM_su_insertion.mdp')
+			"""
+			
 			
 		except IOError as e:
 			print(e)
-			
+		
+		
 		cmd += "### Energy minimisation for the substrate\n"
 		cmd += str("{0}grompp -f EM_su_insertion.mdp -po EM_su_insertion.mdp -c {1} -p su_insertion.top -maxwarn 10 -o EM_su_insertion.tpr "
 								"|& tee grompp_out/grompp_EM_su_insertion.output\n\n").format(prefix_gromacs_grompp, 'sub.gro',
@@ -338,6 +379,7 @@ class BaseProject(object):
 		
 		cmd += str("{0}mdrun -deffnm EM_su_insertion -c EM_su_insertion.gro "
 					" |& tee mdrun_out/mdrun_EM_su_insertion.output \n\n").format(prefix_gromacs_mdrun)
+		
 		
 		cmd += "### Removing pbc for energy minimlized su to manipulate it correcly\n"
 		cmd += "{0} editconf -f {1} -o {2} -pbc no\n\n".format(prefix_gromacs_grompp,
@@ -351,13 +393,15 @@ class BaseProject(object):
 																file_output,
 																self.index_file)
 		
+		cmd += self.write_check_pbc(file_output)
+		
 		cmd += "### Creating an .ndx with su group\n"
 		file_index = self.index_file.replace( '.ndx', '_{0}{1}d{2}.ndx'.format(self.su['SuType'], self.su['Version'], self.su['Density']) )
 		
-		self.nb_index += 1
-		group_index = [str(i) for i in range(0, self.nb_index-1, 1)]
+		#self.nb_index += 1
+		group_index = [str(i) for i in range(0, self.nb_index, 1)]
 		creating_system = "del 0\ndel 0\n"
-		creating_system += "{0}\nname {1} System".format(" | ".join(group_index), int(group_index[-1])+1)
+		creating_system += "{0}\nname {1} System".format(" | ".join(group_index), int(group_index[-1]))
 		
 		cmd += "printf "
 		cmd += repr( "r {0}\nname {1} su\n{2}\nq\n".format(self.su['SuType'], self.nb_index, creating_system) )
@@ -394,13 +438,15 @@ class BaseProject(object):
 		
 		cmd += "    ### Removing pbc to manipulate it correcly\n"
 		cmd += "    printf {0} | {1} trjconv -f {2} -s {2} -n {3} -o {4} -pbc nojump\n".format(repr("System\n"), prefix_gromacs_grompp, file_input,
-																						 self.index_file, 'fixed_pbc.gro')
+																						 self.index_file, 'fixed_pbc_wall.gro')
+		
+		cmd += self.write_check_pbc('fixed_pbc_wall.gro')
 		
 		cmd += "### Loop on the index to find the minimum z\n"
 		cmd += "declare -a indexes=( $(tail -n+2 neg_z.ndx) )\n"
 		cmd += "declare -x min=0.0\n"
 		cmd += "for i in ${indexes[@]}\ndo\n"
-		cmd += "    line=( $(cat {0} | grep $i) )\n".format('fixed_pbc.gro')
+		cmd += "    line=( $(cat {0} | grep $i) )\n".format('fixed_pbc_wall.gro')
 		cmd += str("""    min=$(awk -vZ=${line[5]} -vM=$min """
 					"""'BEGIN{ printf "%f", Z<M?Z:M  }')\ndone\n\n""")
 		
@@ -409,24 +455,27 @@ class BaseProject(object):
 		cmd += "### Creating the new box and shifting all the previous atoms (0, 0, min)\n"
 		#cmd += """if (( $(echo "$min < 0.0" | bc -l) )); then\n"""
 		cmd += "    offset=0.3\n"
-		cmd += """    trans=$(echo "- $min+$offset" | bc -l)\n"""
+		cmd += """    trans=$(echo "$offset - $min" | bc -l)\n"""
 		cmd += """    nnLZ=$(awk -vZ=$LZ -vM=$trans 'BEGIN{ print Z+M }')\n"""
 		cmd += """ echo $nnLZ \n"""
 		
 		
 		cmd += "    {0} editconf -f {1} -o {2} -pbc no\n".format(prefix_gromacs_grompp,
-																'fixed_pbc.gro', 'temp_for_adding_wall_1.gro')
+																'fixed_pbc_wall.gro', 'temp_for_adding_wall.gro')
+		cmd += self.write_check_pbc('temp_for_adding_wall.gro')
 		
-		cmd += "    {0} editconf -f {1} -o {2} -box $LX $LY $nnLZ -c no\n".format(prefix_gromacs_grompp,
-																'temp_for_adding_wall_1.gro', 'temp_for_adding_wall_2.gro')
+		cmd += "    {0} editconf -f {1} -o {2} -box $LX $LY $nnLZ -c no -translate 0. 0. $trans\n".format(prefix_gromacs_grompp,
+																'temp_for_adding_wall.gro', file_output)
 		
+		"""
+		#cmd += self.write_check_pbc('temp_for_adding_wall_2.gro')
 		
-		cmd += "    {0} editconf -f {1} -o {2} -translate 0. 0. $trans\n\n".format(prefix_gromacs_grompp,
-																			'temp_for_adding_wall_2.gro',
-																			file_output)
-		#cmd += "else\n    cp {0} {1}\n\n".format(file_input, file_output)
+		#cmd += "    {0} editconf -f {1} -o {2} -translate 0. 0. $trans\n\n".format(prefix_gromacs_grompp,
+																			#'temp_for_adding_wall_2.gro',
+																			#file_output)
+		"""
 		
-		#cmd+="fi\n\n"
+		cmd += self.write_check_pbc(file_output)
 		
 		
 		self.system += "_WALL"
@@ -1854,7 +1903,14 @@ class Membrane(BaseProject):
 		
 		sub.call(packmol_cmd, shell=True)
 		
-		write_box = str("""
+		#Convert the pdb to gro and put the pbc then check the box vectors at the end of the .gro
+		editconf_cmd = str("{0} editconf -f {1}.pdb -o {1}.gro "
+							"-box {2} {3} {4} -c no").format(self.softwares['GROMACS_LOC'], self.system,
+														0.1*self.dimensions['LX'], 0.1*self.dimensions['LY'], 0.1*self.dimensions['LZ'])
+		
+		sub.call(editconf_cmd, shell=True, stdout=open('pdb2gro.txt','w'), stderr=open('err_pdb2gro.txt','w'))
+		"""
+		write_box = str("
 			mol load pdb {0}.pdb
 			set all [atomselect top "all"]
 
@@ -1865,13 +1921,16 @@ class Membrane(BaseProject):
 			unset all
 
 			exit
-			""").format(self.system, self.dimensions['LX'], self.dimensions['LY'], self.dimensions['LZ'])
+			").format(self.system, self.dimensions['LX'], self.dimensions['LY'], self.dimensions['LZ'])
 
 		with open('write_box.vmd','w+') as vmd_script:
 			vmd_script.write(ut.RemoveUnwantedIndent(write_box) )
 		
-		vmd_cmd = """{0} -dispdev text -e write_box.vmd > write_box.log""".format(self.softwares['VMD'])
+		vmd_cmd = "{0} -dispdev text -e write_box.vmd > write_box.log".format(self.softwares['VMD'])
 		sub.call(vmd_cmd, shell=True)
+		"""
+		
+		self.check_pbc()
 		
 		make_index = "chain A\nchain B\n"
 		naming_index = "name {0} bottom{2}\nname {1} top{2}\n".format(self.nb_index, self.nb_index+1,self.lipid_type)
@@ -1938,13 +1997,13 @@ class Membrane(BaseProject):
 		# Calling the script
 		with open('make_index.output','w') as outfile:
 			errfile = open('make_index.err','w')
-			make_index_cmd = str("""{0}make_ndx -f {1}.withbox.pdb -o {1}.ndx < make_index.input"""
+			make_index_cmd = str("""{0}make_ndx -f {1}.pdb -o {1}.ndx < make_index.input"""
 												).format(self.softwares['GROMACS_LOC'], self.system)
 			sub.call(make_index_cmd, shell=True, stdout=outfile, stderr=errfile)
 			
 			errfile.close()
 		
-		self.output_file = "{0}.withbox.pdb".format(self.system)
+		self.output_file = "{0}.gro".format(self.system)
 		self.index_file = "{0}.ndx".format(self.system)
 		
 		ApL = self.dimensions['LX'] * self.dimensions['LY']
@@ -2131,6 +2190,9 @@ class Solvent(BaseProject):
 											packmol_instruction_mol)
 				prev_radius = self.radius
 				shift += self.radius / nb_solvent
+			
+			self.nb_index += 1
+		
 		else:
 			for chain, sol in enumerate(self.solvent_types):
 				packmol_instruction_mol = ""
@@ -2207,7 +2269,14 @@ class Solvent(BaseProject):
 		
 		sub.call(packmol_cmd, shell=True)
 		
-		write_box = str("""
+		#Convert the pdb to gro and put the pbc then check the box vectors at the end of the .gro
+		editconf_cmd = str("{0} editconf -f {1}.pdb -o {1}.gro "
+							"-box {2} {3} {4} -c no").format(self.softwares['GROMACS_LOC'], self.system,
+														0.1*self.dimensions['LX'], 0.1*self.dimensions['LY'], 0.1*self.dimensions['LZ'])
+		
+		sub.call(editconf_cmd, shell=True, stdout=open('pdb2gro.txt','w'), stderr=open('err_pdb2gro.txt','w'))
+		"""
+		write_box = str("
 			mol load pdb {0}.pdb
 			set all [atomselect top "all"]
 
@@ -2218,13 +2287,16 @@ class Solvent(BaseProject):
 			unset all
 
 			exit
-			""").format(self.system, self.dimensions['LX'], self.dimensions['LY'], self.dimensions['LZ'])
+			").format(self.system, self.dimensions['LX'], self.dimensions['LY'], self.dimensions['LZ'])
 
 		with open('write_box.vmd','w+') as vmd_script:
 			vmd_script.write(ut.RemoveUnwantedIndent(write_box) )
 		
-		vmd_cmd = """{0} -dispdev text -e write_box.vmd > write_box.log""".format(self.softwares['VMD'])
+		vmd_cmd = "{0} -dispdev text -e write_box.vmd > write_box.log".format(self.softwares['VMD'])
 		sub.call(vmd_cmd, shell=True)
+		"""
+		
+		self.check_pbc()
 		
 		make_index = ""
 		naming_index = ""
@@ -2246,13 +2318,13 @@ class Solvent(BaseProject):
 		# Calling the script
 		with open('make_index.output','w') as outfile:
 			errfile = open('make_index.err','w')
-			make_index_cmd = str("""{0}make_ndx -f {1}.withbox.pdb -o {1}.ndx < make_index.input"""
+			make_index_cmd = str("""{0}make_ndx -f {1}.pdb -o {1}.ndx < make_index.input"""
 												).format(self.softwares['GROMACS_LOC'], self.system)
 			sub.call(make_index_cmd, shell=True, stdout=outfile, stderr=errfile)
 			
 			errfile.close()
 		
-		self.output_file = "{0}.withbox.pdb".format(self.system)
+		self.output_file = "{0}.gro".format(self.system)
 		self.index_file = "{0}.ndx".format(self.system)
 		
 		message = """

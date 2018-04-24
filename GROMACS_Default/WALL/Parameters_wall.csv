@@ -6,3 +6,7 @@ P4-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,P4 P4,9-3,8 8
 P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,1,WAP4,9-3,8
+Nda-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,Nda P4,9-3,8 0.1
+P4-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,P4 P4,9-3,8 0.1
