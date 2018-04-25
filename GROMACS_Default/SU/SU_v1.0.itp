@@ -1,33 +1,107 @@
 [ atomtypes ]
-SU 72.0 0.000 A 0.0 0.0
+SUN 72.0 0.000 A 0.0 0.0
+SUP 72.0 0.000 A 0.0 0.0
 #####################################################################
 [ nonbond_params ]
-SU  SU  1    0.0 0.0                                          ; DELETED, previously : 0.15091E-00     0.16267E-02 ; intermediate 
-P5  SU  1    0.15091E-00     0.16267E-02 ; intermediate
-P4  SU  1    0.0 0.0                                          ; NO MORE WATER ATTRACTION ! ALREADY IN THE ADSORBED WATER LAYER
-SU  P3  1    0.15091E-00     0.16267E-02 ; intermediate 
-SU  P2  1    0.15091E-00     0.16267E-02 ; intermediate
-SU  P1  1    0.15091E-00     0.16267E-02 ; intermediate
-SU  Nd  1    0.15091E-00     0.16267E-02 ; intermediate
-SU  Nda 1    0.15091E-00     0.16267E-02 ; intermediate
-SU  Na  1    0.15091E-00     0.16267E-02 ; intermediate
-SU  N0  1    0.15091E-00     0.16267E-02 ; intermediate 
-SU  C5  1    0.15091E-00     0.16267E-02 ; intermediate
-SU  C4  1    0.15091E-00     0.16267E-02 ; intermediate
-SU  C3  1    0.15091E-00     0.16267E-02 ; intermediate
-SU  C2  1    0.15091E-00     0.16267E-02 ; intermediate
-SU  C1  1    0.15091E-00     0.16267E-02 ; intermediate
-SU  Qda 1    0.15091E-00     0.16267E-02 ; intermediate
-SU  Q0  1    0.15091E-00     0.16267E-02 ; intermediate
-SU  Qa  1    0.15091E-00     0.16267E-02 ; intermediate
+;;;; SUN -> Nda ;;;;
+  SUN    SUN     1       0.0             0.0         ; no self interaction
+  SUN    P5      1       0.21558E-00     0.23238E-02 ; attractive
+  SUN    SP5     1       0.21558E-00     0.23238E-02 ; attractive
+  SUN    P4      1       0.17246E-00     0.18590E-02 ; semi attractive
+  SUN    BP4     1       0.17246E-00     0.18590E-02 ; semi attractive
+  SUN    SP4     1       0.17246E-00     0.18590E-02 ; semi attractive
+  SUN    P3      1       0.19402E-00     0.20914E-02 ; almost attractive
+  SUN    SP3     1       0.19402E-00     0.20914E-02 ; almost attractive
+  SUN    P2      1       0.19402E-00     0.20914E-02 ; almost attractive
+  SUN    SP2     1       0.19402E-00     0.20914E-02 ; almost attractive
+  SUN    P1      1       0.19402E-00     0.20914E-02 ; almost attractive
+  SUN    SP1     1       0.19402E-00     0.20914E-02 ; almost attractive
+  SUN    Nda     1       0.19402E-00     0.20914E-02 ; almost attractive
+  SUN    SNda    1       0.19402E-00     0.20914E-02 ; almost attractive
+  SUN    Nd      1       0.19402E-00     0.20914E-02 ; almost attractive
+  SUN    SNd     1       0.19402E-00     0.20914E-02 ; almost attractive
+  SUN    Na      1       0.19402E-00     0.20914E-02 ; almost attractive
+  SUN    SNa     1       0.19402E-00     0.20914E-02 ; almost attractive
+  SUN    N0      1       0.15091E-00     0.16267E-02 ; intermediate 
+  SUN    SN0     1       0.15091E-00     0.16267E-02 ; intermediate 
+  SUN    C5      1       0.15091E-00     0.16267E-02 ; intermediate 
+  SUN    SC5     1       0.15091E-00     0.16267E-02 ; intermediate 
+  SUN    C4      1       0.13366E-00     0.14408E-02 ; almost intermediate 
+  SUN    SC4     1       0.13366E-00     0.14408E-02 ; almost intermediate 
+  SUN    C3      1       0.11642E-00     0.12549E-02 ; semi repulsive
+  SUN    SC3     1       0.11642E-00     0.12549E-02 ; semi repulsive
+  SUN    C2      1       0.11642E-00     0.12549E-02 ; semi repulsive
+  SUN    AC2     1       0.11642E-00     0.12549E-02 ; semi repulsive
+  SUN    SC2     1       0.11642E-00     0.12549E-02 ; semi repulsive
+  SUN    C1      1       0.11642E-00     0.12549E-02 ; semi repulsive
+  SUN    AC1     1       0.11642E-00     0.12549E-02 ; semi repulsive
+  SUN    SC1     1       0.11642E-00     0.12549E-02 ; semi repulsive
+  SUN    Qda     1       0.21558E-00     0.23238E-02 ; attractive 
+  SUN    SQda    1       0.21558E-00     0.23238E-02 ; attractive 
+  SUN    Qd      1       0.21558E-00     0.23238E-02 ; attractive 
+  SUN    SQd     1       0.21558E-00     0.23238E-02 ; attractive 
+  SUN    Qa      1       0.21558E-00     0.23238E-02 ; attractive 
+  SUN    SQa     1       0.21558E-00     0.23238E-02 ; attractive 
+  SUN    Q0      1       0.17246E-00     0.18590E-02 ; semi attractive
+  SUN    SQ0     1       0.17246E-00     0.18590E-02 ; semi attractive
+  SUN    POL     1       0.16384E-00     0.17660E-02 ; semi attractive 95%
+  SUN    D       1       0.00000E-00     0.00000E-00 ; no LJ interaction
+
+
+;;;; SUP -> P4 ;;;;
+  SUP    SUP     1       0.0             0.0         ; no self interaction
+  SUP    P5      1       0.24145E-00     0.26027E-02 ; supra attractive
+  SUP    SP5     1       0.24145E-00     0.26027E-02 ; supra attractive
+  SUP    P4      1       0.21558E-00     0.23238E-02 ; attractive 
+  SUP    BP4     1       0.76824E-00     0.26348E-01 ; supra attractive, s=0.57
+  SUP    SP4     1       0.21558E-00     0.23238E-02 ; attractive 
+  SUP    P3      1       0.21558E-00     0.23238E-02 ; attractive 
+  SUP    SP3     1       0.21558E-00     0.23238E-02 ; attractive 
+  SUP    P2      1       0.19402E-00     0.20914E-02 ; almost attractive
+  SUP    SP2     1       0.19402E-00     0.20914E-02 ; almost attractive
+  SUP    P1      1       0.19402E-00     0.20914E-02 ; almost attractive
+  SUP    SP1     1       0.19402E-00     0.20914E-02 ; almost attractive
+  SUP    Nda     1       0.17246E-00     0.18590E-02 ; semi attractive
+  SUP    SNda    1       0.17246E-00     0.18590E-02 ; semi attractive
+  SUP    Nd      1       0.17246E-00     0.18590E-02 ; semi attractive
+  SUP    SNd     1       0.17246E-00     0.18590E-02 ; semi attractive
+  SUP    Na      1       0.17246E-00     0.18590E-02 ; semi attractive
+  SUP    SNa     1       0.17246E-00     0.18590E-02 ; semi attractive
+  SUP    N0      1       0.15091E-00     0.16267E-02 ; intermediate 
+  SUP    SN0     1       0.15091E-00     0.16267E-02 ; intermediate 
+  SUP    C5      1       0.13366E-00     0.14408E-02 ; almost intermediate 
+  SUP    SC5     1       0.13366E-00     0.14408E-02 ; almost intermediate 
+  SUP    C4      1       0.11642E-00     0.12549E-02 ; semi repulsive
+  SUP    SC4     1       0.11642E-00     0.12549E-02 ; semi repulsive
+  SUP    C3      1       0.11642E-00     0.12549E-02 ; semi repulsive
+  SUP    SC3     1       0.11642E-00     0.12549E-02 ; semi repulsive
+  SUP    C2      1       0.99167E-01     0.10690E-02 ; almost repulsive 
+  SUP    AC2     1       0.99167E-01     0.10690E-02 ; almost repulsive 
+  SUP    SC2     1       0.99167E-01     0.10690E-02 ; almost repulsive 
+  SUP    C1      1       0.86233E-01     0.92953E-03 ; repulsive 
+  SUP    AC1     1       0.86233E-01     0.92953E-03 ; repulsive 
+  SUP    SC1     1       0.86233E-01     0.92953E-03 ; repulsive 
+  SUP    Qda     1       0.24145E-00     0.26027E-02 ; supra attractive
+  SUP    SQda    1       0.24145E-00     0.26027E-02 ; supra attractive
+  SUP    Qd      1       0.24145E-00     0.26027E-02 ; supra attractive
+  SUP    SQd     1       0.24145E-00     0.26027E-02 ; supra attractive
+  SUP    Qa      1       0.24145E-00     0.26027E-02 ; supra attractive
+  SUP    SQa     1       0.24145E-00     0.26027E-02 ; supra attractive
+  SUP    Q0      1       0.24145E-00     0.26027E-02 ; supra attractive
+  SUP    SQ0     1       0.24145E-00     0.26027E-02 ; supra attractive
+  SUP    POL     1       0.20480E-00     0.22076E-02 ; attractive 95%
+  SUP    D       1       0.00000E-00     0.00000E-00 ; no LJ interaction
+
+
+ 
 #####################################################################
-[ moleculetype ]
+;[ moleculetype ]
 ; molname    nrexcl
-  SUI       1
+;  SUI       1
                                                                                 
 [ atoms ]
 ;id   type  resnr   residu  atom  cgnr  charge
- 1  SU   1   SUI  SU  1   0
+; 1  SU   1   SUI  SUI  1   0
 
 [ moleculetype ]
 ; molname    nrexcl
@@ -35,7 +109,7 @@ SU  Qa  1    0.15091E-00     0.16267E-02 ; intermediate
                                                                                 
 [ atoms ]
 ;id   type  resnr   residu  atom  cgnr  charge
- 1  P1   1   SUP1  P1  1   0
+ 1  P1   1   SUP1  SUP1  1   0
 
 
 [ moleculetype ]
@@ -44,7 +118,7 @@ SU  Qa  1    0.15091E-00     0.16267E-02 ; intermediate
                                                                                 
 [ atoms ]
 ;id   type  resnr   residu  atom  cgnr  charge
- 1  P2   1   SUP2  P2  1   0
+ 1  P2   1   SUP2  SUP2  1   0
 
  [ moleculetype ]
 ; molname    nrexcl
@@ -52,7 +126,7 @@ SU  Qa  1    0.15091E-00     0.16267E-02 ; intermediate
                                                                                 
 [ atoms ]
 ;id   type  resnr   residu  atom  cgnr  charge
- 1  P3   1   SUP3  P3  1   0
+ 1  P3   1   SUP3  SUP3  1   0
 
 
  [ moleculetype ]
@@ -61,7 +135,7 @@ SU  Qa  1    0.15091E-00     0.16267E-02 ; intermediate
                                                                                 
 [ atoms ]
 ;id   type  resnr   residu  atom  cgnr  charge
- 1  P4   1   SUP4  P4  1   0
+ 1  P4   1   SUP4  SUP4  1   0
 
 
  [ moleculetype ]
@@ -70,12 +144,30 @@ SU  Qa  1    0.15091E-00     0.16267E-02 ; intermediate
                                                                                 
 [ atoms ]
 ;id   type  resnr   residu  atom  cgnr  charge
- 1  P5   1   SUP5  P5  1   0
+ 1  P5   1   SUP5  SUP5  1   0
 
  [ moleculetype ]
 ; molname    nrexcl
   SNda       1
                                                                                 
 [ atoms ]
- 1  Nda   1   SNda  Nda  1   0
+ 1  Nda   1   SUNda  SUNda  1   0
+
+
+[ moleculetype ]
+; molname    nrexcl
+  SSUN       1
+                                                                                
+[ atoms ]
+;id   type  resnr   residu  atom  cgnr  charge
+ 1    SUN    1      SUNda   SUN 1     0
+
+[ moleculetype ]
+; molname    nrexcl
+  SSUP       1
+                                                                                
+[ atoms ]
+;id   type  resnr   residu  atom  cgnr  charge
+ 1    SUP    1      SUP4    SUP 1     0
+#####################################################################
 #####################################################################

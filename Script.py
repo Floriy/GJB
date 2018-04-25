@@ -325,6 +325,8 @@ def main(argv=sys.argv):
 								#Associates the parameters set in Parameters.csv to the correct protocol step dictionary
 								for index, param in enumerate(row[1:]):
 									if param:
+										if param.startswith('#'):
+											continue
 										Jobs[jobNumber][name]['presets'][preset_name].update( { param.strip(' ') : index } )
 								
 							else:

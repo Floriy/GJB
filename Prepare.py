@@ -399,9 +399,9 @@ class BaseProject(object):
 		file_index = self.index_file.replace( '.ndx', '_{0}{1}d{2}.ndx'.format(self.su['SuType'], self.su['Version'], self.su['Density']) )
 		
 		#self.nb_index += 1
-		group_index = [str(i) for i in range(0, self.nb_index, 1)]
+		group_index = [str(i) for i in range(0, self.nb_index-1, 1)]
 		creating_system = "del 0\ndel 0\n"
-		creating_system += "{0}\nname {1} System".format(" | ".join(group_index), int(group_index[-1]))
+		creating_system += "{0}\nname {1} System".format(" | ".join(group_index), int(group_index[-1])+1)
 		
 		cmd += "printf "
 		cmd += repr( "r {0}\nname {1} su\n{2}\nq\n".format(self.su['SuType'], self.nb_index, creating_system) )
@@ -461,19 +461,19 @@ class BaseProject(object):
 		
 		
 		cmd += "    {0} editconf -f {1} -o {2} -pbc no\n".format(prefix_gromacs_grompp,
-																'fixed_pbc_wall.gro', 'temp_for_adding_wall.gro')
-		cmd += self.write_check_pbc('temp_for_adding_wall.gro')
+																'fixed_pbc_wall.gro', 'temp_for_adding_wall_1.gro')
+		cmd += self.write_check_pbc('temp_for_adding_wall_1.gro')
 		
-		cmd += "    {0} editconf -f {1} -o {2} -box $LX $LY $nnLZ -c no -translate 0. 0. $trans\n".format(prefix_gromacs_grompp,
-																'temp_for_adding_wall.gro', file_output)
+		cmd += "    {0} editconf -f {1} -o {2} -box $LX $LY $nnLZ -c no \n".format(prefix_gromacs_grompp,
+																'temp_for_adding_wall_1.gro', 'temp_for_adding_wall_2.gro')
 		
-		"""
-		#cmd += self.write_check_pbc('temp_for_adding_wall_2.gro')
 		
-		#cmd += "    {0} editconf -f {1} -o {2} -translate 0. 0. $trans\n\n".format(prefix_gromacs_grompp,
-																			#'temp_for_adding_wall_2.gro',
-																			#file_output)
-		"""
+		cmd += self.write_check_pbc('temp_for_adding_wall_2.gro')
+		
+		cmd += "    {0} editconf -f {1} -o {2} -translate 0. 0. $trans\n\n".format(prefix_gromacs_grompp,
+																			'temp_for_adding_wall_2.gro',
+																			file_output)
+		
 		
 		cmd += self.write_check_pbc(file_output)
 		
@@ -538,23 +538,23 @@ class BaseProject(object):
 		#Creates grps for all lipid found except if tau-t and ref-t contain multiple values
 		#Exception
 		if 'energygrps' in self.protocol[md_step]:
-			if ' ' in str(self.protocol[md_step]['energygrps']):
-				energy_grps += str(self.protocol[md_step]['energygrps'])
+			if ' ' in str(self.protocol[md_step]['energygrps']).strip() or 'System' in str(self.protocol[md_step]['energygrps']).strip():
+				energy_grps += str(self.protocol[md_step]['energygrps']) + ' '
 				auto_energy_grps = False
 				
 		if 'tc-grps' in self.protocol[md_step]:
-			if ' ' in str(self.protocol[md_step]['tc-grps']):
-				T_coupling_grps += str(self.protocol[md_step]['tc-grps'])
+			if ' ' in str(self.protocol[md_step]['tc-grps']).strip() or 'System' in str(self.protocol[md_step]['tc-grps']).strip():
+				T_coupling_grps += str(self.protocol[md_step]['tc-grps']) + ' '
 				auto_T_coupling_grps = False
 				
 		if 'tau-t' in self.protocol[md_step]:
-			if ' ' in str(self.protocol[md_step]['tau-t']):
-				Tau_T_coupling_grps += str(self.protocol[md_step]['tau-t'])
+			if ' ' in str(self.protocol[md_step]['tau-t']).strip() or 'System' in str(self.protocol[md_step]['tau-t']).strip():
+				Tau_T_coupling_grps += str(self.protocol[md_step]['tau-t']) + ' '
 				auto_tau_T_coupling_grps = False
 				
 		if 'ref-t' in self.protocol[md_step]:
-			if ' ' in str(self.protocol[md_step]['ref-t']):
-				ref_t_T_coupling_grps += str(self.protocol[md_step]['ref-t'])
+			if ' ' in str(self.protocol[md_step]['ref-t']).strip() or 'System' in str(self.protocol[md_step]['ref-t']).strip():
+				ref_t_T_coupling_grps += str(self.protocol[md_step]['ref-t']) + ' '
 				auto_ref_t_T_coupling_grps = False
 				
 		#Automatic generation
@@ -609,6 +609,7 @@ class BaseProject(object):
 		if self.defo is not None:
 			self.defo_mdp_params = '\n\n ;;; Parameters for Defo ;;; \n\n'
 			energy_grps += 'defo '
+			
 			if 'ref-t' in defo_preset_for_md_step or 'tau-t' in defo_preset_for_md_step: 
 				T_coupling_grps += 'defo '
 			
@@ -1872,9 +1873,9 @@ class Membrane(BaseProject):
 			su_type = self.su['SuType'] + (4 - len(self.su['SuType']))*' '
 			
 			atom_type = None
-			if 'SU' in self.su['SuType']:
+			if self.su['SuType'].startswith('SU'):
 				atom_type = self.su['SuType'][-2:] + (3 - len(self.su['SuType'][-2:]))*' '
-			elif 'S' in self.su['SuType']:
+			elif self.su['SuType'].startswith('S'):
 				atom_type = self.su['SuType'][-3:] + (3 - len(self.su['SuType'][-3:]))*' '
 			
 			su_pdb_content = pdb_file_list['SU']['content'].replace("TEMP", su_type)
@@ -1933,7 +1934,7 @@ class Membrane(BaseProject):
 		self.check_pbc()
 		
 		make_index = "chain A\nchain B\n"
-		naming_index = "name {0} bottom{2}\nname {1} top{2}\n".format(self.nb_index, self.nb_index+1,self.lipid_type)
+		naming_index = "name {0} bottom{2}\nname {1} top{2}\n".format(self.nb_index, self.nb_index+1, self.lipid_type)
 		count_index = 2
 		
 		
@@ -1986,6 +1987,7 @@ class Membrane(BaseProject):
 		
 		#naming the bilayer
 		naming_index += "{0} | {1}\nname {2} bilayer\nq\n".format(self.nb_index, self.nb_index+1, self.nb_index+count_index)
+		count_index += 1
 		
 		self.nb_index += count_index
 		# Writing the script to file
@@ -2117,6 +2119,7 @@ class Solvent(BaseProject):
 		
 		if self.lz_vaccum is not None:
 			self.dimensions['LZ'] = self.lz_vaccum
+		
 		# Calling packmol, vmd and gmx make_index
 		self.create_sample()
 		
@@ -2190,8 +2193,8 @@ class Solvent(BaseProject):
 											packmol_instruction_mol)
 				prev_radius = self.radius
 				shift += self.radius / nb_solvent
-			
-			self.nb_index += 1
+				
+				self.nb_index += 1
 		
 		else:
 			for chain, sol in enumerate(self.solvent_types):
@@ -2218,7 +2221,7 @@ class Solvent(BaseProject):
 								
 				shift += self.dimensions['LZ'] / nb_solvent
 				
-			self.nb_index += 1
+				self.nb_index += 1
 		
 		if self.su is not None:
 			self.packmol_input += """
@@ -2240,9 +2243,9 @@ class Solvent(BaseProject):
 			su_type = self.su['SuType'] + (4 - len(self.su['SuType']))*' '
 			
 			atom_type = None
-			if 'SU' in self.su['SuType']:
+			if self.su['SuType'].startswith('SU'):
 				atom_type = self.su['SuType'][-2:] + (3 - len(self.su['SuType'][-2:]))*' '
-			elif 'S' in self.su['SuType']:
+			elif self.su['SuType'].startswith('S'):
 				atom_type = self.su['SuType'][-3:] + (3 - len(self.su['SuType'][-3:]))*' '
 			
 			su_pdb_content = pdb_file_list['SU']['content'].replace("TEMP", su_type)
@@ -2270,11 +2273,15 @@ class Solvent(BaseProject):
 		sub.call(packmol_cmd, shell=True)
 		
 		#Convert the pdb to gro and put the pbc then check the box vectors at the end of the .gro
+		shell_wall = 0.0
+		if self.wall is not None:
+			shell_wall += 5.0
 		editconf_cmd = str("{0} editconf -f {1}.pdb -o {1}.gro "
-							"-box {2} {3} {4} -c no").format(self.softwares['GROMACS_LOC'], self.system,
-														0.1*self.dimensions['LX'], 0.1*self.dimensions['LY'], 0.1*self.dimensions['LZ'])
-		
+							"-box {2} {3} {4} -c no ").format(self.softwares['GROMACS_LOC'], self.system,
+														0.1*self.dimensions['LX'], 0.1*self.dimensions['LY'], 0.1*(self.dimensions['LZ']+shell_wall),
+														shell_wall/20.)
 		sub.call(editconf_cmd, shell=True, stdout=open('pdb2gro.txt','w'), stderr=open('err_pdb2gro.txt','w'))
+		#-translate 0. 0. {5}
 		"""
 		write_box = str("
 			mol load pdb {0}.pdb
@@ -2305,13 +2312,14 @@ class Solvent(BaseProject):
 		
 		if self.su is not None:
 			make_index += "chain S\n"
-			naming_index += "name {0} su\n".format(self.nb_index+count_index)
+			naming_index += "name {0} su\n".format(self.nb_index)
 			count_index += 1
+		
+		self.nb_index += count_index
 		
 		naming_index += "q\n"
 		# Writing the script to file
 		make_index_str = make_index + naming_index
-		
 		with open('make_index.input','w+') as make_index_script:
 			make_index_script.write(make_index_str)
 		
