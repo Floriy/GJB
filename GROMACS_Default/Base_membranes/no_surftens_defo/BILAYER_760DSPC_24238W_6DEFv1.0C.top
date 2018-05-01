@@ -1,0 +1,12 @@
+#include "martini_v2.2_DEFv1.0C.itp"
+#include "martini_v2.0_lipids.itp"
+
+#include "defos_topo.itp"
+
+[ system ]
+BILAYER_760DSPC_24238W_6DEFv1.0C
+
+[ molecules ]
+DSPC 760
+W 24238
+DEFB 1

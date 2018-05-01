@@ -101,7 +101,7 @@ SUP 72.0 0.000 A 0.0 0.0
                                                                                 
 [ atoms ]
 ;id   type  resnr   residu  atom  cgnr  charge
-; 1  SU   1   SUI  SUI  1   0
+; 1  SUI   1   SUI  SUI  1   0
 
 [ moleculetype ]
 ; molname    nrexcl
@@ -160,7 +160,7 @@ SUP 72.0 0.000 A 0.0 0.0
                                                                                 
 [ atoms ]
 ;id   type  resnr   residu  atom  cgnr  charge
- 1    SUN    1      SUNda   SUN 1     0
+ 1    SUN    1      SSUN   SUN 1     0
 
 [ moleculetype ]
 ; molname    nrexcl
@@ -168,6 +168,6 @@ SUP 72.0 0.000 A 0.0 0.0
                                                                                 
 [ atoms ]
 ;id   type  resnr   residu  atom  cgnr  charge
- 1    SUP    1      SUP4    SUP 1     0
+ 1    SUP    1      SSUP    SUP 1     0
 #####################################################################
 #####################################################################

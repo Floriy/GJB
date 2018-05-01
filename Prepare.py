@@ -134,7 +134,7 @@ class BaseProject(object):
 			self.sample_molecules = sample['SAMPLE']
 			self.type = sample['TYPE']
 			
-			
+			self.geometry = sample['GEOMETRY']
 			self.dimensions = {'LX': float(sample['GEOMETRY']['LX']),
 								'LY': float(sample['GEOMETRY']['LY']), 
 								'LZ': float(sample['GEOMETRY']['LZ'])}
@@ -150,15 +150,26 @@ class BaseProject(object):
 			if 'Radius' in sample['GEOMETRY']:
 				self.radius = sample['GEOMETRY']['Radius']
 			
+			#defo related
 			self.defo = None
+			
+			#su related
 			self.su = None
+			self.nb_su = None
+			
+			# monolayer related
 			self.mono = None
+			
+			#wall related
 			self.wall = None
+			
+			#thermostat related
 			self.thermostat = None
 			
 			if 'DEFO' in sample:
 				self.defo = sample['DEFO']
-				
+				self.defo_dict = {'DEFB' : {} }
+			
 			if 'SU' in sample:
 				self.su = sample['SU']
 				
@@ -207,8 +218,112 @@ class BaseProject(object):
 								filetype pdb\n"""
 		self.packmol_input += """
 								sidemax 1000000"""
+	
+	
+	
+	def from_input(self, inputs):
+		""" Method to create sample from already existing configuration
+		"""
+		self.lipid_type = None
+		self.solvent_type = None
+		
+		for lipid in self.lipid_list:
+			if lipid in self.sample_molecules:
+				self.lipid_type = lipid
+				
+		self.lipid_types = [self.lipid_type]
+				
+		self.solvent_types = []
+		
+		for sol in self.solvent_list:
+			if sol in self.sample_molecules:
+				self.solvent_types.append(sol)
+
+		
+		print("Looking for .gro file: {0}".format(inputs['GRO']))
+		file_found = glob.glob(inputs['GRO'])
+		
+		assert(file_found), "{0} not found".format(inputs['GRO'])
+		gro_file = file_found[0]
+		
+		path = ""
+		if '/' in gro_file:
+			path = '/'.join(gro_file.split('/')[:-1])
+		
+		gro_file = gro_file.split('/')[-1]
+		print("Using: {0}".format(gro_file) )
+		
+		system = '_'.join(gro_file.split('_')[:-1])
+		
+		if 'TOP' not in inputs:
+			top_file = system + '.top'
+		else:
+			top_file = inputs['TOP']
+		
+		if 'NDX' not in inputs:
+			ndx_file = system + '.ndx'
+		else:
+			ndx_file = inputs['NDX']
+		
+		if 'TPR' not in inputs:
+			tpr_file = system + '.tpr'
+		else:
+			tpr_file = inputs['TPR']
+			
+		try:
+			sub.call( "cp {0} ./{1}.gro".format( '{0}/{1}'.format(path, gro_file), system ), shell=True)
+			#sub.call( "cp {0} .".format( '{0}/{1}'.format(path, top_file) ), shell=True)
+			sub.call( "cp {0} ./{1}.tpr".format( '{0}/{1}'.format(path, tpr_file), system ), shell=True)
+			sub.call( "cp {0} .".format( '{0}/{1}'.format(path, ndx_file) ), shell=True)
+		except IOError as e:
+			print(e)
+		
+		#Retrieving the index
+		self.nb_index = None
+		if self.type == 'BILAYER':
+			self.nb_index = 8
+			
+			if self.defo:
+				self.nb_index += 2
+				
+			if self.su:
+				self.nb_index += 2
+			
+			if self.mono:
+				self.nb_index += 1
+		
+		if self.type == 'SOLVENT':
+			self.nb_index = 2
+			
+			for sol in self.solvent_types:
+				self.nb_index += 1
+			
+			if self.su:
+				self.nb_index += 2
+		
+		try:
+			if self.defo:
+				sub.call( "cp {0}/defos_topo.itp .".format(path), shell=True)
+				sub.call( "cp {0}/defo_posres_DEFB_gen.itp .".format(path), shell=True)
+				
+			if self.su:
+				sub.call( "cp {0}/su_posres_gen.itp .".format(path), shell=True)
 			
 			
+		except IOError as e:
+			print(e)
+				
+		self.output_file = "{0}.gro".format(system)
+		self.system = system
+		self.index_file = ndx_file
+		
+		self.create_topology()
+		
+		return system, self.output_file, ndx_file
+	
+	
+	def make(self):
+		pass
 	
 	def write_packmol_input(self):
 		pass
@@ -261,10 +376,10 @@ class BaseProject(object):
 		su_type = self.su['SuType'] + (4 - len(self.su['SuType']))*' '
 		
 		atom_type = None
-		if 'SU' in self.su['SuType']:
+		if self.su['SuType'].startswith('SU'):
 			atom_type = self.su['SuType'][-2:] + (3 - len(self.su['SuType'][-2:]))*' '
-		
-		elif 'S' in self.su['SuType']:
+			
+		elif self.su['SuType'].startswith('S'):
 			atom_type = self.su['SuType'][-3:] + (3 - len(self.su['SuType'][-3:]))*' '
 		
 		su_pdb_content = pdb_file_list['SU']['content'].replace("TEMP", su_type)
@@ -421,6 +536,8 @@ class BaseProject(object):
 		
 		return cmd, file_output, file_index, self.system
 		
+	def Padd_substrate_in_run(self, sample, md_step, previous_cmd_files, prefix_gromacs_grompp, prefix_gromacs_mdrun):
+		pass
 	
 	def add_wall_in_run(self, sample, md_step, previous_cmd_files, prefix_gromacs_grompp, prefix_gromacs_mdrun):
 		""" Method writing bash commands to include walls in the middle of the runs
@@ -456,7 +573,7 @@ class BaseProject(object):
 		#cmd += """if (( $(echo "$min < 0.0" | bc -l) )); then\n"""
 		cmd += "    offset=0.3\n"
 		cmd += """    trans=$(echo "$offset - $min" | bc -l)\n"""
-		cmd += """    nnLZ=$(awk -vZ=$LZ -vM=$trans 'BEGIN{ print Z+M }')\n"""
+		cmd += """    nnLZ=$(awk -vZ=$LZ -vM=$offset 'BEGIN{ print Z+M }')\n"""
 		cmd += """ echo $nnLZ \n"""
 		
 		
@@ -465,14 +582,14 @@ class BaseProject(object):
 		cmd += self.write_check_pbc('temp_for_adding_wall_1.gro')
 		
 		cmd += "    {0} editconf -f {1} -o {2} -box $LX $LY $nnLZ -c no \n".format(prefix_gromacs_grompp,
-																'temp_for_adding_wall_1.gro', 'temp_for_adding_wall_2.gro')
+																'temp_for_adding_wall_1.gro', file_output)
 		
 		
-		cmd += self.write_check_pbc('temp_for_adding_wall_2.gro')
+		#cmd += self.write_check_pbc('temp_for_adding_wall_2.gro')
 		
-		cmd += "    {0} editconf -f {1} -o {2} -translate 0. 0. $trans\n\n".format(prefix_gromacs_grompp,
-																			'temp_for_adding_wall_2.gro',
-																			file_output)
+		#cmd += "    {0} editconf -f {1} -o {2} -translate 0. 0. $trans\n\n".format(prefix_gromacs_grompp,
+																			#'temp_for_adding_wall_2.gro',
+																			#file_output)
 		
 		
 		cmd += self.write_check_pbc(file_output)
@@ -548,12 +665,20 @@ class BaseProject(object):
 				auto_T_coupling_grps = False
 				
 		if 'tau-t' in self.protocol[md_step]:
-			if ' ' in str(self.protocol[md_step]['tau-t']).strip() or 'System' in str(self.protocol[md_step]['tau-t']).strip():
+			if ' ' in str(self.protocol[md_step]['tau-t']).strip():
+				Tau_T_coupling_grps += str(self.protocol[md_step]['tau-t']) + ' '
+				auto_tau_T_coupling_grps = False
+				
+			elif not auto_T_coupling_grps:
 				Tau_T_coupling_grps += str(self.protocol[md_step]['tau-t']) + ' '
 				auto_tau_T_coupling_grps = False
 				
 		if 'ref-t' in self.protocol[md_step]:
-			if ' ' in str(self.protocol[md_step]['ref-t']).strip() or 'System' in str(self.protocol[md_step]['ref-t']).strip():
+			if ' ' in str(self.protocol[md_step]['ref-t']).strip():
+				ref_t_T_coupling_grps += str(self.protocol[md_step]['ref-t']) + ' '
+				auto_ref_t_T_coupling_grps = False
+				
+			elif not auto_T_coupling_grps:
 				ref_t_T_coupling_grps += str(self.protocol[md_step]['ref-t']) + ' '
 				auto_ref_t_T_coupling_grps = False
 				
@@ -993,7 +1118,14 @@ class BaseProject(object):
 						elif 'PLACE_FOR_DEFO' in line:
 							temp_out2 += self.include_defo_topology['nonbond_params']
 							if self.su is not None:
-								temp_out2 += 'DEF SU 1 0.0 0.0 ;\n'
+								atom_type = None
+								if self.su['SuType'].startswith('SU'):
+									atom_type = self.su['SuType'][-2:] + (3 - len(self.su['SuType'][-2:]))*' '
+									
+								elif self.su['SuType'].startswith('S'):
+									atom_type = self.su['SuType'][-3:] + (3 - len(self.su['SuType'][-3:]))*' '
+									
+								temp_out2 += 'DEF  {0}  1     0.0 0.0 ;\n'.format(atom_type)
 							temp_out2 += '\n'
 							
 						else:
@@ -1105,6 +1237,11 @@ class Membrane(BaseProject):
 		super(Membrane, self).__init__(sample, softwares, path_to_default)
 		
 		
+		
+		
+		
+	
+	def make(self):
 		self.nb_lipid_monolayer = {}
 		self.nb_solvent_per_monolayer = {}
 		self.lipid_type = None
@@ -1133,11 +1270,11 @@ class Membrane(BaseProject):
 			self.dz = 10.0
 		else:
 			assert(False), "Your Parameters.csv contains a lipid not yet defined in Prepare.py"
-		
+			
 		# Setting the bilayer position
 		self.bilayer_height = None
-		if 'BilayerHeight' in sample['GEOMETRY']:
-			self.bilayer_height = sample['GEOMETRY']['BilayerHeight']
+		if 'BilayerHeight' in self.geometry:
+			self.bilayer_height = self.geometry['BilayerHeight']
 		else:
 			self.bilayer_height = self.dimensions['LZ']/2.0
 		
@@ -1195,8 +1332,6 @@ class Membrane(BaseProject):
 		
 		# creating the topology for su and defo if in sample
 		self.create_topology()
-	
-	
 	
 	
 	def adjust_bilayer_position(self):
@@ -2055,6 +2190,7 @@ class Solvent(BaseProject):
 	def __init__(self, sample, softwares, path_to_default):
 		super(Solvent, self).__init__(sample, softwares, path_to_default)
 		
+	def make(self):
 		self.solvent_types = []
 		
 		self.LX = 0.0
@@ -2096,7 +2232,7 @@ class Solvent(BaseProject):
 			self.LY = self.dimensions['LY']
 			self.LZ = self.dimensions['LZ']
 				
-		self.finding_molecules(sample)
+		self.finding_molecules()
 		
 		self.system = self.system = "{0}".format(self.type)
 		for sol in self.solvent_types:
@@ -2128,7 +2264,7 @@ class Solvent(BaseProject):
 		
 		
 	
-	def finding_molecules(self, sample):
+	def finding_molecules(self):
 		""" Method to find the molecules and associate their number from csv file.
 		"""
 		for sol in self.solvent_list:
@@ -2278,8 +2414,7 @@ class Solvent(BaseProject):
 			shell_wall += 5.0
 		editconf_cmd = str("{0} editconf -f {1}.pdb -o {1}.gro "
 							"-box {2} {3} {4} -c no ").format(self.softwares['GROMACS_LOC'], self.system,
-														0.1*self.dimensions['LX'], 0.1*self.dimensions['LY'], 0.1*(self.dimensions['LZ']+shell_wall),
-														shell_wall/20.)
+														0.1*self.dimensions['LX'], 0.1*self.dimensions['LY'], 0.1*(self.dimensions['LZ']+shell_wall))
 		sub.call(editconf_cmd, shell=True, stdout=open('pdb2gro.txt','w'), stderr=open('err_pdb2gro.txt','w'))
 		#-translate 0. 0. {5}
 		"""

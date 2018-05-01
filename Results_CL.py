@@ -84,10 +84,10 @@ HTMLfoot = str("""
 #*******************************************#
 #*******************************************#
 #*******************************************#
-
-OrderParam = sys.argv[2] #if number use this number for P2 computation if -- P2 not computed
-ProjectName = sys.argv[3] #Name of the main directory
-Parameters = sys.argv[4:] #Name of the runs to study
+gmx_path = sys.argv[2]
+OrderParam = sys.argv[3] #if number use this number for P2 computation if -- P2 not computed
+ProjectName = sys.argv[4] #Name of the main directory
+Parameters = sys.argv[5:] #Name of the runs to study
 
 #List for word completion in the interactive part
 WordsForCompletion = ['all','-run','-avg','exit','-sameplot']
@@ -112,17 +112,11 @@ print(RunsToStudy)
 with Utility.cd(ProjectName):
 
 	#Finds Gromacs path#
-	ParamFile = glob.glob('*Param*.csv')[0]
-	with open(ParamFile,'r') as Input_Params:
-			Reader = csv.reader(Input_Params, delimiter=',', quotechar='#',skipinitialspace=True)
-			for row in Reader:
-				if(row[0] == 'GROMACS_LOC'):
-					GROMACS_PATH = row[1]
-					break
-
-	if(GROMACS_PATH[GROMACS_PATH.rfind('S')+1] == '4'):
+	GROMACS_PATH = gmx_path
+        TEST_PATH = GROMACS_PATH.uppercase()
+	if(TEST_PATH[TEST_PATH.rfind('S')+1] == '4'):
 		GROMACS_LOC_prefixPath = GROMACS_PATH + '/g_'
-	if( GROMACS_PATH.find('2016') != -1):
+	if( TEST_PATH.find('2016') != -1):
 		GROMACS_LOC_prefixPath = GROMACS_PATH + '/gmx '
 	
 	##########print(GROMACS_LOC_prefixPath)
@@ -138,6 +132,10 @@ with Utility.cd(ProjectName):
 	#Creates the base directory
 	if(not os.path.isdir("Analysis")):
 		os.mkdir("Analysis")
+                #Creates the base directory
+	        if(not os.path.isdir("Analysis/Density")):
+		    os.mkdir("Analysis/Density")
+
 	else:
 		shutil.rmtree('Analysis')
 		os.mkdir("Analysis")
@@ -212,7 +210,7 @@ with Utility.cd(ProjectName):
 				
 				for name in os.listdir(os.getcwd()):
 					if (name.endswith('gro')):
-						if ((RTS+'_out.gro') in name):
+						if ((RTS+'.gro') in name):
 							GroFound = name
 				
 				print("""Found final gro file {0} in {1}""".format(GroFound,Smpl))
@@ -228,78 +226,6 @@ with Utility.cd(ProjectName):
 					VariablesForOutput += 'echo {0}\\n;'.format(i)
 				VariablesForOutput += '\\n;\\n;'
 				
-				#OLD version
-				if(False): print('Nothing')
-					#######print(Types[Smpl.split(suffix)[0]])
-					##################print(Perf)
-					#if('NVE' in RTS):
-						## ------------------------------ OPTIONS FOR NVE with lipids------------------- #
-						## ----------------------------------------------------------------------------- #
-						## 1  Bond             2  G96Angle         3  LJ-(SR)          4  Coulomb-(SR)   #
-						## 5  Potential        6  Kinetic-En.      7  Total-Energy     8  Temperature    #
-						## 9  Pressure        10  Vir-XX          11  Vir-XY          12  Vir-XZ         #
-						## 13  Vir-YX          14  Vir-YY          15  Vir-YZ          16  Vir-ZX        #
-						## 17  Vir-ZY          18  Vir-ZZ          19  Pres-XX         20  Pres-XY       #
-						## 21  Pres-XZ         22  Pres-YX         23  Pres-YY         24  Pres-YZ       #
-						## 25  Pres-ZX         26  Pres-ZY         27  Pres-ZZ         28  #Surf*SurfTen #
-						## 29  Coul-SR:DSPC-DSPC                   30  LJ-SR:DSPC-DSPC                   #
-						## 31  Coul-SR:DSPC-W  32  LJ-SR:DSPC-W    33  Coul-SR:W-W     34  LJ-SR:W-W     #
-						## 35  T-DSPC          36  T-W                                                   #
-						## ----------------------------------------------------------------------------- #
-						## ------------------------OPTIONS FOR NVE with Solvent------------------------- #
-						## 1  LJ-(SR)          2  Coulomb-(SR)     3  Potential        4  Kinetic-En.    #
-						## 5  Total-Energy     6  Temperature      7  Pressure         8  Vir-XX         #
-						## 9  Vir-XY          10  Vir-XZ          11  Vir-YX          12  Vir-YY         #
-						## 13  Vir-YZ          14  Vir-ZX          15  Vir-ZY          16  Vir-ZZ        #
-						## 17  Pres-XX         18  Pres-XY         19  Pres-XZ         20  Pres-YX       #
-						## 21  Pres-YY         22  Pres-YZ         23  Pres-ZX         24  Pres-ZY       #
-						## 25  Pres-ZZ         26  #Surf*SurfTen   27  T-W                               #
-						#if Types[Smpl.split(suffix)[0]] == 'SOLVENT':
-							#VariablesForOutput = 'echo 3\\n;echo 4\\n;echo 5\\n;echo 6\\n;echo 7\\n;'
-						#if Types[Smpl.split(suffix)[0]] == 'BILAYER' or Types[Smpl.split(suffix)[0]] == 'FREE_BILAYER':
-							#VariablesForOutput = 'echo 5\\n;echo 6\\n;echo 7\\n;echo 8\\n;echo 9\\n;echo 28\\n;'
-					#if('NPT' in RTS):
-						##  ------------------------------- OPTIONS FOR NPT with Lipids ----------------  #
-						##   1  Bond             2  G96Angle         3  LJ-(SR)          4  Coulomb-(SR)  #
-						##   5  Potential        6  Kinetic-En.      7  Total-Energy     8  Temperature   #
-						##   9  Pressure        10  Box-X           11  Box-Y           12  Box-Z         #
-						##  13  Volume          14  Density         15  pV              16  Enthalpy      #
-						##  17  Vir-XX          18  Vir-XY          19  Vir-XZ          20  Vir-YX        #
-						##  21  Vir-YY          22  Vir-YZ          23  Vir-ZX          24  Vir-ZY        #
-						##  25  Vir-ZZ          26  Pres-XX         27  Pres-XY         28  Pres-XZ       #
-						##  29  Pres-YX         30  Pres-YY         31  Pres-YZ         32  Pres-ZX       #
-						##  33  Pres-ZY         34  Pres-ZZ         35  #Surf*SurfTen   36  Box-Vel-XX    #
-						##  37  Box-Vel-YY                          38  Box-Vel-ZZ                        #
-						##  39  Coul-SR:DSPC-DSPC                   40  LJ-SR:DSPC-DSPC                   #
-						##  41  Coul-SR:DSPC-W  42  LJ-SR:DSPC-W    43  Coul-SR:W-W     44  LJ-SR:W-W     #
-						##  45  T-DSPC          46  T-W             47  Lamb-DSPC       48  Lamb-W        #
-						## -----------------------------------------------------------------------------  #
-						## --------------------OPTIONS FOR NPT with Solvent and Berendsen---------------  #
-						## 1  LJ-(SR)          2  Coulomb-(SR)     3  Potential        4  Kinetic-En.     #
-						## 5  Total-Energy     6  Temperature      7  Pressure         8  Box-X           #
-						## 9  Box-Y           10  Box-Z           11  Volume          12  Density         #
-						## 13  pV              14  Enthalpy        15  Vir-XX          16  Vir-XY         #
-						## 17  Vir-XZ          18  Vir-YX          19  Vir-YY          20  Vir-YZ         #
-						## 21  Vir-ZX          22  Vir-ZY          23  Vir-ZZ          24  Pres-XX        #
-						## 25  Pres-XY         26  Pres-XZ         27  Pres-YX         28  Pres-YY        #
-						## 29  Pres-YZ         30  Pres-ZX         31  Pres-ZY         32  Pres-ZZ        #
-						## 33  #Surf*SurfTen   34  T-W             35  Lamb-W                             #
-						## ---------------OPTIONS FOR NPT with Solvent and PR --------------------------  #
-						## 1  LJ-(SR)          2  Coulomb-(SR)     3  Potential        4  Kinetic-En.     #
-						## 5  Total-Energy     6  Temperature      7  Pressure         8  Box-X           #
-						## 9  Box-Y           10  Box-Z           11  Volume          12  Density         #
-						## 13  pV              14  Enthalpy        15  Vir-XX          16  Vir-XY         #
-						## 17  Vir-XZ          18  Vir-YX          19  Vir-YY          20  Vir-YZ         #
-						## 21  Vir-ZX          22  Vir-ZY          23  Vir-ZZ          24  Pres-XX        #
-						## 25  Pres-XY         26  Pres-XZ         27  Pres-YX         28  Pres-YY        #
-						## 29  Pres-YZ         30  Pres-ZX         31  Pres-ZY         32  Pres-ZZ        #
-						## 33  #Surf*SurfTen   34  Box-Vel-XX      35  Box-Vel-YY      36  Box-Vel-ZZ     #
-						## 37  T-W             38  Lamb-W                                                 #
-						#if Types[Smpl.split(suffix)[0]] == 'SOLVENT':
-							#if 'W' in molecules and 'OCO' in molecules: 
-								#VariablesForOutput = 'echo 3\\n;echo 6\\n;echo 7\\n;echo 8\\n;echo 9\\n;echo 10\\n;'
-						#if Types[Smpl.split(suffix)[0]] == 'BILAYER' or Types[Smpl.split(suffix)[0]] == 'FREE_BILAYER':
-							#VariablesForOutput = 'echo 8\\n;echo 10\\n;echo 11\\n;echo 12\\n;echo 26\\n;echo 30\\n;echo 34\\n;echo 35\\n;'
 							
 				for RF in RunsFound:
 					Input = RF
@@ -352,7 +278,7 @@ with Utility.cd(ProjectName):
 									Perf[samplename][RTS].update( { 'hour/ns' : temp[2]} )
 
 	############print(Perf)
-	with Utility.cd("Analysis"):
+	with Utility.cd("Analysis"): 
 		XVGfiles = [ name for name in os.listdir(os.getcwd()) if name.endswith('.xvg') if not name.startswith('#')]
 		OrderDATfiles = [ name for name in os.listdir(os.getcwd()) if name.endswith('order.dat') if not name.startswith('#')]
 		

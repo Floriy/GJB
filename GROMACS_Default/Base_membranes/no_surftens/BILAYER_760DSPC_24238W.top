@@ -1,0 +1,9 @@
+#include "martini_v2.2.itp"
+#include "martini_v2.0_lipids.itp"
+
+[ system ]
+BILAYER_760DSPC_24238W
+
+[ molecules ]
+DSPC 760
+W 24238

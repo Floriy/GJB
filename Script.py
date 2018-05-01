@@ -40,7 +40,11 @@ def main(argv=sys.argv):
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-s','--send', dest='send', type=str, required=True,
 						help='Set the type for sending jobs: local, pbs, tgcc')
-	parser.add_argument('-p','--param', dest='parameter', type=str, default=None,
+	
+	parser.add_argument('-c','--create', dest='create', type=str, default='local',
+						help='Set the type for creating the samples : local, pbs, tgcc')
+	
+	parser.add_argument('-p','--param', dest='parameter', type=str, default="Parameters.csv",
 						help='Set the parameter file to use for jobs')
 
 	cmd_param = parser.parse_args(sys.argv[1:])
@@ -55,10 +59,7 @@ def main(argv=sys.argv):
 	#**********************************************#
 
 	#Default name for the parameter file.
-	parameter_file = "Parameters.csv"
-
-	if cmd_param.parameter is not None:
-		parameter_file = cmd_param.parameter
+	parameter_file = cmd_param.parameter
 	
 	if cmd_param.send == 'pbs':
 		with open('PBSinfo.csv') as pbs_info:
@@ -500,6 +501,8 @@ def main(argv=sys.argv):
 								#Associates the parameters set in Parameters.csv to the correct protocol step dictionary
 								for index, param in enumerate(row[1:]):
 									if param:
+										if param.startswith('#'):
+											continue
 										Jobs[jobNumber]['PROTOCOL'][stepNb]['presets'][preset_name].update( { param.strip(' ') : index } )
 								
 								
@@ -543,12 +546,16 @@ def main(argv=sys.argv):
 							Jobs[jobNumber]['WALL'].update( {'wallProtocol' : wallProtocol} )
 						
 						if protocol == 'RUNTYPE':
-							# Either PROD or PREP for production and preparation resp.
-							runProtocol = ['PREP']
+							# Either CREATE or PROD for creating and production resp.
+							runProtocol = ['CREATE']
 							runProtocol.extend(row[index+2].split('+'))
-							Jobs[jobNumber]['RUNTYPE'] = {'runProtocol' : runProtocol}
+							Jobs[jobNumber]['RUNTYPE'] = runProtocol
 						
 						
+					if 'RUNTYPE' not in Jobs[jobNumber]:
+						runProtocol = ['CREATE']
+						runProtocol.extend(['PROD']*100)
+						Jobs[jobNumber]['RUNTYPE'] =  runProtocol
 					
 					continue
 				
@@ -643,12 +650,20 @@ def main(argv=sys.argv):
 		if not os.path.isdir(directory):
 			os.mkdir(directory)
 
-		script_file = open("{0}/run.sh".format(directory),'w')
-		script_file.truncate()
+		script_file_create = open("{0}/create.sh".format(directory),'w')
+		script_file_create.truncate()
+		
+		script_file_prod = open("{0}/run.sh".format(directory),'w')
+		script_file_prod.truncate()
+		
+		create_to = ""
+		prefix_gromacs_mdrun_create = ""
+		prefix_gromacs_grompp_create = ""
 		
 		copy_to = ""
-		prefix_gromacs_mdrun = ""
-		prefix_gromacs_grompp = ""
+		prefix_gromacs_mdrun_prod = ""
+		prefix_gromacs_grompp_prod = ""
+		
 		
 		if cmd_param.send == 'local':
 			copy_to = """
@@ -659,8 +674,8 @@ def main(argv=sys.argv):
 
 							""".format(name)
 							
-			prefix_gromacs_grompp = Softwares['GROMACS_LOC']
-			prefix_gromacs_mdrun = Softwares['GROMACS_LOC']
+			prefix_gromacs_grompp_prod = Softwares['GROMACS_LOC']
+			prefix_gromacs_mdrun_prod = Softwares['GROMACS_LOC']
 			
 		elif cmd_param.send == 'pbs':
 			copy_to = """
@@ -673,8 +688,8 @@ def main(argv=sys.argv):
 
 						""".format(project_name, name, PBS['username'] )
 			
-			prefix_gromacs_grompp = Softwares['GROMACS_REM']
-			prefix_gromacs_mdrun = Softwares['GROMACS_REM']
+			prefix_gromacs_grompp_prod = Softwares['GROMACS_REM']
+			prefix_gromacs_mdrun_prod = Softwares['GROMACS_REM']
 			
 		elif cmd_param.send == 'tgcc':
 			copy_to = """
@@ -688,10 +703,50 @@ def main(argv=sys.argv):
 						
 						""".format(project_name, name, TGCC['username'], TGCC['GMXversion'], parameter_file)
 						
-			prefix_gromacs_grompp = "gmx_mpi "
-			prefix_gromacs_mdrun = "ccc_mprun gmx_mpi "
+			prefix_gromacs_grompp_prod = "gmx_mpi "
+			prefix_gromacs_mdrun_prod = "ccc_mprun gmx_mpi "
 			
-		script_file.write(ut.RemoveUnwantedIndent(copy_to))
+		# Samples creation #
+		if cmd_param.create == 'local':
+			create_to = """
+							#!/bin/bash +x
+
+							""".format(name)
+							
+			prefix_gromacs_grompp_create = Softwares['GROMACS_LOC']
+			prefix_gromacs_mdrun_create = Softwares['GROMACS_LOC']
+			
+		elif cmd_param.create == 'pbs':
+			create_to = """
+						#!/bin/bash +x
+						mkdir -p /scratch/{2}/gromacs/{0}
+						cd ..
+						LOCALDIR="$(pwd)"
+						cp -r {1} /scratch/{2}/gromacs/{0}
+						cd /scratch/{2}/gromacs/{0}/{1}
+
+						""".format(project_name, name, PBS['username'] )
+			
+			prefix_gromacs_grompp_create = Softwares['GROMACS_REM']
+			prefix_gromacs_mdrun_create = Softwares['GROMACS_REM']
+			
+		elif cmd_param.create == 'tgcc':
+			create_to = """
+						#!/bin/bash +x
+						
+						# ADDAPT AUTOMATICALLY TO GROMACS VERSION ?
+						# OR AT LEAST VERIFY THAT THE TWO VERSION INFORMATION
+						# IN {4} and TGCCinfo.csv ARE CONSISTENT  ?
+						
+						module load {3}
+						
+						""".format(project_name, name, TGCC['username'], TGCC['GMXversion'], parameter_file)
+						
+			prefix_gromacs_grompp_create = "gmx_mpi "
+			prefix_gromacs_mdrun_create = "ccc_mprun gmx_mpi "
+		
+		script_file_create.write(ut.RemoveUnwantedIndent(create_to))
+		script_file_prod.write(ut.RemoveUnwantedIndent(copy_to))
 		
 		previous_cmd_files={}
 		
@@ -736,9 +791,14 @@ def main(argv=sys.argv):
 		#Go into the corresponding directory
 		with ut.cd(project_name+'/'+name):
 			output_filename=''
-			script_file = open('run.sh','a+')
-			script_file.write('mkdir -p mdrun_out\n')
-			script_file.write('mkdir -p grompp_out\n')
+			script_file_prod = open('run.sh','a+')
+			script_file_prod.write('mkdir -p mdrun_out\n')
+			script_file_prod.write('mkdir -p grompp_out\n')
+			
+			script_file_create = open('create.sh','a+')
+			script_file_create.write('mkdir -p create_mdrun_out\n')
+			script_file_create.write('mkdir -p create_grompp_out\n')
+			
 			so_far_file = """{0}_SoFar.txt""".format(name)
 			so_far_file = open(so_far_file, 'w')
 			
@@ -755,9 +815,13 @@ def main(argv=sys.argv):
 					if current_job['TYPE'] in ['BILAYER','TRILAYER']:
 						Sample = Prepare.Membrane(current_job, Softwares, path_to_default)
 						
+						
 					if current_job['TYPE'] in ['SOLVENT']:
 						Sample = Prepare.Solvent(current_job, Softwares, path_to_default)
 						
+					
+					Sample.make()
+					
 					so_far_file.write(str("""{0} done \n""").format(current_job['PROTOCOL'][md_step]['stepType']))
 					
 					previous_cmd_files = {'SYSTEM': None, 'OUTPUT': None, 'INDEX': None}
@@ -766,7 +830,7 @@ def main(argv=sys.argv):
 					continue
 				
 				#============================================================
-				#					STEP IS INPUT (need .gro, .ndx, .top, .itp)
+				#					STEP IS INPUT (need .gro, .ndx, .top, .itp, .tpr)
 				#============================================================
 				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('INPUT'):
 					""" This step will copy the file you put in Parameters.csv.
@@ -775,39 +839,15 @@ def main(argv=sys.argv):
 						You can also change the bonds parameter and Mass if wanted.
 						the protocol will be define in the same way as INPUT
 					"""
-					print("Looking for .gro file: {0}".format(current_job['PROTOCOL'][md_step]['GRO']))
-					file_found = glob.glob(current_job['PROTOCOL'][md_step]['GRO'])
 					
-					assert(file_found), "{0} not found".format(current_job['PROTOCOL'][md_step]['GRO'])
-					gro_file = file_found[0]
-					path = '/'.join(gro_file.split('/')[:-1])
-					
-					gro_file = gro_file.split('/')[-1]
-					print("Using: {0}".format(gro_file) )
-		   
-					if 'TOP' not in current_job['PROTOCOL'][md_step]:
-						top_file = '_'.join(gro_file.split('_')[:-2]) + '.top'
-					else:
-						top_file = current_job['PROTOCOL'][md_step]['TOP']
-					
-					if 'NDX' not in current_job['PROTOCOL'][md_step]:
-						ndx_file = '_'.join(gro_file.split('_')[:-2]) + '.ndx'
-					else:
-						ndx_file = current_job['PROTOCOL'][md_step]['NDX']
+					if current_job['TYPE'] in ['BILAYER','TRILAYER']:
+						Sample = Prepare.Membrane(current_job, Softwares, path_to_default)
 						
-					itp_files = glob.glob(path+'/*.itp')
-					
-					sub.call( "cp {0} .".format( '{0}/{1}'.format(path, gro_file) ), shell=True)
-					sub.call( "cp {0} .".format( '{0}/{1}'.format(path, top_file) ), shell=True)
-					sub.call( "cp {0} .".format( '{0}/{1}'.format(path, ndx_file) ), shell=True)
-					
-					for itp in itp_files:
-						sub.call( "cp {0} .".format(itp), shell=True)
+					if current_job['TYPE'] in ['SOLVENT']:
+						Sample = Prepare.Solvent(current_job, Softwares, path_to_default)
 					
 					previous_cmd_files = {'SYSTEM': None, 'OUTPUT': None, 'INDEX': None}
-					previous_cmd_files['SYSTEM'] = top_file.replace('.top','')
-					previous_cmd_files['OUTPUT'] = gro_file
-					previous_cmd_files['INDEX'] = ndx_file
+					previous_cmd_files['SYSTEM'], previous_cmd_files['OUTPUT'], previous_cmd_files['INDEX'] = Sample.from_input(current_job['PROTOCOL'][md_step])
 				
 					continue
 				
@@ -816,7 +856,7 @@ def main(argv=sys.argv):
 				#============================================================
 				
 				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('COPY') :
-					assert(1), "Copy not yet implemented"
+					assert(0), "Copy not yet implemented"
 					"""
 					CopyFrom = Jobs[ Jobs[job_number]['PROTOCOL'][step]['samplenumber'] ]['JOBID'] 
 					try:
@@ -833,7 +873,7 @@ def main(argv=sys.argv):
 					continue
 					"""
 				#============================================================
-				#					STEP IS INPUT (need .gro, .ndx, .top, .itp)
+				#					STEP IS TRANSLATE
 				#============================================================
 				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('TRANSLATE'):
 					TX = 0.1*current_job['PROTOCOL'][md_step]['X']
@@ -841,27 +881,95 @@ def main(argv=sys.argv):
 					TZ = 0.1*current_job['PROTOCOL'][md_step]['Z']
 					
 					output_file = previous_cmd_files['OUTPUT'].replace('.gro','_TRANSX{0}Y{1}Z{2}.gro'.format(TX, TY, TZ) )
-		
-					cmd = "    printf {0} | {1} trjconv -f {2} -s {2} -o {3} -trans {4} {5} {6} -pbc atom\n\n".format(repr("System\n"), prefix_gromacs_grompp,
-																												previous_cmd_files['OUTPUT'],
-																												output_file,
-																												TX, TY, TZ)
 					
-					sub.call(cmd, shell=True)
+					prefix_gromacs_grompp = None
+					prefix_gromacs_mdrun = None
+					
+					if 'RUNTYPE' in current_job:
+						if current_job['RUNTYPE'][int(md_step)] == 'CREATE':
+							prefix_gromacs_grompp = prefix_gromacs_grompp_create
+							prefix_gromacs_mdrun = prefix_gromacs_mdrun_create
+							
+						elif current_job['RUNTYPE'][int(md_step)] == 'PROD':
+							prefix_gromacs_grompp = prefix_gromacs_grompp_prod
+							prefix_gromacs_mdrun = prefix_gromacs_mdrun_prod
+					else:
+						prefix_gromacs_grompp = prefix_gromacs_grompp_prod
+						prefix_gromacs_mdrun = prefix_gromacs_mdrun_prod
+						
+					assert(prefix_gromacs_grompp is not None or prefix_gromacs_mdrun is not None), str("There was a problem in translating the "
+																								"sample (prefix for gromacs)")
+						
+					cmd = "    printf {0} | {1} trjconv -f {2} -s {2} -o {3} -trans {4} {5} {6} -pbc atom\n\n".format(repr("System\n"), 
+																													prefix_gromacs_grompp,
+																													previous_cmd_files['OUTPUT'],
+																													output_file,
+																													TX, TY, TZ)
+					
+					sofar_cmd = "echo 'Translating the sample done' >> {0}_SoFar.txt\n\n\n".format(name)
+					
+					if 'RUNTYPE' in current_job:
+						if current_job['RUNTYPE'][int(md_step)] == 'CREATE':
+							script_file_create.write(cmd)
+							script_file_create.write(sofar_cmd)
+							
+						elif current_job['RUNTYPE'][int(md_step)] == 'PROD':
+							script_file_prod.write(cmd)
+							script_file_prod.write(sofar_cmd)
+					else:
+						script_file_prod.write(cmd)
+						script_file_prod.write(sofar_cmd)
+						
 					previous_cmd_files['OUTPUT'] = output_file
+					
 					continue
 				
 				#============================================================
 				#					STEP IS ADDING SUBSTRATE WITH GROMACS
 				#============================================================
 				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('GADD_SU'):
-					cmd,  file_output, file_index, system = Sample.add_substrate_in_run(current_job, md_step, previous_cmd_files, 
-																						prefix_gromacs_grompp, prefix_gromacs_mdrun)
+					file_output = None
+					file_index = None
+					system = None
 					
-					script_file.write(cmd)
+					prefix_gromacs_grompp = None
+					prefix_gromacs_mdrun = None
+					
+					if 'RUNTYPE' in current_job:
+						if current_job['RUNTYPE'][int(md_step)] == 'CREATE':
+							prefix_gromacs_grompp = prefix_gromacs_grompp_create
+							prefix_gromacs_mdrun = prefix_gromacs_mdrun_create
+							
+						elif current_job['RUNTYPE'][int(md_step)] == 'PROD':
+							prefix_gromacs_grompp = prefix_gromacs_grompp_prod
+							prefix_gromacs_mdrun = prefix_gromacs_mdrun_prod
+					else:
+						prefix_gromacs_grompp = prefix_gromacs_grompp_prod
+						prefix_gromacs_mdrun = prefix_gromacs_mdrun_prod
+						
+					assert(prefix_gromacs_grompp is not None or prefix_gromacs_mdrun is not None), str("There was a problem in adding the "
+																								"substrate (prefix for gromacs)")
+						
+					cmd,  file_output, file_index, system = Sample.add_substrate_in_run(current_job, md_step,
+																							previous_cmd_files, 
+																							prefix_gromacs_grompp,
+																							prefix_gromacs_mdrun)
 					
 					sofar_cmd = "echo 'Inserting substrate done' >> {0}_SoFar.txt\n\n\n".format(name)
-					script_file.write(sofar_cmd)
+					
+					if 'RUNTYPE' in current_job:
+						if current_job['RUNTYPE'][int(md_step)] == 'CREATE':
+							script_file_create.write(cmd)
+							script_file_create.write(sofar_cmd)
+							
+						elif current_job['RUNTYPE'][int(md_step)] == 'PROD':
+							script_file_prod.write(cmd)
+							script_file_prod.write(sofar_cmd)
+					else:
+						script_file_prod.write(cmd)
+						script_file_prod.write(sofar_cmd)
+					
+					assert(file_output is not None or file_index is not None or system is not None), "There was a problem in adding the substrate"
 					
 					previous_cmd_files['OUTPUT'] = file_output
 					previous_cmd_files['INDEX'] = file_index
@@ -872,12 +980,44 @@ def main(argv=sys.argv):
 				#					STEP IS ADDING WALL
 				#============================================================
 				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('ADD_WALL') :
-					cmd, system , file_output = Sample.add_wall_in_run(current_job, md_step, previous_cmd_files, prefix_gromacs_grompp, prefix_gromacs_mdrun)
+					file_output = None
+					system = None
 					
-					script_file.write(cmd)
+					prefix_gromacs_grompp = None
+					prefix_gromacs_mdrun = None
+					
+					if 'RUNTYPE' in current_job:
+						if current_job['RUNTYPE'][int(md_step)] == 'CREATE':
+							prefix_gromacs_grompp = prefix_gromacs_grompp_create
+							prefix_gromacs_mdrun = prefix_gromacs_mdrun_create
+							
+						elif current_job['RUNTYPE'][int(md_step)] == 'PROD':
+							prefix_gromacs_grompp = prefix_gromacs_grompp_prod
+							prefix_gromacs_mdrun = prefix_gromacs_mdrun_prod
+					else:
+						prefix_gromacs_grompp = prefix_gromacs_grompp_prod
+						prefix_gromacs_mdrun = prefix_gromacs_mdrun_prod
+						
+					assert(prefix_gromacs_grompp is not None or prefix_gromacs_mdrun is not None), "There was a problem in adding the wall (prefix for gromacs)"
+						
+					cmd, system , file_output = Sample.add_wall_in_run(current_job, md_step, previous_cmd_files, 
+																		prefix_gromacs_grompp, prefix_gromacs_mdrun)
 					
 					sofar_cmd = "echo 'Adding wall done' >> {0}_SoFar.txt\n\n\n".format(name)
-					script_file.write(sofar_cmd)
+					
+					if 'RUNTYPE' in current_job:
+						if current_job['RUNTYPE'][int(md_step)] == 'CREATE':
+							script_file_create.write(cmd)
+							script_file_create.write(sofar_cmd)
+							
+						elif current_job['RUNTYPE'][int(md_step)] == 'PROD':
+							script_file_prod.write(cmd)
+							script_file_prod.write(sofar_cmd)
+					else:
+						script_file_prod.write(cmd)
+						script_file_prod.write(sofar_cmd)
+					
+					assert(file_output is not None or system is not None), "There was a problem in adding the wall"
 					
 					previous_cmd_files['OUTPUT'] = file_output
 					previous_cmd_files['SYSTEM'] = system
@@ -886,6 +1026,32 @@ def main(argv=sys.argv):
 				#						STEP IS EM
 				#============================================================
 				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('EM'):
+					prefix_gromacs_grompp = None
+					prefix_gromacs_mdrun = None
+					grompp_out = None
+					mdrun_out = None
+					
+					if 'RUNTYPE' in current_job:
+						if current_job['RUNTYPE'][int(md_step)] == 'CREATE':
+							prefix_gromacs_grompp = prefix_gromacs_grompp_create
+							prefix_gromacs_mdrun = prefix_gromacs_mdrun_create
+							grompp_out = "create_grompp_out"
+							mdrun_out = "create_mdrun_out"
+							
+							
+						elif current_job['RUNTYPE'][int(md_step)] == 'PROD':
+							prefix_gromacs_grompp = prefix_gromacs_grompp_prod
+							prefix_gromacs_mdrun = prefix_gromacs_mdrun_prod
+							grompp_out = "grompp_out"
+							mdrun_out = "mdrun_out"
+					else:
+						prefix_gromacs_grompp = prefix_gromacs_grompp_prod
+						prefix_gromacs_mdrun = prefix_gromacs_mdrun_prod
+						grompp_out = "grompp_out"
+						mdrun_out = "mdrun_out"
+						
+					assert(prefix_gromacs_grompp is not None or prefix_gromacs_mdrun is not None), str("There was a problem in EM prep "
+																								"(prefix for gromacs)")
 					
 					#Output for Pulling data
 					pulling_output = ''
@@ -895,44 +1061,50 @@ def main(argv=sys.argv):
 					Sample.preparing_mdp(md_step)
 					Sample.writing_mdp(md_step, EMdefault)
 
-					Comment = str("#Energy Minimization using parameters in {0}.mdp:\n#Input : "
+					cmd = str("#Energy Minimization using parameters in {0}.mdp:\n#Input : "
 								"{1}\n#Output: {2}_{3}-{0}.gro \n\n").format(current_job['PROTOCOL'][md_step]['stepType'],
 																				previous_cmd_files['OUTPUT'],previous_cmd_files['SYSTEM'],
 																				current_job['JOBNUM'])
-					script_file.write(Comment)
 
-					cmd = str("{0}grompp -f {1}.mdp -po {2}-{1}.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} "
-								"|& tee grompp_out/grompp_{5}_{1}.output\n\n").format(prefix_gromacs_grompp,
+					cmd += str("{0}grompp -f {1}.mdp -po {2}-{1}.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} "
+								"|& tee {6}/grompp_{5}_{1}.output\n\n").format(prefix_gromacs_grompp,
 																					current_job['PROTOCOL'][md_step]['stepType'],
 																					previous_cmd_files['SYSTEM'],previous_cmd_files['OUTPUT'], 
-																					previous_cmd_files['INDEX'],current_job['JOBNUM'])
-					script_file.write(cmd)
+																					previous_cmd_files['INDEX'],current_job['JOBNUM'],
+																					grompp_out)
 
-					cmd = str("{0}mdrun -deffnm {2}_{3}-{1} -c {2}_{3}-{1}.gro {4}"
-								" |& tee mdrun_out/mdrun_{3}_{1}.output \n\n").format(prefix_gromacs_mdrun, current_job['PROTOCOL'][md_step]['stepType'],
-																						previous_cmd_files['SYSTEM'], current_job['JOBNUM'], pulling_output)
+					cmd += str("{0}mdrun -deffnm {2}_{3}-{1} -c {2}_{3}-{1}.gro {4}"
+								" |& tee {5}/mdrun_{3}_{1}.output \n\n").format(prefix_gromacs_mdrun,
+																				current_job['PROTOCOL'][md_step]['stepType'],
+																				previous_cmd_files['SYSTEM'], current_job['JOBNUM'],
+																				pulling_output, mdrun_out)
 								
 					
-					script_file.write(cmd)
 					
-					cmd = "echo '{0} done' >> {1}_SoFar.txt\n\n\n".format(current_job['PROTOCOL'][md_step]['stepType'], name)
-					script_file.write(cmd)
+					cmd += "echo '{0} done' >> {1}_SoFar.txt\n\n\n".format(current_job['PROTOCOL'][md_step]['stepType'], name)
 
 					output_filename = "{1}_{2}-{0}.gro".format(current_job['PROTOCOL'][md_step]['stepType'], previous_cmd_files['SYSTEM'], current_job['JOBNUM'])
-					previous_cmd_files['OUTPUT'] = output_filename
 					
 					
-					cmd = str("### Correcting the box vectors if LZ is too large ###\n"
+					cmd += str("### Correcting the box vectors if LZ is too large ###\n"
 								"if [ -a {0} ]; then read -r LX LY LZ <<< $(tail -n1 {0}); "
 								"""if [ "$LZ" == "" ]; then """
 								"""echo "LZ was too big, correcting the box vectors format"; """
 								"LZ=$(cut -c 9- <<< $LY); LY=$(cut -c -8 <<< $LY); "
 								"sed -i '$ d' {0}; "
 								"""echo "$LX $LY $LZ" >> {0}; """
-								"fi;fi\n\n").format(output_filename)
+								"fi;fi\n\n\n").format(output_filename)
 					
-					script_file.write(cmd)
+					if 'RUNTYPE' in current_job:
+						if current_job['RUNTYPE'][int(md_step)] == 'CREATE':
+							script_file_create.write(cmd)
+							
+						elif current_job['RUNTYPE'][int(md_step)] == 'PROD':
+							script_file_prod.write(cmd)
+					else:
+						script_file_prod.write(cmd)
 
+					previous_cmd_files['OUTPUT'] = output_filename
 					
 					continue
 
@@ -940,28 +1112,54 @@ def main(argv=sys.argv):
 				#						STEP IS NVE, NVT or NPT
 				#============================================================
 				else:
-					Comment = ""
+					prefix_gromacs_grompp = None
+					prefix_gromacs_mdrun = None
+					grompp_out = None
+					mdrun_out = None
+					
+					if 'RUNTYPE' in current_job:
+						if current_job['RUNTYPE'][int(md_step)] == 'CREATE':
+							prefix_gromacs_grompp = prefix_gromacs_grompp_create
+							prefix_gromacs_mdrun = prefix_gromacs_mdrun_create
+							grompp_out = "create_grompp_out"
+							mdrun_out = "create_mdrun_out"
+							
+							
+						elif current_job['RUNTYPE'][int(md_step)] == 'PROD':
+							prefix_gromacs_grompp = prefix_gromacs_grompp_prod
+							prefix_gromacs_mdrun = prefix_gromacs_mdrun_prod
+							grompp_out = "grompp_out"
+							mdrun_out = "mdrun_out"
+					else:
+						prefix_gromacs_grompp = prefix_gromacs_grompp_prod
+						prefix_gromacs_mdrun = prefix_gromacs_mdrun_prod
+						grompp_out = "grompp_out"
+						mdrun_out = "mdrun_out"
+						
+					assert(prefix_gromacs_grompp is not None or prefix_gromacs_mdrun is not None), str("There was a problem in NVE, NVT, NPT prep "
+																								"(prefix for gromacs)")
+					
+					cmd = ""
 					
 					if current_job['PROTOCOL'][md_step]['stepType'].startswith('NVE'):
-						Comment = str("""#NVE using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}.gro \n\n""").format(current_job['PROTOCOL'][md_step]['stepType'],
+						cmd = str("""#NVE using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}.gro \n\n""").format(current_job['PROTOCOL'][md_step]['stepType'],
 																														previous_cmd_files['OUTPUT'], previous_cmd_files['SYSTEM'], current_job['JOBNUM'])
 						Sample.preparing_mdp(md_step)
 						Sample.writing_mdp(md_step, NVEdefault)
 						
 					elif current_job['PROTOCOL'][md_step]['stepType'].startswith('NVT'):
-						Comment = str("""#NVT using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}.gro \n\n""").format(current_job['PROTOCOL'][md_step]['stepType'],
+						cmd = str("""#NVT using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}.gro \n\n""").format(current_job['PROTOCOL'][md_step]['stepType'],
 																														previous_cmd_files['OUTPUT'], previous_cmd_files['SYSTEM'], current_job['JOBNUM'])
 						Sample.preparing_mdp(md_step)
 						Sample.writing_mdp(md_step, NVTdefault)
 						
 					
 					elif current_job['PROTOCOL'][md_step]['stepType'].startswith('NPT'):
-						Comment = str("""#NPT using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}.gro \n\n""").format(current_job['PROTOCOL'][md_step]['stepType'],
+						cmd = str("""#NPT using parameters in {0}.mdp:\n#Input : {1}\n#Output: {2}_{3}-{0}.gro \n\n""").format(current_job['PROTOCOL'][md_step]['stepType'],
 																														previous_cmd_files['OUTPUT'], previous_cmd_files['SYSTEM'], current_job['JOBNUM'])
 						Sample.preparing_mdp(md_step)
 						Sample.writing_mdp(md_step, NPTdefault)
 					
-					script_file.write(Comment)
 					
 					
 					#Output for Pulling data
@@ -969,40 +1167,49 @@ def main(argv=sys.argv):
 					if 'DEFO' in current_job:
 						pulling_output = "-pf {0}_pf.xvg -px {0}_px.xvg".format( current_job['PROTOCOL'][md_step]['stepType'])
 
-					grompp_cmd = str("{0}grompp -f {1}.mdp -po {2}-{1}.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} "
-								"|& tee grompp_out/grompp_{5}_{1}.output\n\n""").format(prefix_gromacs_grompp, current_job['PROTOCOL'][md_step]['stepType'], 
+					cmd += str("{0}grompp -f {1}.mdp -po {2}-{1}.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} "
+								"|& tee {6}/grompp_{5}_{1}.output\n\n""").format(prefix_gromacs_grompp,
+																						current_job['PROTOCOL'][md_step]['stepType'], 
 																						previous_cmd_files['SYSTEM'], previous_cmd_files['OUTPUT'], previous_cmd_files['INDEX'],
-																						current_job['JOBNUM'])
-					script_file.write(grompp_cmd)
+																						current_job['JOBNUM'],
+																						grompp_out)
 
-					mdrun_cmd = str("{0}mdrun {4} -deffnm {2}_{3}-{1}  -c {2}_{3}-{1}.gro {5} "
-								"|& tee mdrun_out/mdrun_{3}_{1}.output \n\n").format(prefix_gromacs_mdrun, current_job['PROTOCOL'][md_step]['stepType'], 
+					cmd += str("{0}mdrun {4} -deffnm {2}_{3}-{1}  -c {2}_{3}-{1}.gro {5} "
+								"|& tee {6}/mdrun_{3}_{1}.output \n\n").format(prefix_gromacs_mdrun, 
+																					current_job['PROTOCOL'][md_step]['stepType'], 
 																					previous_cmd_files['SYSTEM'], current_job['JOBNUM'], current_job['MDRUN_OPT'],
-																					pulling_output)
-					script_file.write(mdrun_cmd)
+																					pulling_output,
+																					mdrun_out)
 
-					sofar_cmd = "echo '{0} done' >> {1}_SoFar.txt\n\n\n".format(current_job['PROTOCOL'][md_step]['stepType'],name)
-					script_file.write(sofar_cmd)
+					cmd += "echo '{0} done' >> {1}_SoFar.txt\n\n\n".format(current_job['PROTOCOL'][md_step]['stepType'],name)
 					
 
 					output_filename = "{1}_{2}-{0}.gro".format(current_job['PROTOCOL'][md_step]['stepType'], previous_cmd_files['SYSTEM'], current_job['JOBNUM'])
-					previous_cmd_files['OUTPUT'] = output_filename
 					
-					cmd = str("### Correcting the box vectors if LZ is too large ###\n"
+					cmd += str("### Correcting the box vectors if LZ is too large ###\n"
 								"if [ -a {0} ]; then read -r LX LY LZ <<< $(tail -n1 {0}); "
 								"""if [ "$LZ" == "" ]; then """
 								"""echo "LZ was too big, correcting the box vectors format"; """
 								"LZ=$(cut -c 9- <<< $LY); LY=$(cut -c -8 <<< $LY); "
 								"sed -i '$ d' {0}; "
 								"""echo "$LX $LY $LZ" >> {0}; """
-								"fi;fi\n\n").format(output_filename)
+								"fi;fi\n\n\n").format(output_filename)
 					
-					script_file.write(cmd)
+					if 'RUNTYPE' in current_job:
+						if current_job['RUNTYPE'][int(md_step)] == 'CREATE':
+							script_file_create.write(cmd)
+							
+						elif current_job['RUNTYPE'][int(md_step)] == 'PROD':
+							script_file_prod.write(cmd)
+					else:
+						script_file_prod.write(cmd)
+					
+					previous_cmd_files['OUTPUT'] = output_filename
 					
 					continue
 			
 			end_of_run = ""
-			
+			end_of_create = ""
 			if cmd_param.send== 'local':
 				end_of_run = """
 							echo "End of run for {1}"
@@ -1060,11 +1267,6 @@ def main(argv=sys.argv):
 					pbs_file.write( ut.RemoveUnwantedIndent(pbs_file_content) )
 							
 			elif cmd_param.send == 'tgcc':
-				end_of_run = """
-							echo "End of run for {1}"
-							cp -r /scratch/{2}/gromacs/{0}/{1} ${{LOCALDIR}}/{1}_OUTPUT
-							rm -r /scratch/{2}/gromacs/{0}
-							""".format(project_name, name, TGCC['username'])
 				
 				tgcc_file_content = """
 						#! /bin/sh -x
@@ -1112,12 +1314,123 @@ def main(argv=sys.argv):
 					tgcc_file.write( ut.RemoveUnwantedIndent(tgcc_file_content) )
 					
 			
-			script_file.write(ut.RemoveUnwantedIndent(end_of_run))
+			if cmd_param.create == 'local':
+				end_of_create = """
+							echo "End of create for {1}"
+							""".format(project_name, name)
+			
+			elif cmd_param.create == 'pbs':
+				end_of_create = """
+							echo "End of create for {1}"
+							cp -r /scratch/{2}/gromacs/{0}/{1} ${{LOCALDIR}}/{1}
+							rm -r /scratch/{2}/gromacs/{0}
+							""".format(project_name, name, PBS['username'])
+				
+				pbs_name = "{0}_{1}_{2}".format(software_version, project_name, name)
+				pbs_file_content = """
+						#! /bin/sh -x
+						#PBS -N {0}
+						#PBS -j oe
+						#PBS -m abe
+						#PBS -M {1}
+						#PBS -q {2}
+						#PBS -l nodes={3}:ppn={4}
+						#PBS -l walltime=10000:0:0
 
-			sub.call("""chmod a+x run.sh""",shell=True)
+						NPROCS=`cat $PBS_NODEFILE | wc -l`
+						NODES=`uniq $PBS_NODEFILE | wc -l`
+						JOBINFO="$PBS_O_WORKDIR/$PBS_JOBNAME-$PBS_JOBID.jobinfo"
+
+
+						printf "Time =  `date`\\n" > $JOBINFO
+						printf "PBS work directory = $PBS_O_WORKDIR\\n" >> $JOBINFO
+						printf "PBS queue = $PBS_O_QUEUE\\n" >> $JOBINFO
+						printf "PBS job ID = $PBS_JOBID\\n" >> $JOBINFO
+						printf "PBS job name = $PBS_JOBNAME\\n" >> $JOBINFO
+						printf "This job will run on $NPROCS processors\\n" >> $JOBINFO
+						printf "List of nodes in $PBS_NODEFILE\\n" >> $JOBINFO
+						uniq $PBS_NODEFILE >> $JOBINFO
+						NODES=`uniq $PBS_NODEFILE`
+
+						cd $PBS_O_WORKDIR
+						echo  "files in $PBS_O_WORKDIR"
+						ls -ltr
+						echo "============================="
+
+						echo "Run GMX"
+						date
+
+						./run.sh  $PBS_JOBID >>  $PBS_O_WORKDIR/$PBS_JOBNAME-$PBS_JOBID.out
+
+						echo "End of GMX"
+						date
+
+						echo "============================="
+						""".format(pbs_name, PBS['mail'], current_job['NODE'], current_job['NBNODES'], current_job['PPN'])
+								
+				with open(name+'.create_pbs','w') as pbs_file:
+					pbs_file.write( ut.RemoveUnwantedIndent(pbs_file_content) )
+							
+			elif cmd_param.create == 'tgcc':
+				
+				tgcc_file_content = """
+						#! /bin/sh -x
+						#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
+						#MSUB -n {3}      # total number of cores, 16 cores per nodes (32 logical cores ) (in Parameters.cvs, key "ppn")
+						#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s")
+						#MSUB -r {0}_created	  # job name (automatically generated)
+						#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
+						#MSUB -V          # transfer the variable of ENVIRONNEMENT
+						#MSUB -@ {7}:begin,end
+						#MSUB -oe %I.eo   # input and output of JOB
+						
+						# the number of nodes is deduced automatically from the number of cores (fixed nb core/node = 16 on curie noeud fin)
+						# ccc_mprun gives this information to gmx_mpi (seems to work !?)
+						
+						echo "===================== BEGIN JOB $SLURM_JOBID =============================== "
+						
+						JOBINFO="${{SLURM_SUBMIT_DIR}}/${{SLURM_JOB_NAME}}-${{SLURM_JOBID}}.jobinfo"
+						printf "Time =  `date`\\n" > ${{JOBINFO}}
+						printf "SLURM submit directory = ${{SLURM_SUBMIT_DIR}}\\n" >> ${{JOBINFO}}
+						printf "TGCC queue = {2}, user {4}, max time = {5} seconds \\n" >> ${{JOBINFO}}
+						printf "SLURM job ID = ${{SLURM_JOBID}} \\n" >> ${{JOBINFO}}
+						printf "SLURM job name = ${{SLURM_JOB_NAME}} \\n" >> ${{JOBINFO}}
+						printf "This job will run on {3} processors\\n" >> ${{JOBINFO}}
+						printf "List of nodes : ${{SLURM_NODEID}} \\n\\n" >> ${{JOBINFO}}
+						
+						
+						export MYTMPDIR="${{SCRATCHDIR}}/JOB_${{SLURM_JOBID}}"
+						export OUTPUTDIR="${{SLURM_SUBMIT_DIR}}"
+						
+						mkdir -p ${{MYTMPDIR}}
+						
+						rsync ${{SLURM_SUBMIT_DIR}}/* ${{MYTMPDIR}} 
+						cd ${{MYTMPDIR}} 
+						./create.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_create.out
+						rsync -r ./* ${{OUTPUTDIR}}/.
+						cd ${{SLURM_SUBMIT_DIR}}
+						rm -rf ${{MYTMPDIR}}
+						ccc_msub {0}.ccc_msub
+						
+						echo "===================== END  JOB $SLURM_JOBID =============================== "
+						""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'], TGCC['time_s'], parameter_file, TGCC['mail'])
+				
+				with open(name+'.create_ccc_msub','w') as tgcc_file:
+					tgcc_file.write( ut.RemoveUnwantedIndent(tgcc_file_content) )
+			
+			
+			
+			
+			
+					
+			script_file_create.write(ut.RemoveUnwantedIndent(end_of_create))
+			script_file_prod.write(ut.RemoveUnwantedIndent(end_of_run))
+
+			sub.call("""chmod a+x run.sh ; if [ -e create.sh ] ; then chmod a+x create.sh;fi """,shell=True)
 			so_far_file.close()
 			
-		script_file.close()
+		script_file_prod.close()
+		script_file_create.close()
 		EMdefault.close()
 		NVTdefault.close()
 		NPTdefault.close()
@@ -1132,14 +1445,21 @@ def main(argv=sys.argv):
 		script_to_send.truncate()
 		script_to_send.write("""#!/bin/bash\n\n""")
 		script_to_send.close()
+		
+		script_to_create = open('create_jobs.sh','w')
+		script_to_create.truncate()
+		script_to_create.write("""#!/bin/bash\n\n""")
+		script_to_create.close()
 
 		script_to_send = open('send_jobs.sh','a+')
+		script_to_create = open('create_jobs.sh','a+')
 
 		for job_number in Jobs:
 			current_job = Jobs[job_number]
 			name = current_job['JOBID']
 			
 			send_cmd = ""
+			create_cmd = ""
 			if cmd_param.send == 'local':
 				send_cmd = "cd {0} \n ./run.sh \ncd .. \n".format(name)
 				
@@ -1148,19 +1468,38 @@ def main(argv=sys.argv):
 				
 			elif cmd_param.send == 'tgcc':
 				send_cmd = "cd {0} \n ccc_msub {0}.ccc_msub \n cd .. \n".format(name)
+			
+			if cmd_param.create == 'local':
+				create_cmd = "cd {0} \n ./create.sh \ncd .. \n".format(name)
+				
+			elif cmd_param.create == 'pbs':
+				create_cmd = "cd {0} \n qsub {0}.create_pbs \n cd .. \n".format(name)
+				
+			elif cmd_param.create == 'tgcc':
+				create_cmd = "cd {0} \n ccc_msub {0}.create_ccc_msub \n cd .. \n".format(name)
 				
 			script_to_send.write(send_cmd)
+			script_to_create.write(create_cmd)
 		
 		see_jobs_cmd = ""
+		see_create_cmd = ""
 		if cmd_param.send == 'pbs':
 			see_jobs_cmd = "qstat -n -u {0}\necho ' To follow your JOBS, type qstat -n -u {0} ' \n".format(PBS['username'])
 		
 		elif cmd_param.send == 'tgcc':
 			see_jobs_cmd = "ccc_mpp -u {0}\n\necho ' To follow your JOBS, type ccc_mpp -u {0} ' \n".format(TGCC['username'])
 		
+		if cmd_param.create == 'pbs':
+			see_create_cmd = "qstat -n -u {0}\necho ' To follow your JOBS, type qstat -n -u {0} ' \n".format(PBS['username'])
+		
+		elif cmd_param.create == 'tgcc':
+			see_create_cmd = "ccc_mpp -u {0}\n\necho ' To follow your JOBS, type ccc_mpp -u {0} ' \n".format(TGCC['username'])
+		
 		script_to_send.write(see_jobs_cmd)
+		script_to_create.write(see_create_cmd)
 		script_to_send.close()
-		sub.call("""chmod a+x send_jobs.sh""", shell=True)
+		script_to_create.close()
+		sub.call("""chmod a+x send_jobs.sh; chmod a+x create_jobs.sh""", shell=True)
 
 	#**********************************************#
 	# Copy Parameters.csv to project dir  *****#
