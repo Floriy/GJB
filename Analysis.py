@@ -13,7 +13,7 @@ import math
 from collections import OrderedDict
 import gc #garbage collector
 import time
-
+import Utility as ut
 
 #global variables
 extensions = ['ndx','gro','xtc']
@@ -1338,6 +1338,10 @@ gmxOpt.add_argument('-i', '--input', dest='md_run_input',
 					type=str, nargs='*', default=None,
                     help='Set the name of MD run to analyse')
 
+gmxOpt.add_argument('--ext', dest='extension',
+					type=str, default='xtc',
+                    help='Set the name of the extension for trajecotry : gro , xtc (default = xtc)')
+
 gmxOpt.add_argument('-f', '--folder', dest='folder',
 					type=str, default=None,
                     help='Set the folder where to search for data')
@@ -1356,9 +1360,31 @@ gmxOpt.add_argument('-dt', dest='dt',
 					type=int, default=None,
                     help='Set the stride for density computation')
 
-gmxOpt.add_argument('-r','--radius', dest='radius',
-					type=int, default=None,
+gmxOpt.add_argument('--radius', dest='radius',
+					type=float, default=8.0,
                     help='Set the radius outside which the membrane will be analysed')
+
+gmxOpt.add_argument('--density', action='store_true',
+                    help='Compute density using gmx density')
+
+gmxOpt.add_argument('--energy', action='store_true',
+                    help='Compute energy using gmx energy')
+
+gmxOpt.add_argument('--select', action='store_true',
+                    help='Compute solvent per lipid')
+
+gmxOpt.add_argument('--headgroup', dest='headgroup',
+					type=str, nargs='*', default=None,
+                    help='Set the name of headgroup')
+
+gmxOpt.add_argument('--linkgroup', dest='linkgroup',
+					type=str, nargs='*', default=None,
+                    help='Set the name of linkgroup')
+
+gmxOpt.add_argument('--tailgroup', dest='tailgroup',
+					type=str, nargs='*', default=None,
+                    help='Set the name of tailgroup')
+
 
 # Adding parser options to gromacs analysis##############################################################
 xvgplot = sub_parser.add_parser('xvgplot')
@@ -1370,9 +1396,18 @@ xvgOpt.add_argument('-q', '--quantities', dest='quantities',
                     help='Set the name of the quantities to plot')
 
 xvgOpt.add_argument('-f', '--file', dest='xvg_file',
-					type=str, default=None,
+					type=str, required=True,
                     help='Set the name of the file to plot')
 
+xvgOpt.add_argument('--integrate', dest='limits',
+					type=float, nargs=2, default=None,
+                    help='Set the limits for integration')
+
+xvgOpt.add_argument('--plot', action='store_true',
+                    help='Plot the selected quantities')
+
+xvgOpt.add_argument('--mean', action='store_true',
+                    help='Return the mean, std and stderr values of the selected quantities')
 
 cmdParam = parser.parse_args(sys.argv[1:])
 print(cmdParam)
@@ -1439,6 +1474,10 @@ if 'compute' in sys.argv:
 					project_name = path[-3]
 					job_name = path[-2]
 					
+				if 'JOB' in job_name and 'OUTPUT' in job_name:
+					job_name = path[-3]
+					project_name = path[-4]
+				
 				if project_name not in filesFound: 
 					filesFound[project_name] = { job_name: [filename] }
 					
@@ -1464,21 +1503,14 @@ if 'compute' in sys.argv:
 					if len(path_test) >= 3 : 
 						project_name = path[-3]
 						job_name = path[-2]
-						"""
-						#if project_name not in filesFound: 
-							#filesFound[project_name] = { job_name: [filename] }
-							
-						#else:
-							#if job_name not in filesFound[project_name]:
-								#filesFound[project_name][job_name] = [filename]
-								
-							#else:
-								#filesFound[project_name][job_name].append(filename)
-						"""
 					else:
 						project_name = path[-3]
 						job_name = path[-2]
-						
+					
+					if 'JOB' in job_name and 'OUTPUT' in job_name:
+						job_name = path[-3]
+						project_name = path[-4]
+					
 					if project_name not in filesFound: 
 						filesFound[project_name] = { job_name: [filename] }
 						
@@ -1576,22 +1608,22 @@ if 'compute' in sys.argv:
 							gro_file = file_name
 							
 							#File name for fatslim index
-							hg_membrane_ndx = ndx_dir +'/'+ name.replace('_out.gro','_HG.ndx')
+							hg_membrane_ndx = ndx_dir +'/'+ name.replace('.gro','_HG.ndx')
 							
-							ndx_file = destination.replace('_out.gro','.ndx')
+							ndx_file = destination.replace('.gro','.ndx')
 							#put a temp name for plot file name
-							plotname = xvg_dir +'/'+ name.replace('_out.gro','tmp')
+							plotname = xvg_dir +'/'+ name.replace('.gro','tmp')
 							#put a temp name for csv file name
-							csv_apl_name = csv_apl_dir +'/'+ name.replace('_out.gro','_APL.csv')
-							csv_order_name = csv_order_dir +'/'+ name.replace('_out.gro','_ORDER.csv')
-							csv_thickness_name = csv_thickness_dir +'/'+ name.replace('_out.gro','_THICKNESS.csv')
+							csv_apl_name = csv_apl_dir +'/'+ name.replace('.gro','_APL.csv')
+							csv_order_name = csv_order_dir +'/'+ name.replace('.gro','_ORDER.csv')
+							csv_thickness_name = csv_thickness_dir +'/'+ name.replace('.gro','_THICKNESS.csv')
 							
 						else:
 							if 'gro' in name:
 								gro_file = file_name
 								
 								#File name for fatslim index
-								hg_membrane_ndx = ndx_dir +'/'+ name.replace('_out.gro','_HG.ndx')
+								hg_membrane_ndx = ndx_dir +'/'+ name.replace('.gro','_HG.ndx')
 								
 							if 'xtc' in name: 
 								##Copying the .edr file for box dimensions
@@ -2196,15 +2228,27 @@ elif 'gromacs' in sys.argv:
 	start_time = time.time()
 	
 	# Setting general options
-	GMX = cmdParam.gmx_path
-	MD_RUN_INPUT = cmdParam.md_run_input
-	FOLDER = cmdParam.folder
-	BEGIN_FRAME = cmdParam.begin_frame
-	END_FRAME = cmdParam.end_frame
-	DT = cmdParam.dt
-	RADIUS =cmdParam.radius
-
+	GMX				=	cmdParam.gmx_path
+	MD_RUN_INPUT	=	cmdParam.md_run_input
+	EXTENSION		=	cmdParam.extension
+	FOLDER			=	cmdParam.folder
+	
 	# Setting parameters for gmx energy and density
+	BEGIN_FRAME	=	cmdParam.begin_frame
+	END_FRAME	=	cmdParam.end_frame
+	DT			=	cmdParam.dt
+	RADIUS		=	cmdParam.radius
+	
+	#Options to compute
+	DENSITY		=	cmdParam.density
+	ENERGY		=	cmdParam.energy
+	SELECT		=	cmdParam.select
+	
+	#OPTIONS FOR LIPIDS
+	HEADGROUP	= cmdParam.headgroup
+	LINKGROUP	= cmdParam.linkgroup
+	TAILGROUP	= cmdParam.tailgroup
+	
 	
 	
 
@@ -2215,11 +2259,12 @@ elif 'gromacs' in sys.argv:
 		These options enables membrane property computation for a lot of data
 		If you want only a peculiar file set it using -c and not -r and -f
 		"""
+		
 		if FOLDER[-1] == '/': FOLDER = FOLDER[:-1]
-		#print(FOLDER)
+		
 		
 		for Run in MD_RUN_INPUT:
-			for path in glob.glob(FOLDER +'/**/*'+ Run +'*xtc', recursive=True):
+			for path in glob.glob(FOLDER +'/**/*'+ Run +'*'+EXTENSION, recursive=True):
 				if 'fatslimAnalysis' in path: continue
 			
 				path_test = path.replace(FOLDER,'').split('/')
@@ -2232,20 +2277,13 @@ elif 'gromacs' in sys.argv:
 				if len(path_test) >= 3 : 
 					project_name = path[-3]
 					job_name = path[-2]
-					"""
-					#if project_name not in filesFound: 
-						#filesFound[project_name] = { job_name: [filename] }
-						
-					#else:
-						#if job_name not in filesFound[project_name]:
-							#filesFound[project_name][job_name] = [filename]
-							
-						#else:
-							#filesFound[project_name][job_name].append(filename)
-					"""
 				else:
 					project_name = path[-3]
 					job_name = path[-2]
+				
+				if 'JOB' in job_name and 'OUTPUT' in job_name:
+					job_name = path[-3]
+					project_name = path[-4]
 					
 				if project_name not in filesFound: 
 					filesFound[project_name] = { job_name: filename }
@@ -2288,22 +2326,29 @@ elif 'gromacs' in sys.argv:
 		
 		
 		# Directory for gmx energy
-		energy_dir = analysisFolder+'/GMX_ENERGY'
-		os.makedirs(energy_dir)
+		if ENERGY:
+			energy_dir = analysisFolder+'/GMX_ENERGY'
+			os.makedirs(energy_dir)
+		
 		# Directory for gmx density
-		density_dir = analysisFolder+'/GMX_DENSITY'
-		os.makedirs(density_dir)
+		if DENSITY:
+			density_dir = analysisFolder+'/GMX_DENSITY'
+			os.makedirs(density_dir)
+		
+		# Directory for gmx density
+		if SELECT:
+			select_dir = analysisFolder+'/GMX_SELECT'
+			os.makedirs(select_dir)
+		
+		if HEADGROUP is not None or LINKGROUP is not None or TAILGROUP is not None:
+			ndx_dir = analysisFolder +'/GMX_NDX'
+			os.makedirs(ndx_dir)
 		
 		if DEPTH >= 3:
 			for project_name in filesFound:
 				for job_name, file_name in filesFound[project_name].items():
 					
-					job_energy_dir = analysisFolder+'/GMX_ENERGY/'+job_name
-					job_density_dir = analysisFolder+'/GMX_DENSITY/'+job_name
-					
-					os.makedirs(job_energy_dir, exist_ok=True)
-					os.makedirs(job_density_dir, exist_ok=True)
-					
+
 					xtc_file = None
 					edr_file = None
 					tpr_file = None
@@ -2313,76 +2358,319 @@ elif 'gromacs' in sys.argv:
 					plotname = None
 					csvname = None
 					
-					
-					
 					name = file_name.split('/')[-1]
-					print(name)
+					path = '/'.join(file_name.split('/')[:-1])
 					
 					xtc_file = file_name
-					edr_file = file_name.replace('xtc','edr')
-					tpr_file = file_name.replace('xtc','tpr')
-					energy_xvg_file = xtc_file.split('/')[-1].replace('.xtc','_EN.xvg')
-					energy_avg_file = energy_xvg_file.replace('xvg','avg')
-					density_xvg_file = xtc_file.split('/')[-1].replace('.xtc','_DENS.xvg')
-					ndx_file = '_'.join(file_name.split('_')[:-1]) + ".ndx"
+					edr_file = file_name.replace(EXTENSION, 'edr')
+					tpr_file = file_name.replace(EXTENSION, 'tpr')
 					
 					
-					#Look in the index to find DEF atoms
-					is_def_in_sample = False
-					#with open(ndx_file,'r') as index:
-						#indexStr = index.read()
-						#if 'DEF' in indexStr:
-							#is_def_in_sample = True
-							
-					#if is_def_in_sample:
-						#select_cmd = "gmx2016 select -f BILAYER_740DSPC_14800W_21DEFv1.0C_1-NPT1.xtc -n BILAYER_740DSPC_14800W_21DEFv1.0C.ndx -s BILAYER_740DSPC_14800W_21DEFv1.0C_1-NPT1.tpr -on index.ndx"
-									
-					begin_end = ""
-					if BEGIN_FRAME is not None:
-						begin_end +=" -b {0}".format(BEGIN_FRAME)
-					if END_FRAME is not None:
-						begin_end +=" -e {0}".format(END_FRAME)
+					ndx_file = path +'/' + '_'.join(name.split('_')[:-1]) + ".ndx"
 					
-					#Computing gmx energy
-					# To output all quantities
-					variables_for_output = "echo "
-					for i in range(1,100):
-						variables_for_output += repr('{0}\n'.format(i))
-					variables_for_output += repr('\n\n')
-					
-					try:
-						energy_cmd = "{0} | {1} energy {2} -f {3} -s {4} -o {5} > {6}".format(variables_for_output, GMX, begin_end, edr_file, tpr_file,
-																						job_energy_dir+'/'+ energy_xvg_file, job_energy_dir + '/' + energy_avg_file)
-						sub.call(energy_cmd, shell=True)
-					
-					except OSError as e:
-						print(e)
+					if '_WALL' in name:
+						ndx_file = '_'.join(ndx_file.split('_')[:-1]) + ".ndx"
 					
 					
-					
-					# Computing gmx density
+
 					# Get the number of group to output
 					read_index_cmd = """cat {0} | grep "\[" """.format(ndx_file)
 					read_index_proc = sub.Popen(read_index_cmd, stdout=sub.PIPE, stderr=sub.PIPE, shell=True)
 					read_index_out = read_index_proc.stdout.read()
-					
 					nb_index = len(read_index_out.splitlines())
 					
-					groups_for_output = "echo "
-					for i in range(0, nb_index):
-						groups_for_output += repr('{0}\n'.format(i))
-					groups_for_output += repr('\n\n')
+					#Making new index including heads, tails and linkage
+					create_ndx_head_link_tail = ""
+					ndx_file_out = ndx_file
+					if HEADGROUP is not None:
+						create_ndx_head_link_tail += repr("a {0}\nname {1} head\n".format(' | a '.join(HEADGROUP), nb_index))
+						nb_index += 1
+						
+					if LINKGROUP is not None:
+						create_ndx_head_link_tail += repr("a {0}\nname {1} link\n".format(' | a '.join(LINKGROUP), nb_index))
+						nb_index += 1
+						
+					if TAILGROUP is not None:
+						create_ndx_head_link_tail += repr("a {0}\nname {1} tail\n".format(' | a '.join(TAILGROUP), nb_index))
+						nb_index += 1
+					create_ndx_head_link_tail += repr("q\n")
 					
-					# Call gmx density
-					try:
-						density_cmd = "{0} | {1} density {2} -f {3} -s {4} -o {5} -ng {6} -n {7}".format(groups_for_output, GMX, begin_end, xtc_file, tpr_file,
-																										job_density_dir+'/'+ density_xvg_file, 
-																										nb_index, ndx_file)
-						sub.call(density_cmd, shell=True)
+					if HEADGROUP is not None or LINKGROUP is not None or TAILGROUP is not None:
+						job_ndx_dir = analysisFolder +'/GMX_NDX/'
+						
+						ndx_file_out = job_ndx_dir + job_name + '.ndx'
+						
+						input_file = file_name
+						if EXTENSION != 'gro':
+							input_file = file_name.replace(EXTENSION, 'gro')
+						
+						try:
+							make_ndx_cmd = """ printf {0} | {1} make_ndx -f {2} -n {3} -o {4} \n\n""".format(create_ndx_head_link_tail,
+																											GMX, input_file,
+																											ndx_file , ndx_file_out)
+							sub.call(make_ndx_cmd, shell=True)
+						
+						except OSError as e:
+							print(e)
+						
+					# Setting the begining and end of analysis
+					begin_end = ""
 					
-					except OSError as e:
-						print(e)
+					if BEGIN_FRAME is not None:
+						begin_end +=" -b {0}".format(BEGIN_FRAME)
+					if END_FRAME is not None:
+						begin_end +=" -e {0}".format(END_FRAME)
+						
+					if ENERGY:
+						job_energy_dir = analysisFolder+'/GMX_ENERGY/'
+						
+						energy_xvg_file = job_name + '-' + xtc_file.split('-')[-1].replace('.'+EXTENSION, '_EN.xvg')
+						energy_avg_file = energy_xvg_file.replace('xvg','avg')
+						
+						# To output all quantities
+						variables_for_output = "echo "
+						for i in range(1, 1000):
+							variables_for_output += repr('{0}\n'.format(i))
+						variables_for_output += repr('\n\n')
+						
+						# Call gmx energy
+						try:
+							energy_cmd = "{0} | {1} energy {2} -f {3} -s {4} -o {5} > {6}".format(variables_for_output, GMX, begin_end, edr_file, tpr_file,
+																							job_energy_dir+energy_xvg_file, job_energy_dir+energy_avg_file)
+							sub.call(energy_cmd, shell=True)
+						
+						except OSError as e:
+							print(e)
 					
+					
+					
+					# Calling gmx density
+					if DENSITY:
+						job_density_dir = analysisFolder+'/GMX_DENSITY/'
+						
+						density_xvg_file = job_name + '-' + xtc_file.split('-')[-1].replace('.'+EXTENSION, '_DENS.xvg')
+						
+						
+						
+						groups_for_output = "echo "
+						for i in range(0, nb_index):
+							groups_for_output += repr('{0}\n'.format(i))
+						groups_for_output += repr('\n\n')
+						
+						try:
+							density_cmd = "{0} | {1} density -dens number {2} -f {3} -s {4} -o {5} -ng {6} -n {7}".format(groups_for_output, GMX, begin_end, xtc_file, tpr_file,
+																											job_density_dir + density_xvg_file, 
+																											nb_index, ndx_file_out)
+							sub.call(density_cmd, shell=True)
+						
+						except OSError as e:
+							print(e)
+					
+					
+					if SELECT:
+						job_select_dir = analysisFolder+'/GMX_SELECT/' + job_name
+						os.makedirs(job_select_dir, exist_ok=True)
+						
+						remove_pertubed_membrane = ""
+						above_su = ""
+						solvent = "W"
+						read_index_out = str(read_index_out)
+						
+						if 'defo' in  read_index_out:
+							remove_pertubed_membrane = "and (not within {0} of name DEF)".format(RADIUS)
+						if 'su' in read_index_out:
+							above_su = " and (z > z of com of group su)"
+						if 'PW' in read_index_out:
+							solvent = "PW"
+							
+						mono = ""
+						if 'mono' in read_index_out:
+							mono = str("and (z < z of com of (resname {2} and (z > z of com of group bilayer)))"
+										"").format(remove_pertubed_membrane, solvent)
+							
+						lower_leaflet_hg_bil = "(name PO4 {0}) and (z < z of com of group bilayer)".format(remove_pertubed_membrane)
+						upper_leaflet_hg_bil = "(name PO4 {0}) and (z > z of com of group bilayer) {2}".format(remove_pertubed_membrane, solvent, mono)
+						
+						lower_leaflet_solvent_bil = "(resname {0} {1}) and (z < z of com of group bilayer) {2}".format(solvent, above_su, remove_pertubed_membrane)
+						upper_leaflet_solvent_bil = "(resname {0} {1}) and (z > z of com of group bilayer) {2}".format(solvent, mono, remove_pertubed_membrane)
+						
+						leaflet_hg_mono = "name PO4 {0} and (z > z of com of (resname {1} and (z > z of com of group bilayer)))".format(remove_pertubed_membrane, solvent)
+						leaflet_solvent_mono = str("resname {1} {0} and (z > z of com of group bilayer)"
+													" and (z > z of com of (resname {1} and (z > z of com of group bilayer)))").format(remove_pertubed_membrane, solvent)
+						
+						## Call gmx select
+						try:
+							select_cmd = """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end, xtc_file, tpr_file,
+																											ndx_file,
+																											job_select_dir+'/'+ 'lower_leaflet_hg_bil.dat',
+																											lower_leaflet_hg_bil)
+							
+							select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end, xtc_file, tpr_file,
+																											ndx_file,
+																											job_select_dir+'/'+ 'upper_leaflet_hg_bil.dat',
+																											upper_leaflet_hg_bil)
+							
+							select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end, xtc_file, tpr_file,
+																											ndx_file,
+																											job_select_dir+'/'+ 'lower_leaflet_solvent_bil.dat',
+																											lower_leaflet_solvent_bil)
+							
+							select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end, xtc_file, tpr_file,
+																											ndx_file,
+																											job_select_dir+'/'+ 'upper_leaflet_solvent_bil.dat',
+																											upper_leaflet_solvent_bil)
+							
+							if 'mono' in read_index_out:
+								select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end, xtc_file, tpr_file,
+																											ndx_file,
+																											job_select_dir+'/'+ 'leaflet_hg_mono.dat',
+																											leaflet_hg_mono)
+								
+								select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end, xtc_file, tpr_file,
+																											ndx_file,
+																											job_select_dir+'/'+ 'leaflet_solvent_mono.dat',
+																											leaflet_solvent_mono)
+							
+							
+							print(select_cmd)
+							sub.call(select_cmd, shell=True)
+						
+						except OSError as e:
+							print(e)
+						
+						#Need to add mono later
+						
+						llhb_file = open(job_select_dir+'/'+ 'lower_leaflet_hg_bil.dat','r')
+						ulhb_file = open(job_select_dir+'/'+ 'upper_leaflet_hg_bil.dat','r') 
+						llsb_file = open(job_select_dir+'/'+ 'lower_leaflet_solvent_bil.dat','r')
+						ulsb_file = open(job_select_dir+'/'+ 'upper_leaflet_solvent_bil.dat','r')
+						
+						if 'mono' in read_index_out:
+							lhm_file = open(job_select_dir+'/'+ 'leaflet_hg_mono.dat','r') 
+							lsm_file = open(job_select_dir+'/'+ 'leaflet_solvent_mono.dat','r')
+						
+						#arrays for data
+						time_arr = []
+						llhb_nb = []
+						ulhb_nb = []
+						llsb_nb = []
+						ulsb_nb = []
+						
+						for line in llhb_file:
+							timestep = float(line.strip().split()[0])
+							number = float(line.strip().split()[1])
+							
+							time_arr.append(timestep)
+							llhb_nb.append(number)
+							
+						file_dict = {'ulhb': {'file': ulhb_file, 'array': ulhb_nb},
+										'llsb': {'file': llsb_file, 'array': llsb_nb},
+										'ulsb': {'file': ulsb_file, 'array': ulsb_nb},
+										}
+						
+						for key in file_dict:
+							dat_file = file_dict[key]['file']
+							
+							for line in dat_file:
+								number = float(line.strip().split()[1])
+								file_dict[key]['array'].append(number)
+						
+						ulhb_nb = file_dict['ulhb']['array']
+						llsb_nb = file_dict['llsb']['array']
+						ulsb_nb = file_dict['ulsb']['array']
+						
+						with open(job_select_dir+'/'+'solvent_per_leaflet.xvg','a+') as xvg_out:
+							header = """
+									@    title ""
+									@    xaxis  label "Time (ps)"
+									@    yaxis  label ""
+									@TYPE xy
+									@ view 0.15, 0.15, 0.75, 0.85
+									@ legend on
+									@ legend box on
+									@ legend loctype view
+									@ legend 0.78, 0.8
+									@ legend length 2
+									@ s0 legend "lower_leaflet_hg"
+									@ s1 legend "upper_leaflet_hg"
+									@ s2 legend "lower_leaflet_sol"
+									@ s3 legend "upper_leaflet_sol"
+									@ s4 legend "sol_per_lower_hg"
+									@ s5 legend "sol_per_upper_hg"
+									"""
+							
+							if 'mono' in read_index_out:
+								header += """
+									@ s6 legend "mono_hg"
+									@ s7 legend "mono_sol"
+									@ s8 legend "sol_per_mono_hg"
+									"""
+							
+							xvg_out.write(ut.RemoveUnwantedIndent(header)+"\n")
+							
+							for T, llhb, ulhb, llsb, ulsb in zip(time_arr, llhb_nb, ulhb_nb, llsb_nb, ulsb_nb):
+								row = "    {0}    {1}    {2}    {3}    {4}    {5}    {6}\n".format(T, llhb, ulhb, llsb, ulsb, llsb/llhb, ulsb/ulhb)
+								xvg_out.write(row)
+						
+						flip_time = []
+						llhb_flip = []
+						ulhb_flip = []
+						llsb_flip = []
+						ulsb_flip = []
+						
+						llhb_flip_speed = []
+						ulhb_flip_speed = []
+						llsb_flip_speed = []
+						ulsb_flip_speed = []
+						
+						for i in range(0, len(time_arr), 2):
+							if i == (len(time_arr) - 1): break
+					
+							flip_time.append( (time_arr[i+1] - time_arr[i])/2 + time_arr[i] )
+							llhb_flip.append( llhb_nb[i+1] - llhb_nb[i])
+							ulhb_flip.append( ulhb_nb[i+1] - ulhb_nb[i])
+							llsb_flip.append( llsb_nb[i+1] - llsb_nb[i])
+							ulsb_flip.append( ulsb_nb[i+1] - ulsb_nb[i])
+							
+							llhb_flip_speed.append( (llhb_nb[i+1] - llhb_nb[i])/(time_arr[i+1] - time_arr[i]) )
+							ulhb_flip_speed.append( (ulhb_nb[i+1] - ulhb_nb[i])/(time_arr[i+1] - time_arr[i]) )
+							llsb_flip_speed.append( (llsb_nb[i+1] - llsb_nb[i])/(time_arr[i+1] - time_arr[i]) )
+							ulsb_flip_speed.append( (ulsb_nb[i+1] - ulsb_nb[i])/(time_arr[i+1] - time_arr[i]) )
+							
+						with open(job_select_dir+'/'+'flipflop.xvg','a+') as xvg_out:
+							header = """
+									@    title ""
+									@    xaxis  label "Time (ps)"
+									@    yaxis  label ""
+									@TYPE xy
+									@ view 0.15, 0.15, 0.75, 0.85
+									@ legend on
+									@ legend box on
+									@ legend loctype view
+									@ legend 0.78, 0.8
+									@ legend length 2
+									@ s0 legend "lower_leaflet_hg_flip"
+									@ s1 legend "upper_leaflet_hg_flip"
+									@ s2 legend "lower_leaflet_sol_flip"
+									@ s3 legend "upper_leaflet_sol_flip"
+									@ s4 legend "lower_leaflet_hg_flip_speed"
+									@ s5 legend "upper_leaflet_hg_flip_speed"
+									@ s6 legend "lower_leaflet_sol_flip_speed"
+									@ s7 legend "upper_leaflet_sol_flip_speed"
+									"""
+							
+							xvg_out.write(ut.RemoveUnwantedIndent(header)+"\n")
+							
+							for T, llhb, ulhb, llsb, ulsb, llhbspd, ulhbspd, llsbspd, ulsbspd in zip(flip_time, llhb_flip, ulhb_flip, llsb_flip, ulsb_flip, 
+																llhb_flip_speed, ulhb_flip_speed, llsb_flip_speed,ulsb_flip_speed):
+								row = "    {0}    {1}    {2}    {3}    {4}    {5}    {6}    {7}    {8}\n".format(T, llhb, ulhb, llsb, ulsb,
+																												llhbspd, ulhbspd, llsbspd, ulsbspd)
+								xvg_out.write(row)
+							
+						llhb_file.close()
+						ulhb_file.close()
+						llsb_file.close()
+						ulsb_file.close()
 					
 		else:
 			for job_name, file_names in filesFound.items():
@@ -2419,6 +2707,9 @@ elif 'xvgplot' in sys.argv:
 	
 	QUANTITIES = cmdParam.quantities
 	XVG_FILE = cmdParam.xvg_file
+	INTEGRATE_LIMITS = cmdParam.limits
+	PLOT = cmdParam.plot
+	MEAN = cmdParam.mean
 	
 	quantities_in_file = {}
 	if XVG_FILE.endswith('EN.xvg'):
@@ -2472,7 +2763,6 @@ elif 'xvgplot' in sys.argv:
 	quantities_in_file['X']['values'] = np.loadtxt(output_file, dtype='float', usecols=(0,) )
 	output_file.seek(0)
 	
-	print(quantities_in_file)
 	
 	if QUANTITIES is not None:
 		for qtty in QUANTITIES:
@@ -2480,7 +2770,8 @@ elif 'xvgplot' in sys.argv:
 				quantities_in_file[qtty]['values'] = np.loadtxt(output_file, dtype='float', usecols=(quantities_in_file[qtty]['values'],) )
 				output_file.seek(0)
 			else:
-				print("{0} was not in {1}".format(qtty, xvg_file))
+				print("{0} was not in {1}".format(qtty, XVG_FILE))
+			
 	else:
 		for qtty in quantities_in_file:
 			if qtty != 'X':
@@ -2488,30 +2779,122 @@ elif 'xvgplot' in sys.argv:
 				output_file.seek(0)
 	
 	#plotting the function for each leaflet and total bilayer
-	fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(15,6), dpi=72)
-	
-	ax.set_xlabel(quantities_in_file['X']['unit'])
-	
-	if QUANTITIES is not None:
-		for qtty in QUANTITIES:
-			if qtty in quantities_in_file:
-				ax.plot(quantities_in_file['X']['values'], quantities_in_file[qtty]['values'], alpha=1.0,
-													label=qtty+' '+quantities_in_file[qtty]['unit'])
-	else:
-		for qtty in quantities_in_file:
-			if qtty != 'X':
-				ax.plot(quantities_in_file['X']['values'], quantities_in_file[qtty]['values'], alpha=1.0,
+	if PLOT:
+		fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(15,6), dpi=72)
+		ax.set_xlabel(quantities_in_file['X']['unit'])
+		if QUANTITIES is not None:
+			for qtty in QUANTITIES:
+				if qtty in quantities_in_file:
+					ax.plot(quantities_in_file['X']['values'], quantities_in_file[qtty]['values'], alpha=1.0,
 														label=qtty+' '+quantities_in_file[qtty]['unit'])
-	
-	if XVG_FILE.endswith('DENS.xvg'):
-		ax.set_ylabel('Density (kg/m^3)')
+		else:
+			for qtty in quantities_in_file:
+				if qtty != 'X':
+					ax.plot(quantities_in_file['X']['values'], quantities_in_file[qtty]['values'], alpha=1.0,
+															label=qtty+' '+quantities_in_file[qtty]['unit'])
 		
-	ax.grid('on')
-	ax.legend()
-	ax.legend().draggable()
+		if XVG_FILE.endswith('DENS.xvg'):
+			ax.set_ylabel('Density (CG/nm^3)')
+		
+		elif XVG_FILE == 'flipflop.xvg' or XVG_FILE == 'solvent_per_leaflet.xvg':
+			ax.set_xlabel('Time (ps)')
+			
+		
+		ax.grid('on')
+		ax.legend()
+		ax.legend().draggable()
+		
+		plt.savefig(XVG_FILE.replace('xvg','svg'))
+		plt.close()
 	
-	plt.show()
-	plt.close()
+	
+	if INTEGRATE_LIMITS is not None:
+		print("##################################################")
+		print("##################   INTEGRATE   #################")
+		print("##################################################")
+		density_slice = quantities_in_file['X']['values'][1] - quantities_in_file['X']['values'][0]
+		if QUANTITIES is not None:
+			for qtty in QUANTITIES:
+				if qtty in quantities_in_file:
+					quantities_in_file[qtty]['integrate'] = 0.0
+					
+					for X, qt in zip(quantities_in_file['X']['values'], quantities_in_file[qtty]['values']):
+						
+						if X > INTEGRATE_LIMITS[1]:
+							break
+						elif X >= INTEGRATE_LIMITS[0] and X <= INTEGRATE_LIMITS[1]:
+							quantities_in_file[qtty]['integrate'] += qt*density_slice
+					
+					
+					print("# Integration	of	{0}	between	{1}	and	{2}	:	{3}".format(qtty, 
+																			INTEGRATE_LIMITS[0],
+																			INTEGRATE_LIMITS[1],
+																			quantities_in_file[qtty]['integrate']))
+				
+			
+		else:
+			for qtty in quantities_in_file:
+				if qtty != 'X':
+					quantities_in_file[qtty]['integrate'] = 0.0
+					
+					for X, qt in zip(quantities_in_file['X']['values'], quantities_in_file[qtty]['values']):
+						
+						if X > INTEGRATE_LIMITS[1]:
+							break
+						elif X >= INTEGRATE_LIMITS[0] and X <= INTEGRATE_LIMITS[1]:
+							quantities_in_file[qtty]['integrate'] += qt*density_slice
+					
+					
+					print("# Integration	of	{0}	between	{1}	and	{2}	:	{3}".format(qtty, 
+																			INTEGRATE_LIMITS[0],
+																			INTEGRATE_LIMITS[1],
+																			quantities_in_file[qtty]['integrate']))
+		
+		print("##################################################")
+		print("##################   INTEGRATE   #################")
+		print("##################################################")
+		
+	if MEAN:
+		print("##################################################")
+		print("##############   MEAN, STD, STDERR   #############")
+		print("##################################################")
+		density_slice = quantities_in_file['X']['values'][1] - quantities_in_file['X']['values'][0]
+		if QUANTITIES is not None:
+			for qtty in QUANTITIES:
+				if qtty in quantities_in_file:
+					quantities_in_file[qtty]['mean'] = 0.0
+					quantities_in_file[qtty]['std'] = 0.0
+					quantities_in_file[qtty]['stderr'] = 0.0
+					
+					quantities_in_file[qtty]['mean'] = np.mean(quantities_in_file[qtty]['values'], dtype=np.float64)
+					quantities_in_file[qtty]['std'] = np.std(quantities_in_file[qtty]['values'], dtype=np.float64)
+					quantities_in_file[qtty]['stderr'] = quantities_in_file[qtty]['std']/ math.sqrt(len(quantities_in_file[qtty]['values']))
+					
+					
+					print("# For	{0}	:	{1}		{2}		{3}".format(qtty, quantities_in_file[qtty]['mean'],
+																quantities_in_file[qtty]['std'],
+																quantities_in_file[qtty]['stderr']))
+				
+			
+		else:
+			for qtty in quantities_in_file:
+				if qtty != 'X':
+					quantities_in_file[qtty]['mean'] = 0.0
+					quantities_in_file[qtty]['std'] = 0.0
+					quantities_in_file[qtty]['stderr'] = 0.0
+					
+					quantities_in_file[qtty]['mean'] = np.mean(quantities_in_file[qtty]['values'], dtype=np.float64)
+					quantities_in_file[qtty]['std'] = np.std(quantities_in_file[qtty]['values'], dtype=np.float64)
+					quantities_in_file[qtty]['stderr'] = quantities_in_file[qtty]['std']/ math.sqrt(len(quantities_in_file[qtty]['values']))
+					
+					
+					print("# For	{0}	:	{1}		{2}		{3}".format(qtty, quantities_in_file[qtty]['mean'],
+																quantities_in_file[qtty]['std'],
+																quantities_in_file[qtty]['stderr']))
+		
+		print("##################################################")
+		print("##############   MEAN, STD, STDERR   #############")
+		print("##################################################")
 	
 	
 	

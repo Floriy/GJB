@@ -127,7 +127,9 @@ def main(argv=sys.argv):
 			else:
 				# Stores the node, number of nodes and processors per node.
 				if row_name == 'NODE' :
-					Jobs[jobNumber].update({row[0].strip(' '): row[1].strip(' '), row[2].strip(' '): row[3].strip(' '), row[4].strip(' '): row[5].strip(' ')})
+					Jobs[jobNumber].update({row[0].strip(' '): row[1].strip(' '), row[2].strip(' '): row[3].strip(' '), 
+																					row[4].strip(' '): row[5].strip(' '),
+																					row[6].strip(' '): ''})
 					continue
 				
 				# Stores the options to pass to mdrun
@@ -315,7 +317,8 @@ def main(argv=sys.argv):
 							test_row = list(filter(None, row))
 							
 							#Skip lines starting with '#' or empty lines
-							if '#' in row[0] or not test_row: continue
+							if not test_row: continue
+							elif '#' in row[0]: continue
 						
 							firstCol = row[0].strip(' ')
 							if firstCol:
@@ -804,8 +807,96 @@ def main(argv=sys.argv):
 			
 			#Executes the steps
 			for md_step in range(0, len(current_job['PROTOCOL'])):
-				
 				md_step = str(md_step)
+				
+				if 'SEQUENTIAL' in current_job and md_step not in ['INPUT','INIT','COPY']:
+					script_file_run = open('run_{0}.sh'.format(current_job['PROTOCOL'][md_step]['stepType']),'a+')
+					sub.call("""chmod a+x run_{0}.sh""".format(current_job['PROTOCOL'][md_step]['stepType']), shell=True)
+					module_load = "#!/bin/bash +x\n\nmodule load {0}\n\n".format(TGCC['GMXversion'])
+					script_file_run.write(module_load)
+					
+					if int(md_step) == 1:
+						script_file_run.write('mkdir -p mdrun_out\n')
+						script_file_run.write('mkdir -p grompp_out\n\n')
+						
+					
+					tgcc_file_run = ""
+					if int(md_step) != (len(current_job['PROTOCOL']) - 1):
+						next_step = str(int(md_step)+1)
+						tgcc_file_run = """
+							#! /bin/sh -x
+							#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
+							#MSUB -n {3}      # total number of cores, 16 cores per nodes (32 logical cores ) (in Parameters.cvs, key "ppn")
+							#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s")
+							#MSUB -r {0}	  # job name (automatically generated)
+							#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
+							#MSUB -V          # transfer the variable of ENVIRONNEMENT
+							#MSUB -@ {7}:begin,end
+							#MSUB -oe %I.eo   # input and output of JOB
+							
+							# the number of nodes is deduced automatically from the number of cores (fixed nb core/node = 16 on curie noeud fin)
+							# ccc_mprun gives this information to gmx_mpi (seems to work !?)
+							
+							echo "===================== BEGIN JOB $SLURM_JOBID =============================== "
+							
+							printf "Time =  `date`\\n" >> ${{JOBINFO}}
+							printf "SLURM submit directory = ${{SLURM_SUBMIT_DIR}}\\n" >> ${{JOBINFO}}
+							printf "TGCC queue = {2}, user {4}, max time = {5} seconds \\n" >> ${{JOBINFO}}
+							printf "SLURM job ID = ${{SLURM_JOBID}} \\n" >> ${{JOBINFO}}
+							printf "SLURM job name = ${{SLURM_JOB_NAME}} \\n" >> ${{JOBINFO}}
+							printf "This job will run on {3} processors\\n" >> ${{JOBINFO}}
+							printf "List of nodes : ${{SLURM_NODEID}} \\n\\n" >> ${{JOBINFO}}
+							
+							
+							./run_{8}.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_{8}.out
+							ccc_msub {9}.ccc_msub
+							
+							echo "===================== END  JOB $SLURM_JOBID =============================== "
+							""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'],
+										TGCC['time_s'], parameter_file, TGCC['mail'],
+										current_job['PROTOCOL'][md_step]['stepType'],
+										current_job['PROTOCOL'][next_step]['stepType'])
+					else:
+						tgcc_file_run = """
+							#! /bin/sh -x
+							#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
+							#MSUB -n {3}      # total number of cores, 16 cores per nodes (32 logical cores ) (in Parameters.cvs, key "ppn")
+							#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s")
+							#MSUB -r {0}	  # job name (automatically generated)
+							#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
+							#MSUB -V          # transfer the variable of ENVIRONNEMENT
+							#MSUB -@ {7}:begin,end
+							#MSUB -oe %I.eo   # input and output of JOB
+							
+							# the number of nodes is deduced automatically from the number of cores (fixed nb core/node = 16 on curie noeud fin)
+							# ccc_mprun gives this information to gmx_mpi (seems to work !?)
+							
+							echo "===================== BEGIN JOB $SLURM_JOBID =============================== "
+							
+							printf "Time =  `date`\\n" >> ${{JOBINFO}}
+							printf "SLURM submit directory = ${{SLURM_SUBMIT_DIR}}\\n" >> ${{JOBINFO}}
+							printf "TGCC queue = {2}, user {4}, max time = {5} seconds \\n" >> ${{JOBINFO}}
+							printf "SLURM job ID = ${{SLURM_JOBID}} \\n" >> ${{JOBINFO}}
+							printf "SLURM job name = ${{SLURM_JOB_NAME}} \\n" >> ${{JOBINFO}}
+							printf "This job will run on {3} processors\\n" >> ${{JOBINFO}}
+							printf "List of nodes : ${{SLURM_NODEID}} \\n\\n" >> ${{JOBINFO}}
+							
+							
+							./run_{8}.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_{8}.out
+							
+							rsync -r ./* ${{OUTPUTDIR}}/.
+							cd ${{INITIALDIR}}
+							
+							
+							
+							echo "===================== END  JOB $SLURM_JOBID =============================== "
+							""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'],
+										TGCC['time_s'], parameter_file, TGCC['mail'],
+										current_job['PROTOCOL'][md_step]['stepType'])
+							#rm -rf ${{MYTMPDIR}}
+					with open('{0}.ccc_msub'.format(current_job['PROTOCOL'][md_step]['stepType']),'w') as tgcc_file:
+						tgcc_file.write( ut.RemoveUnwantedIndent(tgcc_file_run) )
+					
 				
 				
 				#============================================================
@@ -919,6 +1010,10 @@ def main(argv=sys.argv):
 					else:
 						script_file_prod.write(cmd)
 						script_file_prod.write(sofar_cmd)
+					
+					if 'SEQUENTIAL' in current_job:
+						script_file_run.write(cmd)
+						script_file_run.close()
 						
 					previous_cmd_files['OUTPUT'] = output_file
 					
@@ -969,6 +1064,10 @@ def main(argv=sys.argv):
 						script_file_prod.write(cmd)
 						script_file_prod.write(sofar_cmd)
 					
+					if 'SEQUENTIAL' in current_job:
+						script_file_run.write(cmd)
+						script_file_run.close()
+					
 					assert(file_output is not None or file_index is not None or system is not None), "There was a problem in adding the substrate"
 					
 					previous_cmd_files['OUTPUT'] = file_output
@@ -1016,6 +1115,10 @@ def main(argv=sys.argv):
 					else:
 						script_file_prod.write(cmd)
 						script_file_prod.write(sofar_cmd)
+					
+					if 'SEQUENTIAL' in current_job:
+						script_file_run.write(cmd)
+						script_file_run.close()
 					
 					assert(file_output is not None or system is not None), "There was a problem in adding the wall"
 					
@@ -1103,8 +1206,13 @@ def main(argv=sys.argv):
 							script_file_prod.write(cmd)
 					else:
 						script_file_prod.write(cmd)
+					
+					if 'SEQUENTIAL' in current_job:
+						script_file_run.write(cmd)
+						script_file_run.close()
 
 					previous_cmd_files['OUTPUT'] = output_filename
+					
 					
 					continue
 
@@ -1204,6 +1312,10 @@ def main(argv=sys.argv):
 					else:
 						script_file_prod.write(cmd)
 					
+					if 'SEQUENTIAL' in current_job:
+						script_file_run.write(cmd)
+						script_file_run.close()
+					
 					previous_cmd_files['OUTPUT'] = output_filename
 					
 					continue
@@ -1267,8 +1379,50 @@ def main(argv=sys.argv):
 					pbs_file.write( ut.RemoveUnwantedIndent(pbs_file_content) )
 							
 			elif cmd_param.send == 'tgcc':
-				
-				tgcc_file_content = """
+				if 'SEQUENTIAL' not in current_job:
+					tgcc_file_content = """
+							#! /bin/sh -x
+							#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
+							#MSUB -n {3}      # total number of cores, 16 cores per nodes (32 logical cores ) (in Parameters.cvs, key "ppn")
+							#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s")
+							#MSUB -r {0}	  # job name (automatically generated)
+							#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
+							#MSUB -V          # transfer the variable of ENVIRONNEMENT
+							#MSUB -@ {7}:begin,end
+							#MSUB -oe %I.eo   # input and output of JOB
+							
+							# the number of nodes is deduced automatically from the number of cores (fixed nb core/node = 16 on curie noeud fin)
+							# ccc_mprun gives this information to gmx_mpi (seems to work !?)
+							
+							echo "===================== BEGIN JOB $SLURM_JOBID =============================== "
+							
+							JOBINFO="${{SLURM_SUBMIT_DIR}}/${{SLURM_JOB_NAME}}-${{SLURM_JOBID}}.jobinfo"
+							printf "Time =  `date`\\n" > ${{JOBINFO}}
+							printf "SLURM submit directory = ${{SLURM_SUBMIT_DIR}}\\n" >> ${{JOBINFO}}
+							printf "TGCC queue = {2}, user {4}, max time = {5} seconds \\n" >> ${{JOBINFO}}
+							printf "SLURM job ID = ${{SLURM_JOBID}} \\n" >> ${{JOBINFO}}
+							printf "SLURM job name = ${{SLURM_JOB_NAME}} \\n" >> ${{JOBINFO}}
+							printf "This job will run on {3} processors\\n" >> ${{JOBINFO}}
+							printf "List of nodes : ${{SLURM_NODEID}} \\n\\n" >> ${{JOBINFO}}
+							
+							
+							export MYTMPDIR="${{SCRATCHDIR}}/JOB_${{SLURM_JOBID}}"
+							export OUTPUTDIR="${{SLURM_SUBMIT_DIR}}/JOB_${{SLURM_JOBID}}_OUTPUT"
+							
+							mkdir -p ${{MYTMPDIR}}
+							mkdir -p ${{OUTPUTDIR}}
+							
+							rsync ${{SLURM_SUBMIT_DIR}}/* ${{MYTMPDIR}} 
+							cd ${{MYTMPDIR}} 
+							./run.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}.out
+							rsync -r ./* ${{OUTPUTDIR}}/.
+							cd ${{SLURM_SUBMIT_DIR}}
+							rm -rf ${{MYTMPDIR}}
+							
+							echo "===================== END  JOB $SLURM_JOBID =============================== "
+							""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'], TGCC['time_s'], parameter_file, TGCC['mail'])
+				else:
+					tgcc_file_content = """
 						#! /bin/sh -x
 						#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
 						#MSUB -n {3}      # total number of cores, 16 cores per nodes (32 logical cores ) (in Parameters.cvs, key "ppn")
@@ -1296,19 +1450,19 @@ def main(argv=sys.argv):
 						
 						export MYTMPDIR="${{SCRATCHDIR}}/JOB_${{SLURM_JOBID}}"
 						export OUTPUTDIR="${{SLURM_SUBMIT_DIR}}/JOB_${{SLURM_JOBID}}_OUTPUT"
+						export INITIALDIR="${{SLURM_SUBMIT_DIR}}"
 						
 						mkdir -p ${{MYTMPDIR}}
 						mkdir -p ${{OUTPUTDIR}}
 						
 						rsync ${{SLURM_SUBMIT_DIR}}/* ${{MYTMPDIR}} 
 						cd ${{MYTMPDIR}} 
-						./run.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}.out
-						rsync -r ./* ${{OUTPUTDIR}}/.
-						cd ${{SLURM_SUBMIT_DIR}}
-						rm -rf ${{MYTMPDIR}}
+						ccc_msub  {8}.ccc_msub
 						
 						echo "===================== END  JOB $SLURM_JOBID =============================== "
-						""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'], TGCC['time_s'], parameter_file, TGCC['mail'])
+						""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'],
+										TGCC['time_s'], parameter_file, TGCC['mail'],
+										current_job['PROTOCOL']['1']['stepType'])
 				
 				with open(name+'.ccc_msub','w') as tgcc_file:
 					tgcc_file.write( ut.RemoveUnwantedIndent(tgcc_file_content) )
@@ -1372,7 +1526,6 @@ def main(argv=sys.argv):
 					pbs_file.write( ut.RemoveUnwantedIndent(pbs_file_content) )
 							
 			elif cmd_param.create == 'tgcc':
-				
 				tgcc_file_content = """
 						#! /bin/sh -x
 						#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")

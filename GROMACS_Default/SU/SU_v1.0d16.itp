@@ -6,7 +6,7 @@ SUP 72.0 0.000 A 0.0 0.0
 #####################################################################
 [ nonbond_params ]
 ;;;; SUN -> Nda ;;;;
-  SUN    SUN     1       0.00000E-00     0.00000E-00 ; no self-term
+  SUN    SUN     1       0.48476E-01     0.13055E-03 ; 
   SUN    P5      1       0.21558E-00     0.23238E-02 ; attractive
   SUN    SP5     1       0.21558E-00     0.23238E-02 ; attractive
   SUN    P4      1       0.17246E-00     0.18590E-02 ; semi attractive
@@ -50,7 +50,7 @@ SUP 72.0 0.000 A 0.0 0.0
   SUN    D       1       0.00000E-00     0.00000E-00 ; no LJ interaction
 
 ;;;; Sna -> Na ;;;;
-  Sna    Sna     1       0.00000E-00     0.00000E-00 ; no self-term
+  Sna    Sna     1       0.43090E-01     0.11605E-03 ;  
   Sna    P5      1       0.21558E-00     0.23238E-02 ; attractive 
   Sna    SP5     1       0.21558E-00     0.23238E-02 ; attractive 
   Sna    P4      1       0.17246E-00     0.18590E-02 ; semi attractive
@@ -94,7 +94,7 @@ SUP 72.0 0.000 A 0.0 0.0
   Sna    D       1       0.00000E-00     0.00000E-00 ; no LJ interaction
 
 ;;;; Sn0 -> N0 ;;;;
-  Sn0    Sn0     1       0.00000E-00     0.00000E-00 ; no self-term
+  Sn0    Sn0     1       0.37703E-01     0.10154E-02 ; intermediate 
   Sn0    P5      1       0.15091E-00     0.16267E-02 ; intermediate 
   Sn0    SP5     1       0.15091E-00     0.16267E-02 ; intermediate 
   Sn0    P4      1       0.15091E-00     0.16267E-02 ; intermediate 
@@ -138,7 +138,7 @@ SUP 72.0 0.000 A 0.0 0.0
   Sn0    D       1       0.00000E-00     0.00000E-00 ; no LJ interaction
 
 ;;;; SUP -> P4 ;;;;
-  SUP    SUP     1       0.00000E-00     0.00000E-00 ; no self-term 
+  SUP    SUP     1       0.53862E-01     0.14506E-03 ; attractive 
   SUP    P5      1       0.24145E-00     0.26027E-02 ; supra attractive
   SUP    SP5     1       0.24145E-00     0.26027E-02 ; supra attractive
   SUP    P4      1       0.21558E-00     0.23238E-02 ; attractive 

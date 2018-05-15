@@ -230,8 +230,9 @@ class BaseProject(object):
 		for lipid in self.lipid_list:
 			if lipid in self.sample_molecules:
 				self.lipid_type = lipid
-				
-		self.lipid_types = [self.lipid_type]
+		
+		if self.lipid_type is not None:
+			self.lipid_types = [self.lipid_type]
 				
 		self.solvent_types = []
 		
@@ -253,73 +254,199 @@ class BaseProject(object):
 		gro_file = gro_file.split('/')[-1]
 		print("Using: {0}".format(gro_file) )
 		
-		system = '_'.join(gro_file.split('_')[:-1])
+		self.system = '_'.join(gro_file.split('_')[:-1])
 		
 		if 'TOP' not in inputs:
-			top_file = system + '.top'
+			top_file = self.system + '.top'
 		else:
 			top_file = inputs['TOP']
 		
 		if 'NDX' not in inputs:
-			ndx_file = system + '.ndx'
+			ndx_file = self.system + '.ndx'
 		else:
 			ndx_file = inputs['NDX']
 		
 		if 'TPR' not in inputs:
-			tpr_file = system + '.tpr'
+			tpr_file = gro_file.replace('.gro','.tpr')
 		else:
 			tpr_file = inputs['TPR']
 			
 		try:
-			sub.call( "cp {0} ./{1}.gro".format( '{0}/{1}'.format(path, gro_file), system ), shell=True)
-			#sub.call( "cp {0} .".format( '{0}/{1}'.format(path, top_file) ), shell=True)
-			sub.call( "cp {0} ./{1}.tpr".format( '{0}/{1}'.format(path, tpr_file), system ), shell=True)
+			sub.call( "cp {0} ./{1}.gro".format( '{0}/{1}'.format(path, gro_file), self.system ), shell=True)
+			sub.call( "cp {0} ./{1}.tpr".format( '{0}/{1}'.format(path, tpr_file), self.system ), shell=True)
 			sub.call( "cp {0} .".format( '{0}/{1}'.format(path, ndx_file) ), shell=True)
+		
 		except IOError as e:
 			print(e)
 		
+		read_index_cmd = """cat {0} | grep "\[" """.format(ndx_file)
+		read_index_proc = sub.Popen(read_index_cmd, stdout=sub.PIPE, stderr=sub.PIPE, shell=True)
+		read_index_out = read_index_proc.stdout.read()
+		
+		print(read_index_out.splitlines())
+		nb_index = len(read_index_out.splitlines())
+		
 		#Retrieving the index
-		self.nb_index = None
-		if self.type == 'BILAYER':
-			self.nb_index = 8
-			
-			if self.defo:
-				self.nb_index += 2
-				
-			if self.su:
-				self.nb_index += 2
-			
-			if self.mono:
-				self.nb_index += 1
+		self.nb_index = nb_index
 		
-		if self.type == 'SOLVENT':
-			self.nb_index = 2
-			
-			for sol in self.solvent_types:
-				self.nb_index += 1
-			
-			if self.su:
-				self.nb_index += 2
-		
+		create_su = False
 		try:
 			if self.defo:
 				sub.call( "cp {0}/defos_topo.itp .".format(path), shell=True)
 				sub.call( "cp {0}/defo_posres_DEFB_gen.itp .".format(path), shell=True)
 				
 			if self.su:
-				sub.call( "cp {0}/su_posres_gen.itp .".format(path), shell=True)
-			
+				su_posres = "{0}/su_posres_gen.itp".format(path)
+				
+				if os.path.isfile(su_posres):
+					sub.call( "cp {0}/su_posres_gen.itp .".format(path), shell=True)
+				else:
+					create_su = True
 			
 		except IOError as e:
 			print(e)
+		
+		translate = None
+		
+		if 'TRANS' in inputs:
+			translate = [float(T)/10. for T in inputs['TRANS'].strip().split()]
+			
+			translate_cmd = str("printf 'System\\n'  | {0} trjconv -f {1}.gro -s {1}.tpr -o {1}.gro -n {1}.ndx -pbc mol "
+								"-trans {2} {3} {4}").format(self.softwares['GROMACS_LOC'], 
+																self.system,
+																translate[0], translate[1], translate[2],
+																)
+			sub.call(translate_cmd, shell=True)
+		
+		if create_su:
+			
+			# pdb file for su
+			assert(len(self.su['SuType']) <= 4),"The name of the SU should be 4 letters max (Otherwise problem with PDB file format)" 
+			
+			su_type = self.su['SuType'] + (4 - len(self.su['SuType']))*' '
+			
+			atom_type = None
+			if self.su['SuType'].startswith('SU'):
+				atom_type = self.su['SuType'][-2:] + (3 - len(self.su['SuType'][-2:]))*' '
+			elif self.su['SuType'].startswith('S'):
+				atom_type = self.su['SuType'][-3:] + (3 - len(self.su['SuType'][-3:]))*' '
 				
-		self.output_file = "{0}.gro".format(system)
-		self.system = system
-		self.index_file = ndx_file
+			dimensions = str(ut.tail(file_found[0], 1)[0], 'utf-8').replace(repr('\n'),'')
+			dimensions = dimensions.split()
+			dimensions = [float(D) for D in dimensions]
+			print(dimensions)
+			
+			#if 'SCALE' in inputs:
+				#scaleby = inputs['SCALE'].strip().split()
+				#scalegro_cmd = "{0} editconf -f {1}.gro -o {1}.gro -scale {2} {3} {4}".format(self.softwares['GROMACS_LOC'], self.system,
+																								#scale_by[0], scale_by[1], scale_by[2])
+				#sub.call(scalegro_cmd, shell=True)
+			
+			grotopdb_cmd = "{0} editconf -f {1}.gro -o {1}.pdb -c no".format(self.softwares['GROMACS_LOC'], self.system)
+			sub.call(grotopdb_cmd, shell=True)
+			
+			#self.nb_su = int( float(self.su['Density']) * dimensions[0] * dimensions[1] * float(self.su['Thickness']) / 10 )
+			
+			
+			su_atoms = ""
+			self.nb_su = 0
+			with open(inputs['SU'],'r') as su_input:
+				for line in su_input:
+					split_line = line.split()
+					
+					#print(split_line)
+					if len(split_line) < 3: continue
+					
+					# Add the pbc
+					if len(split_line) == 3:
+						split_line[2] = float(self.su['Thickness'])/10.
+						su_atoms += "  {0}  {1}  {2}".format(split_line[0], split_line[1], split_line[2])
+						continue
+					
+					#Look at the z below the thickness
+					z = float(line.split()[-4])
+					if z < (float(self.su['Thickness']) / 10.):
+						su_atoms += line
+						self.nb_su += 1
+			
+			su_atoms = su_atoms.replace("TEMP", self.su['SuType'])
+			su_atoms = su_atoms.replace("TEM", atom_type)
+			
+			substrate_content = "SUBSTRATE\n{0}\n{1}".format(self.nb_su, su_atoms)
+			system = self.system + "_{0}{1}{2}".format(self.nb_su, self.su['SuType'], self.su['Version'])
+			
+			with open('substrate.gro','w') as substrate_file:
+				substrate_file.write(substrate_content)
+				
+			grotopdb_cmd = "{0} editconf -f substrate.gro -o substrate.pdb -c no".format(self.softwares['GROMACS_LOC'])
+			sub.call(grotopdb_cmd, shell=True)
+			
+			shell = 7.0
+			self.packmol_input += """
+								avoid_overlap yes
+								
+								output {0}.pdb
+								
+								# Input structure
+								structure {1}.pdb
+									fixed 0. 0. {2} 0.0 0.0 0.0
+								end structure
+								
+								# Substrate
+								structure substrate.pdb
+									fixed 0. 0. 0. 0. 0. 0.
+								end structure
+								
+								""".format(system, self.system, float(self.su['Thickness'])+shell, pdb_file_list['SU']['name'], 
+											self.nb_su, dimensions[0]*10, dimensions[1]*10, self.su['Thickness'])
+								
+			
+			#su_pdb_content = pdb_file_list['SU']['content'].replace("TEMP", su_type)
+			#su_pdb_content = su_pdb_content.replace("TEM", atom_type)
+			
+			#with open(pdb_file_list['SU']['name'],'w') as su_pdb:
+				#su_pdb.write(ut.RemoveUnwantedIndent(su_pdb_content))
+								
+			with open("packmol_{0}.input".format(self.system), 'w') as packmol_file:
+				packmol_file.write(ut.RemoveUnwantedIndent(self.packmol_input))
+								
+			packmol_cmd = str("{0} < packmol_{1}.input > packmol_{1}.output "
+					).format(self.softwares['PACKMOL'], self.system)
+			
+			sub.call(packmol_cmd, shell=True)
+			
+			
+			pdbtogro_cmd = "{0} editconf -f {1}.pdb -o {1}.gro -box {2} {3} {4} -c no".format(self.softwares['GROMACS_LOC'], system,
+																				dimensions[0], dimensions[1], 
+																				dimensions[2] + (float(self.su['Thickness'])+ 2*shell)/10)
+			sub.call(pdbtogro_cmd, shell=True)
+			
+			group_index = [str(i) for i in range(0, self.nb_index-1, 1)]
+			
+			make_ndx_input = """ "r {0}\\nname {1} su\\ndel 0\\ndel 0\\n{2}\\nname {3} System\\nq\\n" """.format(self.su['SuType'],
+																									self.nb_index,
+																									" | ".join(group_index),
+																									int(group_index[-1])+1)
+			
+			add_su_ndx_cmd = """printf {3} | {0} make_ndx -f {1}.gro -n {2} -o {1}.ndx""".format(self.softwares['GROMACS_LOC'], system,
+																				self.system, make_ndx_input)
+			
+			sub.call(add_su_ndx_cmd, shell=True)
 		
-		self.create_topology()
+			self.system = system
 		
-		return system, self.output_file, ndx_file
+		self.output_file = "{0}.gro".format(self.system)
+		self.index_file = "{0}.ndx".format(self.system)
+		
+		if create_su:
+			self.create_topology()
+		else:
+			sub.call( "cp {0} .".format( '{0}/{1}'.format(path, top_file) ), shell=True)
+			sub.call( "cp {0} .".format( '{0}/martini*itp'.format(path) ), shell=True)
+			
+		
+		
+		return self.system, self.output_file, self.index_file
 	
 	
 	def make(self):
@@ -681,7 +808,7 @@ class BaseProject(object):
 			elif not auto_T_coupling_grps:
 				ref_t_T_coupling_grps += str(self.protocol[md_step]['ref-t']) + ' '
 				auto_ref_t_T_coupling_grps = False
-				
+		
 		#Automatic generation
 		if auto_energy_grps or auto_T_coupling_grps or auto_tau_T_coupling_grps or auto_ref_t_T_coupling_grps:
 			if self.lipid_types is not None:
@@ -918,6 +1045,11 @@ class BaseProject(object):
 								su_topology_file.write(su_topology)
 			
 			
+			if self.protocol[md_step]['stepType'].startswith('EM'):
+				posres_define += ' -DPW_EM'
+			else:
+				posres_define += ' -DPW_NOTEM'
+				
 			output.write("define = {0}".format(posres_define))
 			
 			copy_original_line = True

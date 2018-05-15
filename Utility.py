@@ -86,8 +86,8 @@ def deleteContent(pfile):
     pfile.truncate()
 
 #Tail linux function 
-def tail(file, n):
-	Output = sub.Popen("tail -n"+str(n)+" "+file, stdout=sub.PIPE, stderr=sub.PIPE, shell=True)
+def tail(filef, n):
+	Output = sub.Popen("tail -n"+str(n)+" "+filef, stdout=sub.PIPE, stderr=sub.PIPE, shell=True)
 	text = Output.stdout.readlines()
 	return text
 

@@ -43,10 +43,3 @@ vdwtype                 = cutoff
 vdw-modifier             = Potential-shift-verlet
 rvdw                     = 1.1
 
-
- ; OPTIONS FOR BONDS     = 
-constraints              = none 
-constraint-algorithm     = Lincs
-continuation             = no
-lincs-order              = 4
-lincs-warnangle          = 30

@@ -63,9 +63,3 @@ gen-vel                  = no
 gen-temp                 = 323
 gen-seed                 = 473529
 
- ; OPTIONS FOR BONDS     =
-constraints              = none
-constraint-algorithm     = Lincs
-unconstrained-start      = no 
-lincs-order              = 4
-lincs-warnangle          = 30

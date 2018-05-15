@@ -1,0 +1,8 @@
+#include "martini_v2.2.itp"
+#include "martini_v2.0_solvents.itp"
+
+[ system ]
+SOLVENT_14400W
+
+[ molecules ]
+W 14400

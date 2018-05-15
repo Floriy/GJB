@@ -12,7 +12,7 @@ FREEZE_K,freezegrps,freezedim,ref-t,tau-t,,,,,,
 ,,,,,,,,,,
 POSRES,ref-t,tau-t,,posres,FCX,FCY,FCZ,,,
 ,323,-1,,on,5000,5000,5000,,,
-POSRESZ_FREEZEXY,#ref-t,#tau-t,,posres,FCX,FCY,FCZ,,freezegrps,freezedim
+POSRESZ_FREEZEXY,ref-t,tau-t,,posres,FCX,FCY,FCZ,,freezegrps,freezedim
 ,323,1,,on,0,0,2000,,su,Y Y N
 NO_TEMP,ref-t,tau-t,,,,,,,,
 ,323,-1,,,,,,,,
