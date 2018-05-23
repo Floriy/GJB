@@ -340,9 +340,15 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 	center_x = (max_valx - min_valx)/ 2.0
 	center_y = (max_valy - min_valy)/ 2.0
 	
+	#Mean values
 	low_leaflet_data = []
 	upp_leaflet_data = []
 	bil_leaflet_data = []
+	
+	#Errors
+	low_leaflet_err = []
+	upp_leaflet_err = []
+	bil_leaflet_err = []
 	
 	radii = []
 	
@@ -428,6 +434,10 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 		low_leaflet_data.append(np.mean(prop_values_low[indexes]))
 		upp_leaflet_data.append(np.mean(prop_values_up[indexes]))
 		bil_leaflet_data.append(np.mean(prop_values_bil[indexes]))
+		
+		low_leaflet_err.append(np.std(prop_values_low[indexes])	/ math.sqrt(len(prop_values_low[indexes]))	)
+		upp_leaflet_err.append(np.std(prop_values_up[indexes])	/ math.sqrt(len(prop_values_up[indexes]))	)
+		bil_leaflet_err.append(np.std(prop_values_bil[indexes])	/ math.sqrt(len(prop_values_bil[indexes]))	)
 		
 		radius += dr
 	
@@ -525,12 +535,32 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 	
 	"""
 	
+	low_leaflet_data = np.array(low_leaflet_data)
+	upp_leaflet_data = np.array(upp_leaflet_data)
+	bil_leaflet_data = np.array(bil_leaflet_data)
+	
+	low_leaflet_err = np.array(low_leaflet_err)
+	upp_leaflet_err = np.array(upp_leaflet_err)
+	bil_leaflet_err = np.array(bil_leaflet_err)
+		
 	#plotting the function for each leaflet and total bilayer
 	fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(15,6), dpi=72)
 	
-	ax.fill(radii, low_leaflet_data, alpha=0.4, color='blue', label='lower leaflet')
-	ax.fill(radii, upp_leaflet_data, alpha=0.4, color='red', label='upper leaflet')
+	#plot the curves
+	ax.plot(radii, low_leaflet_data, alpha=1.0, color='blue', label='lower leaflet')
+	ax.plot(radii, upp_leaflet_data, alpha=1.0, color='red', label='upper leaflet')
 	ax.plot(radii, bil_leaflet_data, alpha=1.0, color='purple', label='bilayer')
+	
+	#plot the error
+	ax.fill_between(radii, low_leaflet_data-low_leaflet_err, low_leaflet_data+low_leaflet_err, 
+						alpha=0.3, facecolor='blue', linewidth=0)
+	
+	ax.fill_between(radii, upp_leaflet_data-upp_leaflet_err, upp_leaflet_data+upp_leaflet_err,
+						alpha=0.3, facecolor='red', linewidth=0)
+	
+	ax.fill_between(radii, bil_leaflet_data-bil_leaflet_err, bil_leaflet_data+bil_leaflet_err,
+						alpha=0.3, facecolor='purple', linewidth=0)
+	
 	ax.set_xlabel("r (nm)")
 	ax.set_ylabel(prop)
 	ax.grid('on')
@@ -2804,6 +2834,7 @@ elif 'xvgplot' in sys.argv:
 		ax.legend()
 		ax.legend().draggable()
 		
+		#plt.show()
 		plt.savefig(XVG_FILE.replace('xvg','svg'))
 		plt.close()
 	

@@ -885,6 +885,7 @@ def main(argv=sys.argv):
 							./run_{8}.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_{8}.out
 							
 							rsync -r ./* ${{OUTPUTDIR}}/.
+							rm -rf ${{MYTMPDIR}}
 							cd ${{INITIALDIR}}
 							
 							
@@ -893,7 +894,7 @@ def main(argv=sys.argv):
 							""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'],
 										TGCC['time_s'], parameter_file, TGCC['mail'],
 										current_job['PROTOCOL'][md_step]['stepType'])
-							#rm -rf ${{MYTMPDIR}}
+							
 					with open('{0}.ccc_msub'.format(current_job['PROTOCOL'][md_step]['stepType']),'w') as tgcc_file:
 						tgcc_file.write( ut.RemoveUnwantedIndent(tgcc_file_run) )
 					

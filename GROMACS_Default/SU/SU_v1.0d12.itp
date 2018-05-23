@@ -6,7 +6,7 @@ SUP 72.0 0.000 A 0.0 0.0
 #####################################################################
 [ nonbond_params ]
 ;;;; SUN -> Nda ;;;;
-  SUN    SUN     1       0.48506E-01     0.13072E-03 ; 
+  SUN    SUN     1       0.86234E-01     0.41313E-03 ; 
   SUN    P5      1       0.21558E-00     0.23238E-02 ; attractive
   SUN    SP5     1       0.21558E-00     0.23238E-02 ; attractive
   SUN    P4      1       0.17246E-00     0.18590E-02 ; semi attractive
@@ -138,7 +138,7 @@ SUP 72.0 0.000 A 0.0 0.0
   Sn0    D       1       0.00000E-00     0.00000E-00 ; no LJ interaction
 
 ;;;; SUP -> P4 ;;;;
-  SUP    SUP     1       0.53896E-01     0.14524E-03 ; attractive 
+  SUP    SUP     1       0.95815E-01     0.45903E-03 ; attractive 
   SUP    P5      1       0.24145E-00     0.26027E-02 ; supra attractive
   SUP    SP5     1       0.24145E-00     0.26027E-02 ; supra attractive
   SUP    P4      1       0.21558E-00     0.23238E-02 ; attractive 
