@@ -8,11 +8,52 @@ FREEZE,freezegrps,freezedim,ref-t,tau-t,,,,,,,,,,,,,,,,,,,,,,,
 POSRES,posres,FCX,FCY,FCZ,,,,,,,,,,,,,,,,,,,,,,,
 ,on,1000,1000,1000,,,,,,,,,,,,,,,,,,,,,,,
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,
+G2016_DEFO_C1_POSRESXY5000_TEMP1,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
+,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,323,0.025,,on,5000,5000,0
+,,,,,,,,,,,,,,,,,,,,,,,,,,,
+#G2016_DEFO_C1_POSRESXY5000_NVE,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,posres,FCX,FCY,FCZ
+#,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,on,5000,5000,0
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,
+G2016_DEFO_C1_POSRESXY5000_TEMP2,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
+,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,323,0.001,,on,5000,5000,0
+,
+G2016_DEFO_C1_POSRESXY5000_TEMP3,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
+,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,0,0.025,,on,5000,5000,0
+,
+G2016_DEFO_C1_POSRESXY5000_TEMP300,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
+,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,300,0.025,,on,5000,5000,0
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,
+G2016_DEFO_C1_POSRESXY5000_TEMP200,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
+,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,200,0.025,,on,5000,5000,0
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,
+G2016_DEFO_C1_POSRESXY5000_TEMP100,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
+,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,100,0.025,,on,5000,5000,0
+
+G2016_DEFO_C1_POSRESXY5000_TEMP280,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
+,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,280,0.025,,on,5000,5000,0
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,
+G2016_DEFO_C1_POSRESXY5000_TEMP250,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
+,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,250,0.025,,on,5000,5000,0
+
+G2016_DEFO_C1_POSRESXY5000_TEMP275,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
+,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,275,0.025,,on,5000,5000,0
+,,,,,,,,,,,,,,,,,,,,,,,,,,,
+G2016_DEFO_C1_POSRESXY5000_TEMP272,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
+,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,272,0.025,,on,5000,5000,0
+
+G2016_DEFO_C1_POSRESXY5000_TEMP270,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
+,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,270,0.025,,on,5000,5000,0
+
+G2016_DEFO_C1_POSRESXY5000_TEMP260,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
+,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,260,0.025,,on,5000,5000,0
+
+G2016_DEFO_C1_POSRESXY5000_TEMP265,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
+,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,265,0.025,,on,5000,5000,0
+
+G2016_DEFO_C1_POSRESXY5000_TEMP278,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
+,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,278,0.025,,on,5000,5000,0
+
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,
 ## MDRUN Parameters,,,,,,,,,,,,,,,,,,,,,,,,,,,
 G2016_DEFO_C1_POSRES,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
@@ -39,8 +80,8 @@ G2016_DEFO_C1_POSRESXY5000_TEMP,pull,pull-ngroups,pull-group1-name,pull-group1-p
 ,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,323,2,,on,5000,5000,0
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,
-G2016_DEFO_C1_POSRESXY5000_TEMP1,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
-,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,323,1,,on,5000,5000,0
+#G2016_DEFO_C1_POSRESXY5000_TEMP1,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
+#,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,323,1,,on,5000,5000,0
 G2016_DEFO_C1_POSRESXY5000_TEMP2,pull,pull-ngroups,pull-group1-name,pull-group1-pbcatom,pull-group2-name,pull-group2-pbcatom,pull-ncoords,pull-coord1-groups,pull-coord1-type,pull-coord1-geometry,pull-coord1-dim,,pull-coord1-k,,pull-print-com,pull-print-ref-value,pull-print-components,pull-nstxout,pull-nstfout,,ref-t,tau-t,,posres,FCX,FCY,FCZ
 ,yes,2,bilayer,0,defo,0,1,1 2,constant-force,distance,N N Y,,1000,,yes,yes,yes,50,50,,323,2,,on,5000,5000,0
 ,,,,,,,,,,,,,,,,,,,,,,,,,,,

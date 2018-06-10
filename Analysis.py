@@ -14,6 +14,7 @@ from collections import OrderedDict
 import gc #garbage collector
 import time
 import Utility as ut
+from io import StringIO
 
 #global variables
 extensions = ['ndx','gro','xtc']
@@ -24,6 +25,10 @@ def depth(d, level=1):
 		return level
 	
 	return max(depth(d[k], level + 1) for k in d)
+
+def intersect(a, b):
+    """ return the intersection of two lists """
+    return list(set(a) & set(b))
 
 #function for padding
 def padding_grid(grid_x, grid_y, box_x, box_y, pad_x, pad_y):
@@ -61,7 +66,79 @@ def padding_grid(grid_x, grid_y, box_x, box_y, pad_x, pad_y):
 	#print(y_down_max)
 	return grid_x, grid_y, x_right_min, x_left_max, y_up_min, y_down_max
 
+def padding3d_grid(grid_x, grid_y, grid_z, box_x, box_y, box_z, pad_x, pad_y, pad_z):
+	padx_begin = np.subtract(grid_x[-pad_x-1:-1], box_x) 
+	padx_end = np.add(grid_x[1:pad_x+1], box_x)
+	
+	pady_begin = [np.subtract(grid_y[0][-pad_y-1:-1], box_y)]
+	pady_end = [np.add(grid_y[0][1:pad_y+1], box_y)]
+	
+	padz_begin = [np.subtract(grid_z[0][-pad_z-1:-1], box_z)]
+	padz_end = [np.add(grid_z[0][1:pad_z+1], box_z)]
+
+	x_right_min = np.amin(grid_x[-pad_x-1:-1])
+	x_left_max = np.amax(grid_x[1:pad_x+1])
+	
+	y_up_min = np.amin(grid_y[0][-pad_y-1:-1])
+	y_down_max = np.amax(grid_y[0][1:pad_y+1])
+	
+	z_up_min = np.amin(grid_z[0][-pad_z-1:-1])
+	z_down_max = np.amax(grid_z[0][1:pad_z+1])
+	
+	# padd the x axis
+	grid_x = np.insert(grid_x, [0], padx_begin, axis=0)
+	grid_x_el_len = len(grid_x)
+	grid_x = np.insert(grid_x, [grid_x_el_len], padx_end, axis=0)
+	
+	# padd the y axis
+	grid_y = np.insert(grid_y,[0], pady_begin, axis=1)
+	grid_y_el_len = grid_y[0].size
+	grid_y = np.insert(grid_y, [grid_y_el_len], pady_end, axis=1)
+	
+	# padd the y axis
+	grid_z = np.insert(grid_z,[0], padz_begin, axis=2)
+	grid_z_el_len = grid_z[0].size
+	grid_z = np.insert(grid_z, [grid_z_el_len], padz_end, axis=2)
+	
+	
+	grid_x = np.array([ np.pad(X, pad_width=(pad_x, pad_y), mode='edge') for X in grid_x ])
+	grid_y = np.insert(grid_y, [len(grid_y)], grid_y[:pad_x+pad_y], axis=0)
+	grid_z = np.insert(grid_z, [len(grid_z)], grid_z[:pad_x+pad_y], axis=1)
+	
+	
+	#print(x_right_min)
+	#print(x_left_max)
+	
+	#print(y_up_min)
+	#print(y_down_max)
+	return grid_x, grid_y, grid_z, x_right_min, x_left_max, y_up_min, y_down_max, z_up_min, z_down_max, 
+
 def padding_values(dataframe, pad_x, pad_y, box_x, box_y, x_right_min, x_left_max, y_up_min, y_down_max):
+	
+	x_sorted_df = dataframe.sort_values('X coords', ascending=True)
+	y_sorted_df = dataframe.sort_values('Y coords', ascending=True)
+	
+	padded = dataframe
+	
+	concatenate = [dataframe]
+	for leaflet in ['lower leaflet', 'upper leaflet']:
+		xpbc_right = dataframe.loc[(dataframe['leaflet'] == leaflet) & (dataframe['X coords'] < x_left_max),:]
+		xpbc_left = dataframe.loc[(dataframe['leaflet'] == leaflet) & (dataframe['X coords'] > x_right_min),:]
+		
+		ypbc_up = dataframe.loc[(dataframe['leaflet'] == leaflet) & (dataframe['Y coords'] < y_down_max),:]
+		ypbc_down = dataframe.loc[(dataframe['leaflet'] == leaflet) & (dataframe['Y coords'] > y_up_min),:]
+		
+		xpbc_right.loc[:,'X coords'] += box_x
+		xpbc_left.loc[:,'X coords'] -= box_x
+		ypbc_up.loc[:,'Y coords'] += box_y
+		ypbc_down.loc[:,'Y coords'] -= box_y
+		
+		concatenate.extend([xpbc_right, xpbc_left,ypbc_up,ypbc_down])
+	
+	padded = pd.concat(concatenate, ignore_index=True)
+	return padded
+
+def padding3d_values(dataframe, pad_x, pad_y, box_x, box_y, x_right_min, x_left_max, y_up_min, y_down_max):
 	
 	x_sorted_df = dataframe.sort_values('X coords', ascending=True)
 	y_sorted_df = dataframe.sort_values('Y coords', ascending=True)
@@ -1346,6 +1423,10 @@ genOptMayavi.add_argument('-f', '--filename', dest='filename',
 					type=str, required=True,
                     help='Set the filename to plot using mayavi')
 
+genOptMayavi.add_argument('-t', '--type', dest='type',
+					type=str, required=True,
+                    help='Set the type to plot using mayavi: loctemp or fatslim')
+
 ## parameters for mayavi #
 visual = sub_parser.add_parser('visual')
 
@@ -1400,6 +1481,13 @@ gmxOpt.add_argument('--density', action='store_true',
 gmxOpt.add_argument('--energy', action='store_true',
                     help='Compute energy using gmx energy')
 
+gmxOpt.add_argument('--loctemp', action='store_true',
+                    help='Compute local temperature in the box')
+
+gmxOpt.add_argument('--locpres', action='store_true',
+                    help='Compute local pressure in the box')
+
+
 gmxOpt.add_argument('--select', action='store_true',
                     help='Compute solvent per lipid')
 
@@ -1414,6 +1502,69 @@ gmxOpt.add_argument('--linkgroup', dest='linkgroup',
 gmxOpt.add_argument('--tailgroup', dest='tailgroup',
 					type=str, nargs='*', default=None,
                     help='Set the name of tailgroup')
+
+
+# Adding parser options to gromacs analysis##############################################################
+mda = sub_parser.add_parser('mda')
+
+mdaOpt = mda.add_argument_group("General options")
+
+mdaOpt.add_argument('-i', '--input', dest='md_run_input',
+					type=str, nargs='*', default=None,
+                    help='Set the name of MD run to analyse')
+
+mdaOpt.add_argument('--ext', dest='extension',
+					type=str, default='xtc',
+                    help='Set the name of the extension for trajecotry : gro , xtc (default = xtc)')
+
+mdaOpt.add_argument('-f', '--folder', dest='folder',
+					type=str, default=None,
+                    help='Set the folder where to search for data')
+
+#option for begin-frame
+mdaOpt.add_argument('-b', '--begin', dest='begin_frame',
+					type=int, default=None,
+                    help='Set the first frame for the trajectories')
+
+#option for end-frame
+mdaOpt.add_argument('-e', '--end', dest='end_frame',
+					type=int, default=None,
+                    help='Set the last frame for the trajectories')
+
+mdaOpt.add_argument('-dt', dest='stride',
+					type=int, default=None,
+                    help='Set the stride (in outputfrequency * timestep)')
+
+mdaOpt.add_argument('--radius', dest='radius',
+					type=float, default=None,
+                    help='Set the radius outside which the membrane will be analysed')
+
+mdaOpt.add_argument('--density', dest='density',
+					type=float, default=None,
+                    help='Set the bin size for computing density')
+
+mdaOpt.add_argument('--grid', dest='grid',
+					type=float, default=None,
+                    help='Set the bin size for computing grid')
+
+mdaOpt.add_argument('--local', dest='local',
+					type=float, nargs=3, default=None,
+                    help='Set the bin size for computing local properties')
+
+mdaOpt.add_argument('--select', action='store_true',
+                    help='Compute solvent per lipid')
+
+mdaOpt.add_argument('--headgroup', dest='headgroup',
+					type=str, nargs='*', default=None,
+                    help='Set the name of headgroup')
+
+mdaOpt.add_argument('--tailgroup', dest='tailgroup',
+					type=str, nargs='*', default=None,
+                    help='Set the name of tailgroup')
+
+mdaOpt.add_argument('--sugroup', dest='sugroup',
+					type=str, nargs='*', default=None,
+                    help='Set the name of sugroup')
 
 
 # Adding parser options to gromacs analysis##############################################################
@@ -1438,6 +1589,51 @@ xvgOpt.add_argument('--plot', action='store_true',
 
 xvgOpt.add_argument('--mean', action='store_true',
                     help='Return the mean, std and stderr values of the selected quantities')
+
+# Adding parser options to gromacs analysis##############################################################
+reflectometry = sub_parser.add_parser('reflectometry')
+
+reflectometryOpt = reflectometry.add_argument_group("General options")
+
+reflectometryOpt.add_argument('-sl', dest='sl_file',
+					type=str, required=True,
+					help='Set the name of the file to use for scattering length data (.sl)')
+
+reflectometryOpt.add_argument('-ref', dest='reflectivity',
+					type=str, default=None,
+					help='Set the quantity name to compute reflectivity')
+
+reflectometryOpt.add_argument('-f', '--file', dest='xvg_file',
+					type=str, required=True,
+					help='Set the name of the file to use for sld (density.xvg)')
+
+reflectometryOpt.add_argument('-m','--molecules', dest='molecules',
+					type=str, nargs='*', required=True,
+					help='Set the molecules used to compute sld')
+
+reflectometryOpt.add_argument('--limits', dest='limits',
+					type=float, nargs=2, default=None,
+					help='Set the limits for the sld')
+
+reflectometryOpt.add_argument('-sub','--sublayers', dest='sublayers',
+					type=str, nargs='*', default=None,
+                    help='Set the sub layers composition to compute the reflectivity [[mol density thickness rugosity], ...]')
+
+reflectometryOpt.add_argument('-sup','--superlayers', dest='superlayers',
+					type=str, nargs='*', default=None,
+                    help='Set the super layers composition to compute the reflectivity [[mol density thickness rugosity], ...]')
+
+reflectometryOpt.add_argument('-q', dest='qrange',
+					type=float, nargs=3, default=None,
+                    help='Set the Qmin, Qmax and Qgrid size to compute reflectometry curve')
+
+reflectometryOpt.add_argument('-qf', dest='qfile',
+					type=float, nargs=1, default=None,
+                    help='Set the Qmin, Qmax and Qgrid size to compute reflectometry curve')
+
+reflectometryOpt.add_argument('--check', action='store_true',
+                    help='Show the sld curve before computing reflectometry')
+
 
 cmdParam = parser.parse_args(sys.argv[1:])
 print(cmdParam)
@@ -2102,91 +2298,258 @@ elif 'mayavi' in sys.argv:
 		print("If you want to see 3d representation of the membrane please install mayavi")
 	else:
 		
-		FILENAME = cmdParam.filename
+		FILENAME	= cmdParam.filename
+		TYPE		= cmdParam.type
 		filename = None
+		
 		try:
 			filename = glob.glob(FILENAME)[0]
-		except Error as e:
+		except IOError as e:
 			print(e)
 			
-		Membrane = {'lower leaflet': {'x':[],'y':[],'z':[],'xd':[],'yd':[],'zd':[],'xn':[],'yn':[],'zn':[],'prop value':[]},
-        'upper leaflet':{'x':[],'y':[],'z':[],'xd':[],'yd':[],'zd':[],'xn':[],'yn':[],'zn':[],'prop value':[]}}
-		with open(filename) as fp:
-			for lino, line in enumerate(fp):
-				if lino == 0:
-					membrane_property = line.split(",")[-1].strip()
+		if TYPE == 'fatslim':
+			Membrane = {'lower leaflet': {'x':[],'y':[],'z':[],'xd':[],'yd':[],'zd':[],'xn':[],'yn':[],'zn':[],'prop value':[]},
+			'upper leaflet':{'x':[],'y':[],'z':[],'xd':[],'yd':[],'zd':[],'xn':[],'yn':[],'zn':[],'prop value':[]}}
+			with open(filename) as fp:
+				for lino, line in enumerate(fp):
+					if lino == 0:
+						membrane_property = line.split(",")[-1].strip()
 
-				else:
-					line = line.strip()
+					else:
+						line = line.strip()
 
-					if len(line) == 0:
-						continue
+						if len(line) == 0:
+							continue
 
-					resid, leaflet, x, y, z, xd, yd, zd, xn, yn, zn, value = line.split(",")
-					Membrane[leaflet]['x'].append(float(x))
-					Membrane[leaflet]['y'].append(float(y))
-					Membrane[leaflet]['z'].append(float(z))
+						resid, leaflet, x, y, z, xd, yd, zd, xn, yn, zn, value = line.split(",")
+						Membrane[leaflet]['x'].append(float(x))
+						Membrane[leaflet]['y'].append(float(y))
+						Membrane[leaflet]['z'].append(float(z))
 
-					Membrane[leaflet]['xd'].append(- float(xd))
-					Membrane[leaflet]['yd'].append(- float(yd))
-					Membrane[leaflet]['zd'].append(- float(zd))
+						Membrane[leaflet]['xd'].append(- float(xd))
+						Membrane[leaflet]['yd'].append(- float(yd))
+						Membrane[leaflet]['zd'].append(- float(zd))
 
-					Membrane[leaflet]['xn'].append(float(xn))
-					Membrane[leaflet]['yn'].append(float(yn))
-					Membrane[leaflet]['zn'].append(float(zn))
-					Membrane[leaflet]['prop value'].append(float(value))
-		
-		#Lower leaflet
-		lower_leaflet_pts = mlab.points3d(Membrane['lower leaflet']['x'], Membrane['lower leaflet']['y'], Membrane['lower leaflet']['z'], Membrane['lower leaflet']['prop value'])
-		
-		lower_leaflet_directions = mlab.quiver3d(Membrane['lower leaflet']['x'], Membrane['lower leaflet']['y'], Membrane['lower leaflet']['z'], 
-						Membrane['lower leaflet']['xd'], Membrane['lower leaflet']['yd'], Membrane['lower leaflet']['zd'], mode='arrow', scale_factor=1.5, resolution=32, color=(1,0,0))
-		
-		lower_leaflet_normals = mlab.quiver3d(Membrane['lower leaflet']['x'], Membrane['lower leaflet']['y'], Membrane['lower leaflet']['z'], 
-						Membrane['lower leaflet']['xn'], Membrane['lower leaflet']['yn'], Membrane['lower leaflet']['zn'], mode='arrow', scale_factor=1.5, resolution=32, color=(0,0,1))
-		
-		#Upper leaflet
-		upper_leaflet_pts = mlab.points3d(Membrane['upper leaflet']['x'], Membrane['upper leaflet']['y'], Membrane['upper leaflet']['z'], Membrane['upper leaflet']['prop value'])
-		
-		upper_leaflet_directions = mlab.quiver3d(Membrane['upper leaflet']['x'], Membrane['upper leaflet']['y'], Membrane['upper leaflet']['z'], 
-						Membrane['upper leaflet']['xd'], Membrane['upper leaflet']['yd'], Membrane['upper leaflet']['zd'], mode='arrow', scale_factor=1.5, resolution=32, color=(1,0,0))
-		
-		upper_leaflet_normals = mlab.quiver3d(Membrane['upper leaflet']['x'], Membrane['upper leaflet']['y'], Membrane['upper leaflet']['z'], 
-						Membrane['upper leaflet']['xn'], Membrane['upper leaflet']['yn'], Membrane['upper leaflet']['zn'], mode='arrow', scale_factor=1.5, resolution=32, color=(0,0,1))
+						Membrane[leaflet]['xn'].append(float(xn))
+						Membrane[leaflet]['yn'].append(float(yn))
+						Membrane[leaflet]['zn'].append(float(zn))
+						Membrane[leaflet]['prop value'].append(float(value))
+			
+			#Lower leaflet
+			lower_leaflet_pts = mlab.points3d(Membrane['lower leaflet']['x'], Membrane['lower leaflet']['y'], Membrane['lower leaflet']['z'], Membrane['lower leaflet']['prop value'])
+			
+			lower_leaflet_directions = mlab.quiver3d(Membrane['lower leaflet']['x'], Membrane['lower leaflet']['y'], Membrane['lower leaflet']['z'], 
+							Membrane['lower leaflet']['xd'], Membrane['lower leaflet']['yd'], Membrane['lower leaflet']['zd'], mode='arrow', scale_factor=1.5, resolution=32, color=(1,0,0))
+			
+			lower_leaflet_normals = mlab.quiver3d(Membrane['lower leaflet']['x'], Membrane['lower leaflet']['y'], Membrane['lower leaflet']['z'], 
+							Membrane['lower leaflet']['xn'], Membrane['lower leaflet']['yn'], Membrane['lower leaflet']['zn'], mode='arrow', scale_factor=1.5, resolution=32, color=(0,0,1))
+			
+			#Upper leaflet
+			upper_leaflet_pts = mlab.points3d(Membrane['upper leaflet']['x'], Membrane['upper leaflet']['y'], Membrane['upper leaflet']['z'], Membrane['upper leaflet']['prop value'])
+			
+			upper_leaflet_directions = mlab.quiver3d(Membrane['upper leaflet']['x'], Membrane['upper leaflet']['y'], Membrane['upper leaflet']['z'], 
+							Membrane['upper leaflet']['xd'], Membrane['upper leaflet']['yd'], Membrane['upper leaflet']['zd'], mode='arrow', scale_factor=1.5, resolution=32, color=(1,0,0))
+			
+			upper_leaflet_normals = mlab.quiver3d(Membrane['upper leaflet']['x'], Membrane['upper leaflet']['y'], Membrane['upper leaflet']['z'], 
+							Membrane['upper leaflet']['xn'], Membrane['upper leaflet']['yn'], Membrane['upper leaflet']['zn'], mode='arrow', scale_factor=1.5, resolution=32, color=(0,0,1))
 
+			
+			lower_leaflet_pts.glyph.glyph.scale_mode = "data_scaling_off"
+			lower_leaflet_pts.glyph.glyph.scale_factor = 1.0
+			lower_leaflet_pts.glyph.glyph_source.glyph_source.phi_resolution = 32
+			lower_leaflet_pts.glyph.glyph_source.glyph_source.theta_resolution = 32
+			lower_leaflet_pts.glyph.glyph.color_mode = "color_by_scalar"
+			
+			upper_leaflet_pts.glyph.glyph.scale_mode = "data_scaling_off"
+			upper_leaflet_pts.glyph.glyph.scale_factor = 1.0
+			upper_leaflet_pts.glyph.glyph_source.glyph_source.phi_resolution = 32
+			upper_leaflet_pts.glyph.glyph_source.glyph_source.theta_resolution = 32
+			upper_leaflet_pts.glyph.glyph.color_mode = "color_by_scalar"
+			
+			lower_leaflet_directions.glyph.glyph_source.glyph_source.shaft_radius = 0.07
+			lower_leaflet_directions.glyph.glyph_source.glyph_source.tip_radius = 0.2
+			
+			upper_leaflet_directions.glyph.glyph_source.glyph_source.shaft_radius = 0.07
+			upper_leaflet_directions.glyph.glyph_source.glyph_source.tip_radius = 0.2
+			
+			lower_leaflet_normals.glyph.glyph_source.glyph_source.shaft_radius = 0.07
+			lower_leaflet_normals.glyph.glyph_source.glyph_source.tip_radius = 0.2
+			
+			upper_leaflet_normals.glyph.glyph_source.glyph_source.shaft_radius = 0.07
+			upper_leaflet_normals.glyph.glyph_source.glyph_source.tip_radius = 0.2
+			
+			mlab.colorbar()
+			mlab.show()
+			
+		elif TYPE in ['loctemp', 'locpres']:
+			
+			try:
+				import numpy as np
+			except ImportError as e:
+				print("You need numpy to use this command")
+				print("Error {0}".format(e))
 		
-		lower_leaflet_pts.glyph.glyph.scale_mode = "data_scaling_off"
-		lower_leaflet_pts.glyph.glyph.scale_factor = 1.0
-		lower_leaflet_pts.glyph.glyph_source.glyph_source.phi_resolution = 32
-		lower_leaflet_pts.glyph.glyph_source.glyph_source.theta_resolution = 32
-		lower_leaflet_pts.glyph.glyph.color_mode = "color_by_scalar"
+			loctemp_data = np.load(filename)
+			
+			grid_x = loctemp_data['mgx']
+			grid_y = loctemp_data['mgy']
+			grid_z = loctemp_data['mgz']
+			grid = loctemp_data['mg']
+			
+			if TYPE == 'loctemp':
+				mlab.figure(figure="local temperature", bgcolor=(1.0, 1.0, 1.0))
+			elif TYPE == 'locpres':
+				mlab.figure(figure="local pressure", bgcolor=(1.0, 1.0, 1.0))
+				
+			# Volume data
+			local_property = mlab.pipeline.scalar_field(grid_x, grid_y, grid_z, grid)
+			nb_points1D = len(grid)
+			volume_data = mlab.pipeline.volume(local_property)
+			
+			# Planes
+			mlab.pipeline.image_plane_widget(local_property,
+											plane_orientation='x_axes',
+											slice_index=nb_points1D/2.,
+										)
+			mlab.pipeline.image_plane_widget(local_property,
+										plane_orientation='y_axes',
+										slice_index=nb_points1D/2.,
+									)
+			volume_data.lut_manager.show_scalar_bar		= True
+			if TYPE == 'loctemp':
+				volume_data.lut_manager.scalar_bar.title	= 'T(K)'
+			elif TYPE == 'locpres':
+				volume_data.lut_manager.scalar_bar.title	= 'P(bar)'
+				
+			
+			volume_data.lut_manager.title_text_property.bold	= True
+			volume_data.lut_manager.label_text_property.bold	= True
+			
+			volume_data.lut_manager.label_text_property.color	= (0.0, 0.0, 0.0)
+			volume_data.lut_manager.title_text_property.color	= (0.0, 0.0, 0.0)
+			
+			volume_data.volume_mapper.sample_distance		= 0.1
+			volume_data.volume_property.diffuse				= 0.9
+			volume_data.volume_property.specular = 1.0
+			volume_data.volume_property.scalar_opacity_unit_distance	= 0.2
+			
+			mlab.show()
+			
+		elif TYPE in ['density']:
+			
+			try:
+				import numpy as np
+				#import matplotlib.pyplot as plt
+				from scipy.interpolate import interp1d
+			except ImportError as e:
+				print("You need numpy to use this command")
+				print("Error {0}".format(e))
+			try:
+				from tvtk.util.ctf import ColorTransferFunction
+				from tvtk.util.ctf import PiecewiseFunction
+				from vtk import vtkLookupTable
+			except ImportError as e:
+				print("Error {0}".format(e))
 		
-		upper_leaflet_pts.glyph.glyph.scale_mode = "data_scaling_off"
-		upper_leaflet_pts.glyph.glyph.scale_factor = 1.0
-		upper_leaflet_pts.glyph.glyph_source.glyph_source.phi_resolution = 32
-		upper_leaflet_pts.glyph.glyph_source.glyph_source.theta_resolution = 32
-		upper_leaflet_pts.glyph.glyph.color_mode = "color_by_scalar"
-		
-		lower_leaflet_directions.glyph.glyph_source.glyph_source.shaft_radius = 0.07
-		lower_leaflet_directions.glyph.glyph_source.glyph_source.tip_radius = 0.2
-		
-		upper_leaflet_directions.glyph.glyph_source.glyph_source.shaft_radius = 0.07
-		upper_leaflet_directions.glyph.glyph_source.glyph_source.tip_radius = 0.2
-		
-		lower_leaflet_normals.glyph.glyph_source.glyph_source.shaft_radius = 0.07
-		lower_leaflet_normals.glyph.glyph_source.glyph_source.tip_radius = 0.2
-		
-		upper_leaflet_normals.glyph.glyph_source.glyph_source.shaft_radius = 0.07
-		upper_leaflet_normals.glyph.glyph_source.glyph_source.tip_radius = 0.2
-		
-		mlab.colorbar()
-		mlab.show()
-		
+			density_data = np.load(filename)
+			
+			grid_x	= density_data['mgx']
+			grid_y	= density_data['mgy']
+			grid_z	= density_data['mgz']
+			grid	= density_data['mg']
+			
+			if TYPE == 'density':
+				mlab.figure(figure="Density", bgcolor=(1.0, 1.0, 1.0))
+				
+			# Volume data
+			density = mlab.pipeline.scalar_field(grid_x, grid_y, grid_z, grid)
+			nb_points1D = len(grid)
+			volume_data = mlab.pipeline.volume(density)
+			
+			ctf	= ColorTransferFunction()
+			ctf.add_rgb_point(0.0, 1.0,  1.0, 1.0)
+			ctf.add_rgb_point(1.0, 0.0,  0.0, 1.0)
+			ctf.add_rgb_point(2.0, 0.34, 1.0, 0.0)
+			ctf.add_rgb_point(3.0, 1.0,  0.0, 0.0)
+			ctf.add_rgb_point(4.0, 1.0,  1.0, 0.0)
+			volume_data._volume_property.set_color(ctf)
+			volume_data._ctf	= ctf
+			volume_data.update_ctf = True
+			
+			otf = PiecewiseFunction()
+			otf.add_point(0.0, 0.01)
+			otf.add_point(1.0, 0.005)
+			otf.add_point(2.0, 0.5)
+			otf.add_point(3.0, 0.5)
+			otf.add_point(4.0, 0.5)
+			volume_data._otf	= otf
+			volume_data._volume_property.set_scalar_opacity(otf)
+			
+			# Planes
+			x_plane = mlab.pipeline.image_plane_widget(density,
+											plane_orientation='x_axes',
+											slice_index=nb_points1D/2.,
+										)
+			y_plane = mlab.pipeline.image_plane_widget(density,
+										plane_orientation='y_axes',
+										slice_index=nb_points1D/2.,
+									)
+			
+			z_plane = mlab.pipeline.image_plane_widget(density,
+										plane_orientation='z_axes',
+										slice_index=nb_points1D/2.,
+									)
+			
+			planes = [x_plane, y_plane, z_plane]
+			
+			R = [255,   0,   0, 255, 255]
+			G = [255,   0, 255,   0, 255]
+			B = [255, 255,   0,   0,   0]
+			A = [255, 255, 255, 255, 255]
+			X = [0.0, 1.0, 2.0, 3.0, 4.0]
+			x_interp = np.linspace(0, 4.0, 256, endpoint=True)
+			
+			R_interp = interp1d(X, R, kind='linear')
+			G_interp = interp1d(X, G, kind='linear')
+			B_interp = interp1d(X, B, kind='linear')
+			A_interp = interp1d(X, A, kind='linear')
+
+			R_interp = np.clip(R_interp(x_interp),0,255)
+			G_interp = np.clip(G_interp(x_interp),0,255)
+			B_interp = np.clip(B_interp(x_interp),0,255)
+			A_interp = A_interp(x_interp)
+			
+			#plt.plot(x_interp, R_interp,'r')
+			#plt.plot(x_interp, G_interp,'g')
+			#plt.plot(x_interp, B_interp,'b')
+			#plt.plot(x_interp, A_interp,'k')
+			#plt.show()
+			RGBA = np.matrix([R_interp, G_interp, B_interp, A_interp])
+
+			
+			lut = RGBA.T
+			for plane in planes:
+				plane.module_manager.scalar_lut_manager.lut.table = lut
+			
+			x_plane.module_manager.scalar_lut_manager.use_default_range = False
+			x_plane.module_manager.scalar_lut_manager.data_range = [0.0, 4.0]
+
+			volume_data.volume_mapper.sample_distance		= 0.1
+			volume_data.volume_property.diffuse				= 0.9
+			volume_data.volume_property.specular = 1.0
+			volume_data.volume_property.scalar_opacity_unit_distance	= 0.1
+			volume_data.volume_property.shade = False
+			volume_data.volume_property.interpolation_type = 'nearest'
+			
+			mlab.draw()
+			mlab.show()
+			
+			
 elif 'vpython' in sys.argv:
 	try:
 		import numpy as np
 	except ImportError as e:
-		print("You need vpython to use this command")
+		print("You need numpy to use this command")
 		print("Error {0}".format(e))
 		
 	try:
@@ -2255,6 +2618,7 @@ elif 'vpython' in sys.argv:
 			
 
 elif 'gromacs' in sys.argv:
+		
 	start_time = time.time()
 	
 	# Setting general options
@@ -2273,6 +2637,8 @@ elif 'gromacs' in sys.argv:
 	DENSITY		=	cmdParam.density
 	ENERGY		=	cmdParam.energy
 	SELECT		=	cmdParam.select
+	LOCAL_TEMP	=	cmdParam.loctemp
+	LOCAL_PRESS	=	cmdParam.locpres
 	
 	#OPTIONS FOR LIPIDS
 	HEADGROUP	= cmdParam.headgroup
@@ -2506,8 +2872,11 @@ elif 'gromacs' in sys.argv:
 						solvent = "W"
 						read_index_out = str(read_index_out)
 						
+						flipflop_xvg_file = job_name + '-' + xtc_file.split('-')[-1].replace('.'+EXTENSION, '_FLIPFLOP.xvg')
+						spl_xvg_file = job_name + '-' + xtc_file.split('-')[-1].replace('.'+EXTENSION, '_SOLPERLEAF.xvg')
+						
 						if 'defo' in  read_index_out:
-							remove_pertubed_membrane = "and (not within {0} of name DEF)".format(RADIUS)
+							remove_pertubed_membrane = "and (not within {0} of (name DEF))".format(RADIUS)
 						if 'su' in read_index_out:
 							above_su = " and (z > z of com of group su)"
 						if 'PW' in read_index_out:
@@ -2609,7 +2978,7 @@ elif 'gromacs' in sys.argv:
 						llsb_nb = file_dict['llsb']['array']
 						ulsb_nb = file_dict['ulsb']['array']
 						
-						with open(job_select_dir+'/'+'solvent_per_leaflet.xvg','a+') as xvg_out:
+						with open(job_select_dir+'/{0}'.format(spl_xvg_file),'a+') as xvg_out:
 							header = """
 									@    title ""
 									@    xaxis  label "Time (ps)"
@@ -2667,7 +3036,7 @@ elif 'gromacs' in sys.argv:
 							llsb_flip_speed.append( (llsb_nb[i+1] - llsb_nb[i])/(time_arr[i+1] - time_arr[i]) )
 							ulsb_flip_speed.append( (ulsb_nb[i+1] - ulsb_nb[i])/(time_arr[i+1] - time_arr[i]) )
 							
-						with open(job_select_dir+'/'+'flipflop.xvg','a+') as xvg_out:
+						with open(job_select_dir+'/{0}'.format(flipflop_xvg_file),'a+') as xvg_out:
 							header = """
 									@    title ""
 									@    xaxis  label "Time (ps)"
@@ -2702,6 +3071,8 @@ elif 'gromacs' in sys.argv:
 						llsb_file.close()
 						ulsb_file.close()
 					
+					
+					
 		else:
 			for job_name, file_names in filesFound.items():
 				
@@ -2713,6 +3084,910 @@ elif 'gromacs' in sys.argv:
 						
 	
 	print( "--- gromacs done in {0:f} seconds ---".format(time.time() - start_time) )
+
+elif 'mda' in sys.argv:
+	""" Compute local temperature and temperature, dynamic selected density using MDAnalysis"""
+	start_time = time.time()
+	try:
+		import numpy as np
+	except ImportError as e:
+		print("You need numpy to use this command")
+		print("Error {0}".format(e))
+	try:
+		import pandas as pd
+	except ImportError as e:
+		print("If you want to see 3d representation of the membrane please install mayavi")
+
+	try:
+		import MDAnalysis as mda
+	except ImportError as e:
+		print("You need MDAanalysis to use this command")
+		print("Error {0}".format(e))
+		
+	try:
+		from scipy.interpolate import griddata
+	except ImportError as e:
+		print("You need scipy.interpolate to use this script")
+		print("Error {0}".format(e))
+	
+	#
+	MD_RUN_INPUT	=	cmdParam.md_run_input
+	EXTENSION		=	cmdParam.extension
+	FOLDER			=	cmdParam.folder
+	
+	# Setting parameters for gmx energy and density
+	BEGIN_FRAME	=	cmdParam.begin_frame
+	END_FRAME	=	cmdParam.end_frame
+	STRIDE		=	cmdParam.stride
+	RADIUS		=	cmdParam.radius
+	
+	#Options to compute
+	LOCAL		=	cmdParam.local
+	DENSITY		=	cmdParam.density
+	GRID		=	cmdParam.grid
+	SELECT		=	cmdParam.select
+	
+	#OPTIONS FOR LIPIDS
+	HEADGROUP	= cmdParam.headgroup
+	TAILGROUP	= cmdParam.tailgroup
+	SUGROUP		= cmdParam.sugroup
+	
+	filesFound = {}
+	pad_x = pad_y = pad_z = 10
+	if MD_RUN_INPUT is not None and FOLDER is not None:
+		"""
+		These options enables membrane property computation for a lot of data
+		If you want only a peculiar file set it using -c and not -r and -f
+		"""
+		
+		if FOLDER[-1] == '/': FOLDER = FOLDER[:-1]
+		
+		
+		for Run in MD_RUN_INPUT:
+			for path in glob.glob(FOLDER +'/**/*'+ Run +'*'+EXTENSION, recursive=True):
+				if 'fatslimAnalysis' in path: continue
+			
+				path_test = path.replace(FOLDER,'').split('/')
+				path = path.split('/')
+				filename = '/'.join(path)
+				
+				project_name = None
+				job_name = None
+				
+				if len(path_test) >= 3 : 
+					project_name = path[-3]
+					job_name = path[-2]
+				else:
+					project_name = path[-3]
+					job_name = path[-2]
+				
+				if 'JOB' in job_name and 'OUTPUT' in job_name:
+					job_name = path[-3]
+					project_name = path[-4]
+					
+				if project_name not in filesFound: 
+					filesFound[project_name] = { job_name: filename }
+					
+				else:
+					if job_name not in filesFound[project_name]:
+						filesFound[project_name][job_name] = filename
+		
+		DEPTH = depth(filesFound)
+		print(filesFound)
+		
+		#Creates the base directory
+		analysisFolder = FOLDER+'/MD_Analysis'
+		#print(analysisFolder)
+		if not os.path.isdir(analysisFolder):
+			os.makedirs(analysisFolder, exist_ok=True)
+		else:
+			bakCount = 0
+			backupExt = '-bak'
+			
+			for path in glob.glob(FOLDER +'/*MD_Analysis*'):
+				print(path)
+				tmp = path.split('/')[-1]
+				
+				if backupExt in tmp:
+					bakCount += 1
+					
+			
+			backupFile = analysisFolder + backupExt+str(bakCount)
+			
+			try:
+				os.rename(analysisFolder, backupFile)
+			except (OSError, IOError) as e:
+				print(sys.stderr, 'Error moving {0} to {1}: {2}'.format(analysisFolder, backupFile, e))
+				
+			os.makedirs(analysisFolder, exist_ok=True)
+		
+		
+		# Directory for local temperature
+		if LOCAL is not None:
+			loctemp_dir = analysisFolder+'/MD_LOC_TEMP'
+			os.makedirs(loctemp_dir)
+		
+		## Directory for local pressure
+		#if LOCAL_PRES:
+			locpres_dir = analysisFolder+'/MD_LOC_PRES'
+			os.makedirs(locpres_dir)
+			
+		# Directory for density
+		if DENSITY is not None:
+			density_dir = analysisFolder+'/MD_DENSITY'
+			os.makedirs(density_dir)
+		
+		# Directory for gmx density
+		if SELECT:
+			select_dir = analysisFolder+'/MD_SELECT'
+			os.makedirs(select_dir)
+		
+		
+		if DEPTH >= 3:
+			for project_name in filesFound:
+				for job_name, file_name in filesFound[project_name].items():
+					
+
+					xtc_file = None
+					edr_file = None
+					tpr_file = None
+					ndx_file = None
+					destination = None
+					
+					plotname = None
+					csvname = None
+					
+					name = file_name.split('/')[-1]
+					path = '/'.join(file_name.split('/')[:-1])
+					
+					xtc_file = file_name
+					edr_file = file_name.replace(EXTENSION, 'edr')
+					tpr_file = file_name.replace(EXTENSION, 'tpr')
+					
+					begin_end = ""
+					
+					trr_file = file_name.replace('xtc','trr')
+					is_trr_file = os.path.isfile(trr_file)
+					
+					coord		= mda.Universe(tpr_file, xtc_file, convert_units=False)
+					if is_trr_file:
+						vel_force	= mda.Universe(tpr_file, trr_file, convert_units=False)
+					
+					# Array to get the types of atoms
+					atom_types = {}
+					multiple_masses = False
+					atom_name_field = {'W': 1, 'NC3': 2, 'PO4':3, 'GL1':4, 'GL2':5, 'C1A':6, 'C2A':7, 'C3A':8, 'C4A':9, 'C5A':10,
+																					'C1B':11, 'C2B':12, 'C3B':13, 'C4B':14, 'C5B':15,
+																					'DEF':0, 'SUN': 50, 'SUP':51}
+					
+					lipid_groups_field = None
+					if HEADGROUP is not None and TAILGROUP is not None:
+						lipid_groups_field = atom_name_field
+						
+						for name in lipid_groups_field:
+							if name in HEADGROUP:
+								lipid_groups_field[name] = 2
+								
+							if name in TAILGROUP:
+								lipid_groups_field[name] = 3
+					else:
+						lipid_groups_field = atom_name_field
+						
+					if SUGROUP is not None:
+						for name in lipid_groups_field:
+							if name in SUGROUP:
+								lipid_groups_field[name] = 4
+					
+					print(lipid_groups_field)
+					for atom in coord.atoms:
+						if atom.name not in atom_types:
+							atom_types.update( { atom.name : { 'mass' : atom.mass , 'field': float(lipid_groups_field[atom.name]) } } )
+							
+					
+					
+					nb_frames	= len(coord.trajectory)
+					nb_atoms	= len(coord.atoms)
+					
+					print(job_name)
+				
+					if LOCAL is not None:
+						
+						grid_x_array		= []
+						grid_y_array		= []
+						grid_z_array		= []
+						
+						grid_array_temp		= []
+						grid_array_pres		= []
+						
+						
+						vel_for_pos = zip(vel_force.trajectory[BEGIN_FRAME:END_FRAME:STRIDE], coord.trajectory[BEGIN_FRAME:END_FRAME:STRIDE])
+						for index, vfp in enumerate(vel_for_pos):
+							
+							print("Computing for timestep = {0}".format(vel_force.atoms.ts.time))
+							#Creating the box and grid
+							box_xx, box_yy, box_zz, box_xy, box_xz, box_yz = vel_force.atoms.ts.dimensions
+							
+							dx = box_xx/LOCAL[0]
+							dy = box_yy/LOCAL[1]
+							dz = box_zz/LOCAL[2]
+							
+							dx = complex(0,dx)
+							dy = complex(0,dy)
+							dz = complex(0,dz)
+							
+							grid_x, grid_y, grid_z = np.mgrid[0:box_xx:dx, 0:box_yy:dy, 0:box_zz:dz]
+							#print(np.shape(grid_x),np.shape(grid_y),np.shape(grid_z))
+							
+							# Computing the local temperature using velocities
+							sqrd = np.power(vel_force.atoms.velocities,2)
+							summed = np.sum(sqrd, axis=1)
+							
+							#If atoms have different masses
+							if multiple_masses:
+								masses = [atom.mass for atom in vel_force.atoms]
+								summed = np.multiply(summed, masses)
+							else:
+								summed *= 72.0
+								
+							# second term on right hand side to convert to Kelvin/mass
+							in_kelvin = summed * 40.09074226350679338
+							
+							
+							# Computing the local pressure using velocities, forces and coordinates.
+							part_volume		= box_xx * box_yy * box_zz / nb_atoms
+							pos_dot_force	= np.sum( np.multiply(vel_force.atoms.atoms.forces, coord.atoms.positions), axis=1 )
+							pressure		= summed/part_volume + pos_dot_force/part_volume
+							pressure		= pressure / 16.6053886
+							
+							points		= coord.atoms.positions
+							temp_values	= np.array(in_kelvin)
+							pres_values	= np.array(pressure)
+
+							grid_x_array.append(grid_x)
+							grid_y_array.append(grid_y)
+							grid_z_array.append(grid_z)
+							
+							grid_array_temp.append(griddata(points, temp_values, (grid_x, grid_y, grid_z) , method='nearest'))
+							grid_array_pres.append(griddata(points, pres_values, (grid_x, grid_y, grid_z) , method='nearest'))
+						
+						
+						#print(np.shape(grid_x_array))
+						#print(np.shape(grid_y_array))
+						#print(np.shape(grid_z_array))
+						mean_grid_x		= np.mean(grid_x_array,axis=0)
+						mean_grid_y		= np.mean(grid_y_array,axis=0)
+						mean_grid_z		= np.mean(grid_z_array,axis=0)
+						mean_grid_temp	= np.mean(grid_array_temp,axis=0)
+						mean_grid_pres	= np.mean(grid_array_pres,axis=0)
+						
+						loctemp_npz_file = job_name + '-' + xtc_file.split('-')[-1].replace('.xtc', '_LOCTMP.npz')
+						locpres_npz_file = job_name + '-' + xtc_file.split('-')[-1].replace('.xtc', '_LOCPRES.npz')
+						np.savez_compressed(loctemp_dir+'/{0}'.format(loctemp_npz_file), mgx=mean_grid_x, mgy=mean_grid_y, mgz=mean_grid_z, mg=mean_grid_temp)
+						np.savez_compressed(locpres_dir+'/{0}'.format(locpres_npz_file), mgx=mean_grid_x, mgy=mean_grid_y, mgz=mean_grid_z, mg=mean_grid_pres)
+						
+						
+					if DENSITY is not None:
+						dens_start_time = time.time()
+						
+						frame_density		= []
+						grid_x_array		= []
+						grid_y_array		= []
+						grid_z_array		= []
+						
+						grid_array_density	= []
+						
+						#For dataframe
+						atom_names = [atom_type for atom_type in atom_types]
+						
+						for index, p in enumerate(coord.trajectory[BEGIN_FRAME:END_FRAME:STRIDE]):
+							
+							print("Computing for timestep = {0}".format(coord.atoms.ts.time))
+							
+							#Creating the box and grid
+							box_xx, box_yy, box_zz, box_xy, box_xz, box_yz = coord.atoms.ts.dimensions
+							#print(vel_force.atoms.ts)
+							
+							dx = dy = dz = None
+							if GRID is not None:
+								dx = dy = dz = GRID#math.floor(box_zz/DENSITY[2])
+								dx = complex(0,dx)
+								dy = complex(0,dy)
+								dz = complex(0,dz)
+								grid_x, grid_y, grid_z = np.mgrid[0:box_xx:dx, 0:box_yy:dy, 0:box_zz:dz]
+							
+							DZ = box_zz/DENSITY
+							
+							
+							
+							##Array keeping all the data per frame
+							points = np.empty(shape=(1,3))
+							values = []
+							
+							if RADIUS is not None:
+								slice_volume = (box_xx * box_yy - math.pi*RADIUS**2) * DZ
+								#DEF = coord.select_atoms("name DEF")
+								#DEF_COG = DEF.center_of_geometry()
+								#z_DEF = DEF_COG[2]
+							else:
+								slice_volume = (box_xx * box_yy) * DZ
+							
+								
+							density_per_name = {}
+							
+							for atom_type in atom_types:
+								atom_names.append(atom_type)
+								selection = None
+								if RADIUS is not None and atom_type != 'DEF':
+									selection	= coord.select_atoms("name {0} and not (cyzone {1} {2} -{2} (name DEF))".format(atom_type, RADIUS, box_zz), update=True)
+									#(box_zz-0.5)/2.0, (box_zz)/2.0))
+									
+								else:
+									selection	= coord.select_atoms("name {0}".format(atom_type))
+								
+								z = 0.0
+								z_bin = []
+								nb_atoms = []
+								while( z < box_zz ):
+									condition = (selection.positions[:,2] >= z) * (selection.positions[:,2] < z + DZ)
+									
+									indexes = np.where(condition)
+									z_bin.append(z+DZ/2.)
+									
+									nb_atoms.append(len(indexes[0]) / slice_volume)
+									
+									z += DZ
+								
+								if 'zbin' not in density_per_name:
+									density_per_name.update({'zbin':z_bin})
+								
+								density_per_name.update({atom_type : nb_atoms})
+								points = np.append(points, selection.atoms.positions, axis=0)
+								
+								if GRID is not None:
+									values.extend([atom_types[atom_type]['field']]*len(selection.atoms.positions))
+							
+							# Creating a dataframe dor density and adding it to the frames
+							density_per_name = pd.DataFrame(density_per_name)
+							frame_density.append(density_per_name)
+							
+							if GRID is not None:
+								if RADIUS is not None:
+									selection	= coord.select_atoms("cyzone {1} {2} -{2} (name DEF)".format(atom_type, RADIUS, box_zz), update=True)
+									#(box_zz-0.5)/2.0, (box_zz)/2.0))
+									points		= np.append(points, selection.atoms.positions, axis=0)
+									values.extend([0.0]*len(selection.atoms.positions))
+									
+								points = np.delete(points,0,0)
+								values = np.array(values)
+
+								grid = griddata(points, values, (grid_x, grid_y, grid_z), method='nearest')
+								grid_x_array.append(grid_x)
+								grid_y_array.append(grid_y)
+								grid_z_array.append(grid_z)
+								grid_array_density.append(grid)
+						
+						if GRID is not None:
+							mean_grid_x			= np.mean(grid_x_array,axis=0)
+							mean_grid_y			= np.mean(grid_y_array,axis=0)
+							mean_grid_z			= np.mean(grid_z_array,axis=0)
+							mean_grid_density	= np.mean(grid_array_density,axis=0)
+							
+							density_npz_file = job_name + '-' + xtc_file.split('-')[-1].replace('.xtc', '_DENS.npz')
+							np.savez_compressed(density_dir+'/{0}'.format(density_npz_file), mgx=mean_grid_x, mgy=mean_grid_y, mgz=mean_grid_z, mg=mean_grid_density)
+						
+						df_concat = pd.concat(frame_density)
+						mean = df_concat.groupby(level=0).mean()
+						
+						if HEADGROUP is not None:
+							heads = intersect(HEADGROUP, list(mean))
+							mean['head'] = mean[heads].sum(axis=1)
+						if TAILGROUP is not None:
+							tails = intersect(TAILGROUP, list(mean))
+							mean['tail'] = mean[tails].sum(axis=1)
+						if SUGROUP is not None:
+							su = intersect(SUGROUP, list(mean))
+							mean['su'] = mean[su].sum(axis=1)
+							
+						# get a list of columns
+						cols = list(mean)
+						# move the column to head of list using index, pop and insert
+						cols.insert(0, cols.pop(cols.index('zbin')))
+						# use ix to reorder
+						mean = mean.ix[:, cols]
+						
+						# FAIRE LA MOYENNE AVEC PANDA SUR CHAQUE BIN ! plus incertitude !!!!
+						header = """
+								@    title ""
+								@    xaxis  label "z-coordinate (nm)"
+								@    yaxis  label ""
+								@TYPE xy
+								@ view 0.15, 0.15, 0.75, 0.85
+								@ legend on
+								@ legend box on
+								@ legend loctype view
+								@ legend 0.78, 0.8
+								@ legend length 2\n
+								"""
+						header = ut.RemoveUnwantedIndent(header)
+						with open(density_dir+'/'+job_name + '-' + xtc_file.split('-')[-1].replace('.xtc', '_MDADENS.xvg'),'a+') as xvg_out:
+							for index, atom_name in enumerate(mean):
+								if atom_name != "zbin":
+									header += """@ s{0} legend "{1}"\n""".format(index-1, atom_name)
+								
+							for row in mean.itertuples():
+								header += '   '.join(map(str, row[1:]))+'\n'
+							
+							xvg_out.write(header+"\n")
+							
+						print( "--- density for {0} done in {1:f} seconds ---".format(job_name, time.time() - dens_start_time) )
+	
+	print( "--- mda done in {0:f} seconds ---".format(time.time() - start_time) )
+				
+
+elif 'reflectometry' in sys.argv:
+	"""
+		Function to computer the scattering length density (SLD) of the molecules defined in .sl file
+		and the compute the the reflectometry curve.
+	"""
+	try:
+		import numpy as np
+		import pandas as pd
+		import matplotlib.pyplot as plt
+		from scipy.interpolate import CubicSpline
+	except ImportError as e:
+		print("Error {0}".format(e))
+	
+	SL_FILE			= cmdParam.sl_file
+	XVG_FILE		= cmdParam.xvg_file
+	
+	MOLECULES		= cmdParam.molecules
+	SUBLAYERS		= cmdParam.sublayers
+	SUPLAYERS		= cmdParam.superlayers
+	LIMITS			= cmdParam.limits
+	
+	REFLECTOMETRY	= cmdParam.reflectivity
+	Q_FILE			= cmdParam.qfile
+	Q_RANGE			= cmdParam.qrange
+	
+	CHECK			= cmdParam.check
+	sl_data = {}
+	
+	#Reading data from .sl file
+	with open(SL_FILE,'r') as sl:
+		molecule = None
+		for line in sl:
+			sl_atom = line.strip().split()
+			if '[' in line and ']' in line:
+				molecule = line.strip()[1:-2].strip()
+				sl_data.update({molecule : {}})
+			elif len(sl_atom) == 2:
+				atom_name		= sl_atom[0]
+				sl_atom_name	= sl_atom[1]
+				sl_data[molecule][atom_name] = float(sl_atom_name)
+			elif len(sl_atom) == 1:
+				sl_atom_name	= sl_atom[0]
+				sl_data.update({molecule : float(sl_atom_name)})
+				
+	#print(sl_data)
+	
+	#Reading data from the .xvg file
+	density_data = {}
+	density_data.update( { 'z' : 0} )
+	col_ndx = 1
+	with open(XVG_FILE,'r') as data:
+		for line in data:
+			if line.startswith('@'):
+				#Extract the legend to get the Column/quantity match
+				if 's{0}'.format(col_ndx-1) in line:
+					atom_name = line[  line.find('"')+1 : line.rfind('"')  ]
+					density_data.update( { atom_name : col_ndx} )
+					col_ndx += 1
+				
+				continue
+			
+			elif line.startswith('#'):
+				pass
+			
+			else:
+				break
+	
+	output_str = ""
+	with open(XVG_FILE,'r') as inputFile:
+		for line in inputFile:
+			if '#' not in line:
+				if '@' not in line:
+					output_str += line
+	
+	readFrom = StringIO(output_str)
+	readFrom.seek(0)
+	
+	for atom_name in density_data:
+		density_data[atom_name] = np.loadtxt(readFrom, dtype='float', usecols = (int(density_data[atom_name]),) )
+		readFrom.seek(0)
+	
+	density_data = pd.DataFrame(density_data)
+	
+	for mol in MOLECULES:
+		for atom_name in  sl_data[mol]:
+			# converting to (10^-6 A^-2) with 1e-8
+			density_data[atom_name] = density_data[atom_name]* sl_data[mol][atom_name]*1e-8 
+	
+	all_atoms = []
+	for mol in MOLECULES:
+		all_atoms.extend(sl_data[mol])
+	
+	total = intersect(all_atoms, list(density_data))
+	density_data['total'] = density_data[total].sum(axis=1)
+	
+	# get a list of columns
+	cols = list(density_data)
+	# move the column to head of list using index, pop and insert
+	cols.insert(0, cols.pop(cols.index('z')))
+	# use ix to reorder
+	density_data = density_data.ix[:, cols]
+	
+	if LIMITS is not None:
+		lower_limit = density_data['z'] >= LIMITS[0]
+		upper_limit = density_data['z'] <= LIMITS[1]
+	
+	density_data = density_data[lower_limit & upper_limit]
+	
+	dz = None
+	if SUBLAYERS is not None or SUPLAYERS is not None:
+		dz = density_data['z'].diff().mean()
+		
+	sub_layers_dict = {}
+	sup_layers_dict = {}
+	
+	#print(density_data)
+	
+	if SUBLAYERS is not None:
+		
+		sub_list = []
+		with_density = False
+		if len(SUBLAYERS) % 3 == 0:
+			for i in range(0, len(SUBLAYERS), 3):
+				sub_list.append(SUBLAYERS[i:i+3])
+
+			for index, sub in enumerate(sub_list):
+				mol, thick, rug = sub
+				#assert(mol not in sl_data), "The molecule you choosed to add below the sample is not in your .sl data file"
+				sub_layers_dict.update({ index : {'molecule': mol,'thickness': float(thick),
+									  								'rugosity': float(rug)}})
+		elif len(SUBLAYERS) % 4 == 0:
+			for i in range(0, len(SUBLAYERS), 4):
+				sub_list.append(SUBLAYERS[i:i+4])
+
+			for index, sub in enumerate(sub_list):
+				mol, thick, rug, dens = sub
+				molecule, atom = mol.split('_')
+				#assert(mol not in sl_data), "The molecule you choosed to add below the sample is not in your .sl data file"
+				sub_layers_dict.update({ index : {'molecule': molecule, 'atom': atom,
+									  								'thickness': float(thick),
+									  								'rugosity': float(rug),
+									  								'density': float(dens)
+									  								}})
+			with_density = True
+		
+		min_z	= density_data['z'][0]
+		
+		total_value_at_sup	= density_data['total'][0]
+		total_new_z_bin		= []
+		total_new_sld		= []
+		
+		for index in range(0, len(sub_layers_dict)):
+			molecule	= sub_layers_dict[index]['molecule']
+			thickness	= sub_layers_dict[index]['thickness']
+			rugosity	= sub_layers_dict[index]['rugosity']
+			
+			sld = None
+			if not with_density:
+				sld		= sl_data[molecule]*1e-6 # in (10^-6 A^-2)
+			else:
+				density	= sup_layers_dict[index]['density']
+				atom	= sup_layers_dict[index]['atom']
+				sld		= sl_data[molecule][atom]*density*1e-8
+			
+			number_bin		= None
+			rough_bin		= None
+			
+			new_z_bin		= None
+			sld_values		= None
+			rough_interface = None
+			
+			if rugosity == 0.0:
+				number_bin	= int(thickness / dz)
+				new_z_bin	= np.linspace(min_z, -thickness + min_z, number_bin)
+				min_z		= -thickness + min_z
+				
+				sld_values = np.empty(number_bin)
+				sld_values.fill(sld)
+				
+				# Updating the value at sup layer
+				total_value_at_sup	= sld
+			
+			else:
+				# values to interpolate for layers roughness
+				x	= [min_z-rugosity, min_z-(rugosity/2.), min_z]
+				y	= [sld, (sld+total_value_at_sup)/2., total_value_at_sup]
+				
+				
+				# number of bins in the rough part and the layer
+				rough_interp	= CubicSpline(x,y, extrapolate=True, bc_type='clamped')
+				number_bin		= int(thickness / dz)
+				rough_bin		= int(rugosity / dz)
+				
+				#Creating the bins for nex layers with roughness
+				rough_interface	= np.linspace(min_z, min_z-rugosity, 10)
+				new_z_bin		= np.linspace(min_z-rugosity,-thickness+min_z, number_bin)
+				
+				#Interpolation on the bins
+				rough_sld		= rough_interp(rough_interface)
+				#Changing the minimum z values for next loop
+				min_z			= -thickness+min_z
+			
+				sld_values	= np.empty(number_bin)
+				sld_values.fill(sld)
+				sld_values	= np.append(rough_sld,sld_values)
+				
+				new_z_bin	= np.append(rough_interface, new_z_bin)
+				
+				# Updating the value at sup layer
+				total_value_at_sup	= sld
+				
+			total_new_z_bin	= np.append(total_new_z_bin, new_z_bin)
+			total_new_sld	= np.append(total_new_sld, sld_values)
+		
+		#Reverse the curves to have the right z-direction
+		total_new_z_bin	= total_new_z_bin[::-1]
+		total_new_sld	= total_new_sld[::-1]
+		
+		#Create a new total with the added layers
+		extract_total = density_data[['z','total']]
+		new_total = pd.DataFrame({'z': total_new_z_bin, 'total': total_new_sld})
+		new_total = pd.concat([new_total, extract_total], ignore_index=True)
+		new_total = new_total.rename(columns={'total' : 'fittotal'})
+		
+		val_to_add = new_total.shape[0] - density_data.shape[0]
+		density_data = density_data.append(pd.DataFrame([0.0]*val_to_add), ignore_index=True)
+		density_data = density_data.shift(periods=val_to_add)
+		density_data = density_data.assign(fittotal=new_total.fittotal, z=new_total.z)
+	
+	#print(density_data)
+	#density_data.plot(x='z', y='fittotal')
+	#plt.show()
+	
+	if SUPLAYERS is not None:
+		
+		sup_list = []
+		with_density = False
+		if len(SUPLAYERS) % 3 == 0:
+			for i in range(0, len(SUPLAYERS), 3):
+				sup_list.append(SUPLAYERS[i:i+3])
+
+			for index, sub in enumerate(sup_list):
+				mol, thick, rug = sub
+				#assert(mol not in sl_data), "The molecule you choosed to add below the sample is not in your .sl data file"
+				sup_layers_dict.update({ index : {'molecule': mol,'thickness': float(thick),
+									  								'rugosity': float(rug)}})
+		elif len(SUPLAYERS) % 4 == 0:
+			for i in range(0, len(SUPLAYERS), 4):
+				sup_list.append(SUPLAYERS[i:i+4])
+
+			for index, sub in enumerate(sup_list):
+				mol, thick, rug, dens = sub
+				molecule, atom = mol.split('_')
+				#assert(mol not in sl_data), "The molecule you choosed to add below the sample is not in your .sl data file"
+				sup_layers_dict.update({ index : {'molecule': molecule, 'atom': atom,
+									  								'thickness': float(thick),
+									  								'rugosity': float(rug),
+									  								'density': float(dens)
+									  								}})
+			with_density = True
+		
+		min_z	= density_data['z'][density_data.index[-1]]
+		
+		total_value_at_sub	= density_data['total'][density_data.index[-1]]
+		total_new_z_bin		= []
+		total_new_sld		= []
+		
+		for index in range(0, len(sup_layers_dict)):
+			molecule	= sup_layers_dict[index]['molecule']
+			thickness	= sup_layers_dict[index]['thickness']
+			rugosity	= sup_layers_dict[index]['rugosity']
+			
+			sld = None
+			if not with_density:
+				sld		= sl_data[molecule]*1e-6 # in (10^-6 A^-2)
+			else:
+				density	= sup_layers_dict[index]['density']
+				atom	= sup_layers_dict[index]['atom']
+				sld		= sl_data[molecule][atom]*density*1e-8
+			
+			number_bin		= None
+			rough_bin		= None
+			
+			new_z_bin		= None
+			sld_values		= None
+			rough_interface = None
+			
+			if rugosity == 0.0:
+				number_bin	= int(thickness / dz)
+				new_z_bin	= np.linspace(min_z, thickness+min_z, number_bin)
+				min_z		= thickness + min_z
+				
+				sld_values = np.empty(number_bin)
+				sld_values.fill(sld)
+				
+				# Updating the value at sup layer
+				total_value_at_sub	= sld
+			
+			else:
+				# values to interpolate for layers roughness
+				x	= [min_z, min_z+(rugosity/2.), min_z+rugosity]
+				y	= [total_value_at_sub, (sld+total_value_at_sub)/2., sld]
+				
+				
+				# number of bins in the rough part and the layer
+				rough_interp	= CubicSpline(x,y, extrapolate=True, bc_type='clamped')
+				number_bin		= int(thickness / dz)
+				rough_bin		= int(rugosity / dz)
+				
+				#Creating the bins for nex layers with roughness
+				rough_interface	= np.linspace(min_z, min_z+rugosity, 10)
+				new_z_bin		= np.linspace(min_z+rugosity,thickness+min_z, number_bin)
+				
+				#Interpolation on the bins
+				rough_sld		= rough_interp(rough_interface)
+				
+				#Changing the minimum z values for next loop
+				min_z			= thickness + min_z
+			
+				sld_values	= np.empty(number_bin)
+				sld_values.fill(sld)
+				sld_values	= np.append(rough_sld,sld_values)
+				
+				new_z_bin	= np.append(rough_interface, new_z_bin)
+				
+				# Updating the value at sup layer
+				total_value_at_sub	= sld
+				
+			total_new_z_bin	= np.append(total_new_z_bin, new_z_bin)
+			total_new_sld	= np.append(total_new_sld, sld_values)
+		
+		#Create a new total with the added layers
+		new_total = None
+		if SUBLAYERS is not None:
+			extract_total	= density_data[['z','fittotal']]
+			new_total		= pd.DataFrame({'z': total_new_z_bin, 'fittotal': total_new_sld})
+			new_total		= pd.concat([extract_total, new_total], ignore_index=True)
+			
+			val_to_add = new_total.shape[0] - density_data.shape[0]
+			density_data = density_data.append(pd.DataFrame([0.0]*val_to_add), ignore_index=True)
+			
+		else:
+			extract_total	= density_data[['z','total']]
+			new_total		= pd.DataFrame({'z': total_new_z_bin, 'total': total_new_sld})
+			new_total		= pd.concat([extract_total, new_total], ignore_index=True)
+			new_total		= new_total.rename(columns={'total' : 'fittotal'})
+			
+			val_to_add = new_total.shape[0] - density_data.shape[0]
+			density_data = density_data.append(pd.DataFrame([0.0]*val_to_add), ignore_index=True)
+		
+		
+		density_data = density_data.assign(fittotal=new_total.fittotal, z=new_total.z).drop(0,1)
+	
+	#print(density_data)
+	#density_data.plot(x='z', y='fittotal')
+	#density_data.plot(x='z', y='total')
+	#plt.show()
+	
+	# get a list of columns
+	cols = list(density_data)
+	# move the column to head of list using index, pop and insert
+	cols.insert(0, cols.pop(cols.index('z')))
+	# use ix to reorder
+	density_data = density_data.ix[:, cols]
+	
+	
+	#density_data.fillna(0.0, inplace=True)
+	header = """
+			@    title ""
+			@    xaxis  label "z (nm)"
+			@    yaxis  label "sld (A-1)"
+			@TYPE xy
+			@ view 0.15, 0.15, 0.75, 0.85
+			@ legend on
+			@ legend box on
+			@ legend loctype view
+			@ legend 0.78, 0.8
+			@ legend length 2\n
+			"""
+	
+	if SUPLAYERS is not None:
+		adding_to_header = """
+			#SLD fittotal was made using the following parameters for sub layers:
+			# {0}
+			#""".format(str(SUPLAYERS))
+		
+		header = adding_to_header + header
+	
+	if SUBLAYERS is not None:
+		adding_to_header = """
+			#SLD fittotal was made using the following parameters for super layers:
+			# {0}
+			#""".format(str(SUBLAYERS))
+		
+		header = adding_to_header + header
+		
+	
+	header = ut.RemoveUnwantedIndent(header)
+	
+	xvg_out = None
+	if XVG_FILE.endswith('MDADENS.xvg'):
+		xvg_out = open(XVG_FILE.replace('MDADENS.xvg', 'MDASLD.xvg'),'w')
+		
+	if XVG_FILE.endswith('DENS.xvg'):
+		xvg_out = open(XVG_FILE.replace('DENS.xvg', 'SLD.xvg'),'w')
+
+	for index, atom_name in enumerate(density_data):
+		if atom_name != "z":
+			header += """@ s{0} legend "{1}"\n""".format(index-1, atom_name)
+		
+	for row in density_data.itertuples():
+		header += '   '.join(map(str, row[1:]))+'\n'
+	
+	xvg_out.write(header+"\n")
+	xvg_out.close()
+	
+	if CHECK:
+		density_data.plot(x='z', y='fittotal')
+		plt.show()
+	
+	if REFLECTOMETRY is not None:
+		try:
+			import numpy.matlib as npm
+			import cmath as cm
+		except ImportError as e:
+			print("Error {0}".format(e))
+			
+		q_min	= None
+		q_max	= None
+		q_grid	= None
+		q_range	= None
+		
+		PI = math.pi
+		if Q_FILE is not None:
+			pass
+		elif Q_RANGE is not None:
+			q_min, q_max, q_grid = Q_RANGE
+			q_range	= np.linspace(q_min, q_max, q_grid)
+		
+		sld_0	= density_data[REFLECTOMETRY].iloc[0]
+		print(density_data[REFLECTOMETRY])
+		for q in q_range:
+			k_0	= complex(q/2., 0)
+			
+			#Rm = npm.empty((2,2), dtype=complex)
+			
+			for i in range(1, len(density_data.index)):
+				sld_i	= density_data[REFLECTOMETRY].iloc[i]
+				k	= (k_0.real)**2 - 4*PI*(sld_i - sld_0)
+				
+				if k >= 0:
+					k = complex(math.sqrt(k), 0)
+				else:
+					k = complex(0, math.sqrt(-k))
+					
+				layer_thick		= density_data['z'].iloc[i] - density_data['z'].iloc[i-1]
+				phase_factor	= k * complex(layer_thick,0)
+				
+				#print(sld_0)
+				#print(sld_i)
+				print(k)
+			
+	
+	
 
 elif 'xvgplot' in sys.argv:
 	
@@ -2731,6 +4006,7 @@ elif 'xvgplot' in sys.argv:
 	try:
 		import matplotlib.pyplot as plt
 		import matplotlib.cm as mcm
+		from matplotlib import rc
 	except ImportError as e:
 		print("You need matplotlib.pyplot to use this script")
 		print("Error {0}".format(e))
@@ -2751,16 +4027,16 @@ elif 'xvgplot' in sys.argv:
 	else:
 		quantities_in_file.update({ 'X': {'values': 0, 'unit': ''} })
 		
-	ColumnIndex = 1
+	col_ndx = 1
 									
 	with open(XVG_FILE,'r') as data:
 		for line in data:
 			if line.startswith('@'):
 				#Extract the legend to get the Column/quantity match
-				if 's{0}'.format(ColumnIndex-1) in line:
+				if 's{0}'.format(col_ndx-1) in line:
 					Qtty = line[  line.find('"')+1 : line.rfind('"')  ]
-					quantities_in_file.update( { Qtty : {'values': ColumnIndex, 'unit': ""}} )
-					ColumnIndex += 1
+					quantities_in_file.update( { Qtty : {'values': col_ndx, 'unit': ""}} )
+					col_ndx += 1
 				
 				continue
 			
@@ -2784,9 +4060,10 @@ elif 'xvgplot' in sys.argv:
 	
 	with open(XVG_FILE, 'r') as input_file:
 		for line in input_file:
-			if not '#' in line:
-				if not '@' in line:
+			if '#' not in line:
+				if '@' not in line:
 					output_str += line
+		#Modified the # position recently
 				
 	output_file = StringIO(output_str)
 	
@@ -2825,7 +4102,14 @@ elif 'xvgplot' in sys.argv:
 		
 		if XVG_FILE.endswith('DENS.xvg'):
 			ax.set_ylabel('Density (CG/nm^3)')
-		
+			ax.set_xlabel('Z-coord (nm)')
+			
+		elif XVG_FILE.endswith('SLD.xvg'):
+			#rc('text', usetex=True)
+			#ax.yaxis.major.formatter._useMathText = True
+			ax.set_ylabel('SLD (10^{-6} A^{-1})')
+			ax.set_xlabel('Z-coord (nm)')
+			ax.ticklabel_format(style='sci',axis='y', scilimits=(0,0))
 		elif XVG_FILE == 'flipflop.xvg' or XVG_FILE == 'solvent_per_leaflet.xvg':
 			ax.set_xlabel('Time (ps)')
 			

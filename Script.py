@@ -554,6 +554,10 @@ def main(argv=sys.argv):
 							runProtocol.extend(row[index+2].split('+'))
 							Jobs[jobNumber]['RUNTYPE'] = runProtocol
 						
+						if protocol == 'TRAJECTORY':
+							trajProtocol = row[index+2].split('+')
+							Jobs[jobNumber].update( {'TRAJECTORY': {'trajProtocol' : trajProtocol} } )
+						
 						
 					if 'RUNTYPE' not in Jobs[jobNumber]:
 						runProtocol = ['CREATE']
@@ -1157,31 +1161,39 @@ def main(argv=sys.argv):
 					assert(prefix_gromacs_grompp is not None or prefix_gromacs_mdrun is not None), str("There was a problem in EM prep "
 																								"(prefix for gromacs)")
 					
+					Sample.preparing_mdp(md_step)
+					Sample.writing_mdp(md_step, EMdefault)
+					
 					#Output for Pulling data
 					pulling_output = ''
 					if 'DEFO' in current_job:
 						pulling_output = "-pf {0}_pf.xvg -px {0}_px.xvg".format( current_job['PROTOCOL'][md_step]['stepType'])
 					
-					Sample.preparing_mdp(md_step)
-					Sample.writing_mdp(md_step, EMdefault)
-
+					out_traj = ''
+					if 'TRAJECTORY' in current_job:
+						if current_job['TRAJECTORY']['trajProtocol'][int(md_step)-1] == 'ON':
+							out_traj = "-o {1}_{2}-{0}.trr".format(current_job['PROTOCOL'][md_step]['stepType'], 
+																	previous_cmd_files['SYSTEM'],
+																	current_job['JOBNUM'])
+					
 					cmd = str("#Energy Minimization using parameters in {0}.mdp:\n#Input : "
 								"{1}\n#Output: {2}_{3}-{0}.gro \n\n").format(current_job['PROTOCOL'][md_step]['stepType'],
 																				previous_cmd_files['OUTPUT'],previous_cmd_files['SYSTEM'],
 																				current_job['JOBNUM'])
-
+					
 					cmd += str("{0}grompp -f {1}.mdp -po {2}-{1}.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} "
-								"|& tee {6}/grompp_{5}_{1}.output\n\n").format(prefix_gromacs_grompp,
-																					current_job['PROTOCOL'][md_step]['stepType'],
-																					previous_cmd_files['SYSTEM'],previous_cmd_files['OUTPUT'], 
-																					previous_cmd_files['INDEX'],current_job['JOBNUM'],
-																					grompp_out)
+								"|& tee {6}/grompp_{5}_{1}.output\n\n""").format(prefix_gromacs_grompp,
+																						current_job['PROTOCOL'][md_step]['stepType'], 
+																						previous_cmd_files['SYSTEM'], previous_cmd_files['OUTPUT'], previous_cmd_files['INDEX'],
+																						current_job['JOBNUM'],
+																						grompp_out)
 
-					cmd += str("{0}mdrun -deffnm {2}_{3}-{1} -c {2}_{3}-{1}.gro {4}"
-								" |& tee {5}/mdrun_{3}_{1}.output \n\n").format(prefix_gromacs_mdrun,
-																				current_job['PROTOCOL'][md_step]['stepType'],
-																				previous_cmd_files['SYSTEM'], current_job['JOBNUM'],
-																				pulling_output, mdrun_out)
+					cmd += str("{0}mdrun {4} -deffnm {2}_{3}-{1}  -c {2}_{3}-{1}.gro {7} {5} "
+								"|& tee {6}/mdrun_{3}_{1}.output \n\n").format(prefix_gromacs_mdrun, 
+																					current_job['PROTOCOL'][md_step]['stepType'], 
+																					previous_cmd_files['SYSTEM'], current_job['JOBNUM'], current_job['MDRUN_OPT'],
+																					pulling_output,
+																					mdrun_out, out_traj)
 								
 					
 					
@@ -1275,6 +1287,13 @@ def main(argv=sys.argv):
 					pulling_output = ''
 					if 'DEFO' in current_job:
 						pulling_output = "-pf {0}_pf.xvg -px {0}_px.xvg".format( current_job['PROTOCOL'][md_step]['stepType'])
+					
+					out_traj = ''
+					if 'TRAJECTORY' in current_job:
+						if current_job['TRAJECTORY']['trajProtocol'][int(md_step)-1] == 'ON':
+							out_traj = "-o {1}_{2}-{0}.trr".format(current_job['PROTOCOL'][md_step]['stepType'], 
+																	previous_cmd_files['SYSTEM'],
+																	current_job['JOBNUM'])
 
 					cmd += str("{0}grompp -f {1}.mdp -po {2}-{1}.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} "
 								"|& tee {6}/grompp_{5}_{1}.output\n\n""").format(prefix_gromacs_grompp,
@@ -1283,12 +1302,12 @@ def main(argv=sys.argv):
 																						current_job['JOBNUM'],
 																						grompp_out)
 
-					cmd += str("{0}mdrun {4} -deffnm {2}_{3}-{1}  -c {2}_{3}-{1}.gro {5} "
+					cmd += str("{0}mdrun {4} -deffnm {2}_{3}-{1}  -c {2}_{3}-{1}.gro {7} {5} "
 								"|& tee {6}/mdrun_{3}_{1}.output \n\n").format(prefix_gromacs_mdrun, 
 																					current_job['PROTOCOL'][md_step]['stepType'], 
 																					previous_cmd_files['SYSTEM'], current_job['JOBNUM'], current_job['MDRUN_OPT'],
 																					pulling_output,
-																					mdrun_out)
+																					mdrun_out, out_traj)
 
 					cmd += "echo '{0} done' >> {1}_SoFar.txt\n\n\n".format(current_job['PROTOCOL'][md_step]['stepType'],name)
 					
