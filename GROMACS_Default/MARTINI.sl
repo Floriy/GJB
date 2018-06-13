@@ -16,10 +16,10 @@ C3B -3.32
 C4B -6.23
 
 [ SSUN ]
-SUN 0.0
+SUN 43.38
 
 [ SSUP ]
-SUP 0.0
+SUP 43.38
 
 [ SiO2 ]
 3.47

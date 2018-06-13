@@ -9,7 +9,7 @@ import os
 import shutil
 import subprocess as sub
 import traceback
-import math
+import math, cmath
 from collections import OrderedDict
 import gc #garbage collector
 import time
@@ -1590,7 +1590,7 @@ xvgOpt.add_argument('--plot', action='store_true',
 xvgOpt.add_argument('--mean', action='store_true',
                     help='Return the mean, std and stderr values of the selected quantities')
 
-# Adding parser options to gromacs analysis##############################################################
+# Adding parser options to reflectometry analysis##############################################################
 reflectometry = sub_parser.add_parser('reflectometry')
 
 reflectometryOpt = reflectometry.add_argument_group("General options")
@@ -1634,6 +1634,10 @@ reflectometryOpt.add_argument('-qf', dest='qfile',
 reflectometryOpt.add_argument('--check', action='store_true',
                     help='Show the sld curve before computing reflectometry')
 
+reflectometryOpt.add_argument('-res', dest='resolution',
+					type=str, nargs=3, default=None,
+                    help='Set the Qmin, Qmax and Qgrid size to compute reflectometry curve')
+#dlambda/lambda = 0.1 for Koutsioubas
 
 cmdParam = parser.parse_args(sys.argv[1:])
 print(cmdParam)
@@ -3639,7 +3643,7 @@ elif 'reflectometry' in sys.argv:
 	sub_layers_dict = {}
 	sup_layers_dict = {}
 	
-	#print(density_data)
+	print(density_data)
 	
 	if SUBLAYERS is not None:
 		
@@ -3696,7 +3700,7 @@ elif 'reflectometry' in sys.argv:
 			rough_interface = None
 			
 			if rugosity == 0.0:
-				number_bin	= int(thickness / dz)
+				number_bin	= 2#int(thickness / dz)
 				new_z_bin	= np.linspace(min_z, -thickness + min_z, number_bin)
 				min_z		= -thickness + min_z
 				
@@ -3714,17 +3718,17 @@ elif 'reflectometry' in sys.argv:
 				
 				# number of bins in the rough part and the layer
 				rough_interp	= CubicSpline(x,y, extrapolate=True, bc_type='clamped')
-				number_bin		= int(thickness / dz)
+				number_bin		= 2#int(thickness / dz)
 				rough_bin		= int(rugosity / dz)
 				
 				#Creating the bins for nex layers with roughness
-				rough_interface	= np.linspace(min_z, min_z-rugosity, 10)
+				rough_interface	= np.linspace(min_z, min_z-rugosity, 10)[1:-1]
 				new_z_bin		= np.linspace(min_z-rugosity,-thickness+min_z, number_bin)
 				
 				#Interpolation on the bins
 				rough_sld		= rough_interp(rough_interface)
 				#Changing the minimum z values for next loop
-				min_z			= -thickness+min_z
+				min_z			= -thickness + min_z
 			
 				sld_values	= np.empty(number_bin)
 				sld_values.fill(sld)
@@ -3738,7 +3742,10 @@ elif 'reflectometry' in sys.argv:
 			total_new_z_bin	= np.append(total_new_z_bin, new_z_bin)
 			total_new_sld	= np.append(total_new_sld, sld_values)
 		
-		#Reverse the curves to have the right z-direction
+		# Removes the first value to avoid repetition
+		total_new_z_bin	= total_new_z_bin[1:]
+		total_new_sld	= total_new_sld[1:]
+		# Reverse the curves to have the right z-direction
 		total_new_z_bin	= total_new_z_bin[::-1]
 		total_new_sld	= total_new_sld[::-1]
 		
@@ -3753,7 +3760,7 @@ elif 'reflectometry' in sys.argv:
 		density_data = density_data.shift(periods=val_to_add)
 		density_data = density_data.assign(fittotal=new_total.fittotal, z=new_total.z)
 	
-	#print(density_data)
+	print(density_data)
 	#density_data.plot(x='z', y='fittotal')
 	#plt.show()
 	
@@ -3812,7 +3819,7 @@ elif 'reflectometry' in sys.argv:
 			rough_interface = None
 			
 			if rugosity == 0.0:
-				number_bin	= int(thickness / dz)
+				number_bin	= 2 #int(thickness / dz)
 				new_z_bin	= np.linspace(min_z, thickness+min_z, number_bin)
 				min_z		= thickness + min_z
 				
@@ -3830,11 +3837,11 @@ elif 'reflectometry' in sys.argv:
 				
 				# number of bins in the rough part and the layer
 				rough_interp	= CubicSpline(x,y, extrapolate=True, bc_type='clamped')
-				number_bin		= int(thickness / dz)
+				number_bin		= 2 #int(thickness / dz)
 				rough_bin		= int(rugosity / dz)
 				
 				#Creating the bins for nex layers with roughness
-				rough_interface	= np.linspace(min_z, min_z+rugosity, 10)
+				rough_interface	= np.linspace(min_z, min_z+rugosity, 10)[-1:1]
 				new_z_bin		= np.linspace(min_z+rugosity,thickness+min_z, number_bin)
 				
 				#Interpolation on the bins
@@ -3854,6 +3861,9 @@ elif 'reflectometry' in sys.argv:
 				
 			total_new_z_bin	= np.append(total_new_z_bin, new_z_bin)
 			total_new_sld	= np.append(total_new_sld, sld_values)
+		
+		total_new_z_bin	= total_new_z_bin[1:]
+		total_new_sld	= total_new_sld[1:]
 		
 		#Create a new total with the added layers
 		new_total = None
@@ -3877,6 +3887,8 @@ elif 'reflectometry' in sys.argv:
 		
 		density_data = density_data.assign(fittotal=new_total.fittotal, z=new_total.z).drop(0,1)
 	
+	with pd.option_context('display.max_rows', None):
+		print(density_data)
 	#print(density_data)
 	#density_data.plot(x='z', y='fittotal')
 	#density_data.plot(x='z', y='total')
@@ -3941,7 +3953,9 @@ elif 'reflectometry' in sys.argv:
 	xvg_out.close()
 	
 	if CHECK:
-		density_data.plot(x='z', y='fittotal')
+		if 'fittotal' in density_data:
+			density_data.plot(x='z', y='fittotal')
+		density_data.plot(x='z', y='total')
 		plt.show()
 	
 	if REFLECTOMETRY is not None:
@@ -3964,28 +3978,96 @@ elif 'reflectometry' in sys.argv:
 			q_range	= np.linspace(q_min, q_max, q_grid)
 		
 		sld_0	= density_data[REFLECTOMETRY].iloc[0]
-		print(density_data[REFLECTOMETRY])
+		print(sld_0)
+		
+		# Array for the reflectometry data
+		R	= []
 		for q in q_range:
+			#Initial wave vector and phase factor 
 			k_0	= complex(q/2., 0)
+			b_0	= complex(0,0)
 			
-			#Rm = npm.empty((2,2), dtype=complex)
+			# Initial matrix before multiplication (diagonal)
+			M = npm.matrix([[complex(1,0),complex(0,0)],[complex(0,0), complex(1,0)]], 
+								dtype=complex)
+			
+			# Wave vector and phase factor for the previous layer (start)
+			# Changed in loop
+			k_j				= k_0
+			phase_factor_j	= b_0
 			
 			for i in range(1, len(density_data.index)):
+				# prec layer
+				j = i-1
+				# Computing the wave vector of the ith layer using SLD value
 				sld_i	= density_data[REFLECTOMETRY].iloc[i]
+				#sld_j	= density_data[REFLECTOMETRY].iloc[j]
 				k	= (k_0.real)**2 - 4*PI*(sld_i - sld_0)
 				
+				k_i	= None
 				if k >= 0:
-					k = complex(math.sqrt(k), 0)
+					k_i = complex(math.sqrt(k), 0)
 				else:
-					k = complex(0, math.sqrt(-k))
-					
-				layer_thick		= density_data['z'].iloc[i] - density_data['z'].iloc[i-1]
-				phase_factor	= k * complex(layer_thick,0)
+					k_i = complex(0, math.sqrt(-k))
 				
-				#print(sld_0)
-				#print(sld_i)
-				print(k)
+				# Computing the phase factor for the current layer
+				layer_thick		= abs(density_data['z'].iloc[i] - density_data['z'].iloc[j]) * 10.
+				print("index: ",i)
+				print("z_i:",density_data['z'].iloc[i])
+				print("z_j:",density_data['z'].iloc[j])
+				print("thick: ", layer_thick)
+				phase_factor_i	= k_i * complex(layer_thick,0)
+				
+				#print(layer_thick)
+				# Computing the fresnel coefficent
+				# No roughtness as already included in the sld (might need to add them though)
+				k_sub		= k_j - k_i
+				k_sum		= k_j + k_i
+				k_prod		= k_j * k_i
+				
+				#taking into account roughness
+				pre_exp		= complex(-2,0)
+				exp_k_prod	= cmath.exp(pre_exp * k_prod)
+				
+				R_fresnel	= (k_sub / k_sum) #* exp_k_prod
+				
+				# Matrix for reflection between the 2 layers
+				ib			= complex(0,1) * phase_factor_j
+				ibneg		= complex(-1,0) * ib
+				exp_ib		= cmath.exp(ib)
+				exp_ibneg	= cmath.exp(ibneg)
+				
+				C_mat	= npm.matrix([[exp_ib, R_fresnel * exp_ib],[R_fresnel * exp_ibneg, exp_ibneg]],
+										dtype=complex)
+				
+				M = M @ C_mat
+				
+				# Putting the top k and phase factor for the next bottom one 
+				k_j				= k_i
+				phase_factor_j	= phase_factor_i
+				
 			
+			M11		= M[0,0]
+			M11conj	= M11.conjugate()
+			M21		= M[1,0]
+			M21conj	= M21.conjugate()
+			
+			Rm_q	= (M21 * M21conj)/(M11 * M11conj) 
+			Rm_q	= Rm_q.real
+			
+			R.append(Rm_q)
+			
+		
+		q4	= np.power(q_range,4)
+		Rq4	= np.multiply(R,q4)
+		reflectivity_data	= pd.DataFrame({'R': R, 'Rq4': Rq4,'q': q_range})
+		
+		with pd.option_context('display.max_rows', None):
+			print(reflectivity_data)
+		
+		if CHECK:
+			reflectivity_data.plot(x='q', y='Rq4')
+			plt.show()
 	
 	
 

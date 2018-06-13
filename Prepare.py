@@ -6,7 +6,10 @@ import math
 import Utility as ut
 import os
 import glob
-
+from scipy.interpolate import griddata
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib.pyplot as plt
+from io import StringIO
 #***********************************************************#
 #***********************************************************#
 #********************* PDB Files list **********************#
@@ -154,9 +157,9 @@ class BaseProject(object):
 			self.defo = None
 			
 			#su related
-			self.su = None
-			self.nb_su = None
-			
+			self.su			= None
+			self.nb_su		= None
+			self.rugosity	= None
 			# monolayer related
 			self.mono = None
 			
@@ -172,6 +175,16 @@ class BaseProject(object):
 			
 			if 'SU' in sample:
 				self.su = sample['SU']
+				if 'RUGOSITY' in sample['SU']:
+					entries = sample['SU']['RUGOSITY'].split('|')
+					self.rugosity	= {}
+					for e in entries:
+						parameter_name	= e.split(':')[0]
+						parameter_value	= e.split(':')[1]
+						if ut.is_number(parameter_value):
+							self.rugosity.update({parameter_name : float(parameter_value)})
+						else:
+							self.rugosity.update({parameter_name : parameter_value})
 				
 			if 'MONO' in sample:
 				self.mono = sample['MONO']
@@ -319,7 +332,6 @@ class BaseProject(object):
 			sub.call(translate_cmd, shell=True)
 		
 		if create_su:
-			
 			# pdb file for su
 			assert(len(self.su['SuType']) <= 4),"The name of the SU should be 4 letters max (Otherwise problem with PDB file format)" 
 			
@@ -347,27 +359,109 @@ class BaseProject(object):
 			
 			#self.nb_su = int( float(self.su['Density']) * dimensions[0] * dimensions[1] * float(self.su['Thickness']) / 10 )
 			
-			
 			su_atoms = ""
 			self.nb_su = 0
-			with open(inputs['SU'],'r') as su_input:
-				for line in su_input:
-					split_line = line.split()
+			total_thickness = 0.0
+			if self.rugosity is not None:
+				
+				su_gro				= open(inputs['SU'],'r').readlines()
+				read_from			= StringIO(''.join(su_gro[2:-1]))
+				x_gro, y_gro, z_gro	= np.loadtxt(read_from, usecols=(3,4,5), unpack=True)
+				
+				#x_gro, y_gro = zip(*sorted(zip(x_gro, y_gro)))
+				box_dim = str(ut.tail(inputs['SU'], 1)[0], 'utf-8')
+				box_dim = box_dim.strip().split()
+				box_dim = [ float(dim) for dim in box_dim]
+				
+				su_input = open(inputs['SU'],'r').readlines()
+				
+				if self.rugosity['type'].startswith('1dsine'):
 					
-					#print(split_line)
-					if len(split_line) < 3: continue
+					def sine1D(x, box_x, lx):
+						to_radian	= 2. * math.pi
+						freq		= to_radian * self.rugosity['lx']/10.
+						height		= self.rugosity['z']/10.
+						thickness	= float(self.su['Thickness']) / 10.
+						result		= thickness + height * np.sin(freq*x/box_x)
+						result[np.where(result < thickness)] = thickness
+						
+						return result
 					
-					# Add the pbc
-					if len(split_line) == 3:
-						split_line[2] = float(self.su['Thickness'])/10.
-						su_atoms += "  {0}  {1}  {2}".format(split_line[0], split_line[1], split_line[2])
-						continue
+					x_height = sine1D(x_gro, box_dim[0], self.rugosity['lx'])
+					for x,y,z,t,line in zip(x_gro, y_gro, z_gro, x_height, su_input[2:-1]):
+
+						if z <= t:
+							su_atoms += line
+							self.nb_su += 1
+				
+					total_thickness = float(self.su['Thickness']) + self.rugosity['z']
+				
+				if self.rugosity['type'].startswith('1dbool'):
 					
-					#Look at the z below the thickness
-					z = float(line.split()[-4])
-					if z < (float(self.su['Thickness']) / 10.):
-						su_atoms += line
-						self.nb_su += 1
+					def sine1D(x, box_x, lx):
+						to_radian	= 2. * math.pi
+						freq		= to_radian * self.rugosity['lx']/10.
+						height		= self.rugosity['z']/10.
+						thickness	= float(self.su['Thickness']) / 10.
+						result		= thickness + height * np.sin(freq*x/box_x)
+						result[np.where(result > thickness)] = thickness + height
+						result[np.where(result < thickness)] = thickness
+						
+						return result
+					
+					x_height = sine1D(x_gro, box_dim[0], self.rugosity['lx'])
+					for x,y,z,t,line in zip(x_gro, y_gro, z_gro, x_height, su_input[2:-1]):
+
+						if z <= t:
+							su_atoms += line
+							self.nb_su += 1
+							
+					total_thickness = float(self.su['Thickness']) + self.rugosity['z']
+				
+				#if self.rugosity['type'].startswith('2dbool'):
+					
+					#def sine1D(x, box_x, lx):
+						#to_radian	= 2. * math.pi
+						#freq		= to_radian * self.rugosity['lx']/10.
+						#height		= self.rugosity['z']/10.
+						#thickness	= float(self.su['Thickness']) / 10.
+						#result		= thickness + height * np.sin(freq*x/box_x)
+						#result[np.where(result > thickness)] = thickness + height
+						#result[np.where(result < thickness)] = thickness
+						
+						#return result
+					
+					#x_height = sine1D(x_gro, box_dim[0], self.rugosity['lx'])
+					#for x,y,z,t,line in zip(x_gro, y_gro, z_gro, x_height, su_input[2:-1]):
+
+						#if z <= t:
+							#su_atoms += line
+							#self.nb_su += 1
+							
+					#total_thickness = float(self.su['Thickness']) + self.rugosity['z']
+				
+			
+			else:
+				with open(inputs['SU'],'r') as su_input:
+					for line in su_input:
+						split_line = line.split()
+						
+						#print(split_line)
+						if len(split_line) < 3: continue
+						
+						# Add the pbc
+						if len(split_line) == 3:
+							split_line[2] = float(self.su['Thickness'])/10.
+							su_atoms += "  {0}  {1}  {2}".format(split_line[0], split_line[1], split_line[2])
+							continue
+						
+						#Look at the z below the thickness
+						z = float(line.split()[-4])
+						if z < (float(self.su['Thickness']) / 10.):
+							su_atoms += line
+							self.nb_su += 1
+				
+				total_thickness = self.su['Thickness']
 			
 			su_atoms = su_atoms.replace("TEMP", self.su['SuType'])
 			su_atoms = su_atoms.replace("TEM", atom_type)
@@ -397,8 +491,7 @@ class BaseProject(object):
 									fixed 0. 0. 0. 0. 0. 0.
 								end structure
 								
-								""".format(system, self.system, float(self.su['Thickness'])+shell, pdb_file_list['SU']['name'], 
-											self.nb_su, dimensions[0]*10, dimensions[1]*10, self.su['Thickness'])
+								""".format(system, self.system, total_thickness+shell)
 								
 			
 			#su_pdb_content = pdb_file_list['SU']['content'].replace("TEMP", su_type)
@@ -418,7 +511,7 @@ class BaseProject(object):
 			
 			pdbtogro_cmd = "{0} editconf -f {1}.pdb -o {1}.gro -box {2} {3} {4} -c no".format(self.softwares['GROMACS_LOC'], system,
 																				dimensions[0], dimensions[1], 
-																				dimensions[2] + (float(self.su['Thickness'])+ 2*shell)/10)
+																				dimensions[2] + (total_thickness + 2*shell)/10)
 			sub.call(pdbtogro_cmd, shell=True)
 			
 			group_index = [str(i) for i in range(0, self.nb_index-1, 1)]
@@ -434,6 +527,7 @@ class BaseProject(object):
 			sub.call(add_su_ndx_cmd, shell=True)
 		
 			self.system = system
+		
 		
 		self.output_file = "{0}.gro".format(self.system)
 		self.index_file = "{0}.ndx".format(self.system)
