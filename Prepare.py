@@ -461,7 +461,7 @@ class BaseProject(object):
 							su_atoms += line
 							self.nb_su += 1
 				
-				total_thickness = self.su['Thickness']
+				total_thickness = float(self.su['Thickness']) + self.rugosity['z']
 			
 			su_atoms = su_atoms.replace("TEMP", self.su['SuType'])
 			su_atoms = su_atoms.replace("TEM", atom_type)
