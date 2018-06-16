@@ -1627,16 +1627,17 @@ reflectometryOpt.add_argument('-q', dest='qrange',
 					type=float, nargs=3, default=None,
                     help='Set the Qmin, Qmax and Qgrid size to compute reflectometry curve')
 
-reflectometryOpt.add_argument('-qf', dest='qfile',
-					type=float, nargs=1, default=None,
-                    help='Set the Qmin, Qmax and Qgrid size to compute reflectometry curve')
-
 reflectometryOpt.add_argument('--check', action='store_true',
                     help='Show the sld curve before computing reflectometry')
 
 reflectometryOpt.add_argument('-res', dest='resolution',
-					type=str, nargs=3, default=None,
-                    help='Set the Qmin, Qmax and Qgrid size to compute reflectometry curve')
+					type=int, default=None,
+                    help='Set the number of points for gaussian convolution')
+
+reflectometryOpt.add_argument('-exp', dest='experimental',
+					type=str, default=None,
+                    help='File with data from experimental neutron reflectometry')
+
 #dlambda/lambda = 0.1 for Koutsioubas
 
 cmdParam = parser.parse_args(sys.argv[1:])
@@ -3536,6 +3537,34 @@ elif 'reflectometry' in sys.argv:
 	try:
 		import numpy as np
 		import pandas as pd
+		import matplotlib as mpl
+		from matplotlib import rcParams
+		from matplotlib import rc
+		
+		#print(rcParams.keys())
+		#mpl.use('pgf')
+		params = {
+		'pgf.texsystem': 'xelatex',        # change this if using xetex or lautex
+		'font.size': 16,
+		'axes.labelsize': 16,
+		'legend.fontsize': 16,
+		'xtick.labelsize': 14,
+		'ytick.labelsize': 14,
+		'text.usetex': True,
+		'font.family': 'sans-serif',
+		'font.serif': [],
+		"text.latex.preamble": [
+			r"\usepackage[utf8x]{inputenc}",    # use utf8 fonts 
+			r"\usepackage[T1]{fontenc}",        # plots will be generated
+			r"\usepackage[detect-all]{siunitx}",         # load additional packages
+			r"\usepackage{amsmath}",
+			#r"\usepackage{unicode-math}",  # unicode math setup
+			#r"\setmathfont{xits-math.otf}",
+			#r"\setmainfont{DejaVu Serif}", # serif font via preamble
+			]
+}
+			
+		rcParams.update(params)
 		import matplotlib.pyplot as plt
 		from scipy.interpolate import CubicSpline
 	except ImportError as e:
@@ -3550,8 +3579,9 @@ elif 'reflectometry' in sys.argv:
 	LIMITS			= cmdParam.limits
 	
 	REFLECTOMETRY	= cmdParam.reflectivity
-	Q_FILE			= cmdParam.qfile
 	Q_RANGE			= cmdParam.qrange
+	EXPERIMENTAL	= cmdParam.experimental
+	RESOLUTION		= cmdParam.resolution
 	
 	CHECK			= cmdParam.check
 	sl_data = {}
@@ -3971,14 +4001,20 @@ elif 'reflectometry' in sys.argv:
 		q_range	= None
 		
 		PI = math.pi
-		if Q_FILE is not None:
-			pass
+		if EXPERIMENTAL is not None:
+			if EXPERIMENTAL.endswith('.csv'):
+				q_range	= np.loadtxt(EXPERIMENTAL, dtype='float', usecols = (0,) )
+				Rq4_exp	= np.loadtxt(EXPERIMENTAL, dtype='float', usecols = (1,) )
+				Rq4_std			= None
+				
+				if 'data' in EXPERIMENTAL:
+					Rq4_std = np.loadtxt(EXPERIMENTAL, dtype='float', usecols = (2) )
+					
 		elif Q_RANGE is not None:
 			q_min, q_max, q_grid = Q_RANGE
 			q_range	= np.linspace(q_min, q_max, q_grid)
 		
 		sld_0	= density_data[REFLECTOMETRY].iloc[0]
-		print(sld_0)
 		
 		# Array for the reflectometry data
 		R	= []
@@ -4012,10 +4048,10 @@ elif 'reflectometry' in sys.argv:
 				
 				# Computing the phase factor for the current layer
 				layer_thick		= abs(density_data['z'].iloc[i] - density_data['z'].iloc[j]) * 10.
-				print("index: ",i)
-				print("z_i:",density_data['z'].iloc[i])
-				print("z_j:",density_data['z'].iloc[j])
-				print("thick: ", layer_thick)
+				#print("index: ",i)
+				#print("z_i:",density_data['z'].iloc[i])
+				#print("z_j:",density_data['z'].iloc[j])
+				#print("thick: ", layer_thick)
 				phase_factor_i	= k_i * complex(layer_thick,0)
 				
 				#print(layer_thick)
@@ -4062,12 +4098,156 @@ elif 'reflectometry' in sys.argv:
 		Rq4	= np.multiply(R,q4)
 		reflectivity_data	= pd.DataFrame({'R': R, 'Rq4': Rq4,'q': q_range})
 		
-		with pd.option_context('display.max_rows', None):
-			print(reflectivity_data)
+		Chi = None
+		if EXPERIMENTAL is not None:
+			reflectivity_data	= reflectivity_data.assign(Rq4_exp = Rq4_exp)
+			if Rq4_std is not None:
+				reflectivity_data	= reflectivity_data.assign(Rq4_std = Rq4_std)
+			
+			#Computing Chi
+			diff		= Rq4_exp - reflectivity_data['Rq4']
+			diff_sqrd	= np.power(diff,2)
+			sig_sqrd	= np.power(Rq4_std,2)
+			num			= np.sum(np.divide(diff_sqrd,sig_sqrd))
+			denum		= len(Rq4_exp) -1
+			
+			Chi_sqrd	= num/denum
+			Chi			= np.sqrt(Chi_sqrd)
+			
+		
+		if RESOLUTION is not None:
+			# Formula from DOI: 10.1021/acs.jpcb.6b05433#
+			p = RESOLUTION
+			
+			nb_points			= np.arange(-p,p+1,1)
+			term_in_exp			= -2 * np.power(nb_points/p ,2 )
+			weight_terms		= np.exp(term_in_exp)
+			normalising_term	= np.sum(weight_terms)
+			
+			
+			norm_weights		= weight_terms / normalising_term
+			
+			
+			R_prime	= []
+			
+			R		= reflectivity_data['R']
+			q_range	= reflectivity_data['q']
+			q_delta	= (q_max - q_min)/q_grid
+			
+			R_interp	= CubicSpline(q_range,R, extrapolate=True, bc_type='clamped')
+			
+			values_interp	= np.multiply(R_interp(q_range),q4)
+			reflectivity_data	= reflectivity_data.assign(interp=values_interp)
+			
+			
+			
+			for q in q_range:
+				Rpq	= 0.0
+				dq	= q_delta/q
+				#print(dq)
+				for a, w in zip(nb_points, norm_weights):
+					#print(a)
+					Rpq += w * R_interp(q + a/p * dq)
+				
+				R_prime.append(Rpq)
+			
+			Rpq4	= np.multiply(R_prime,q4)
+			reflectivity_data	= reflectivity_data.assign(Rpq4=Rpq4)
+			
+			
+			reflectivity_data.plot(x='q', y=['Rq4','Rpq4', 'interp'])
+			plt.show()
+			
 		
 		if CHECK:
-			reflectivity_data.plot(x='q', y='Rq4')
+			with pd.option_context('display.max_rows', None):
+				print(reflectivity_data)
+			
+			
+			import matplotlib.ticker as ticker #to change the ticks
+			if EXPERIMENTAL is not None:
+				
+				
+				reflectivity_data.plot(x='q', y=['Rq4'], style=['b'], logy=True)
+				if Rq4_std is not None:
+					plt.errorbar('q', 'Rq4_exp', yerr='Rq4_std', data=reflectivity_data, fmt='ro', label='exp.')
+					
+					plt.annotate(r'$\chi = {0}$'.format(round(Chi,2)), xy=(0.10, 2e-8), xytext=(0.10, 3e-8))
+			else:
+				reflectivity_data.plot(x='q', y='Rq4')
+			
+			#scale_y	= 1e8
+			#y		= reflectivity_data['Rq4']
+			#ticks_y = ticker.FuncFormatter(lambda y, pos: '{0:g}'.format(y/scale_y))
+			y_ticks	= plt.yticks()[0]
+			print(y_ticks)
+			plt.yticks(y_ticks, y_ticks*1e8)
+			plt.ylim(0.01e-8, 5.0e-8)
+			
+			plt.ylabel(r"\si{1E-03}{m}")
+			#plt.ylabel(r"$\mathsf{Rq^4 \times 10^{-8} (\SI{}{ \angstrom^{-4} })$")
+			#plt.xlabel(r"$\mathsf{q (\SI{}{\angstrom^{-4}})$")
+			plt.legend()
 			plt.show()
+			
+		
+		# get a list of columns
+		cols = list(reflectivity_data)
+		# move the column to head of list using index, pop and insert
+		cols.insert(0, cols.pop(cols.index('q')))
+		# use ix to reorder
+		reflectivity_data = reflectivity_data.ix[:, cols]
+		
+		
+		#density_data.fillna(0.0, inplace=True)
+		header = """
+				@    title ""
+				@    xaxis  label "z (nm)"
+				@    yaxis  label " Rq4 (A-4)"
+				@TYPE xy
+				@ view 0.15, 0.15, 0.75, 0.85
+				@ legend on
+				@ legend box on
+				@ legend loctype view
+				@ legend 0.78, 0.8
+				@ legend length 2\n
+				"""
+		
+		if SUPLAYERS is not None:
+			adding_to_header = """
+				#Reflectivity curve computed using {0} of SLD file with:
+				# {1}
+				#""".format(REFLECTOMETRY, str(SUPLAYERS))
+			
+			header = adding_to_header + header
+		
+		if SUBLAYERS is not None:
+			adding_to_header = """
+				#Reflectivity curve computed using {0} of SLD file with:
+				# {1}
+				#""".format(REFLECTOMETRY, str(SUBLAYERS))
+			
+			header = adding_to_header + header
+			
+		
+		header = ut.RemoveUnwantedIndent(header)
+		
+		xvg_out = None
+		if XVG_FILE.endswith('MDADENS.xvg'):
+			xvg_out = open(XVG_FILE.replace('MDADENS.xvg', 'MDAREF.xvg'),'w')
+			
+		if XVG_FILE.endswith('DENS.xvg'):
+			xvg_out = open(XVG_FILE.replace('DENS.xvg', 'REF.xvg'),'w')
+
+		for index, qt in enumerate(reflectivity_data):
+			if qt != "q":
+				header += """@ s{0} legend "{1}"\n""".format(index-1, qt)
+			
+		for row in reflectivity_data.itertuples():
+			header += '   '.join(map(str, row[1:]))+'\n'
+		
+		xvg_out.write(header+"\n")
+		xvg_out.close()
 	
 	
 
