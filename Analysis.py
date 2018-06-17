@@ -4196,6 +4196,7 @@ elif 'reflectometry' in sys.argv:
 			legend.get_texts()[0].set_text('Sim.')
 			legend.draggable(True)
 			anot.draggable(True)
+			plt.tight_layout()
 			plt.show()
 			
 		
