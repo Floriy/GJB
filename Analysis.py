@@ -3546,21 +3546,24 @@ elif 'reflectometry' in sys.argv:
 		params = {
 		'pgf.texsystem': 'xelatex',        # change this if using xetex or lautex
 		'font.size': 16,
-		'axes.labelsize': 16,
-		'legend.fontsize': 16,
+		'axes.labelsize': 20,
+		'legend.fontsize': 20,
 		'xtick.labelsize': 14,
 		'ytick.labelsize': 14,
 		'text.usetex': True,
 		'font.family': 'sans-serif',
-		'font.serif': [],
 		"text.latex.preamble": [
 			r"\usepackage[utf8x]{inputenc}",    # use utf8 fonts 
 			r"\usepackage[T1]{fontenc}",        # plots will be generated
+			#r"\usepackage{anyfontsize}",
+			#r"\fontsize{16}{19.20}",
+			#r"\DeclareMathSizes{10}{10}{10}{10}",
 			r"\usepackage[detect-all]{siunitx}",         # load additional packages
 			r"\usepackage{amsmath}",
+			r"\usepackage{amssymb}",
+			r"\sisetup{mode = math,math-rm=\mathsf}"
 			#r"\usepackage{unicode-math}",  # unicode math setup
 			#r"\setmathfont{xits-math.otf}",
-			#r"\setmainfont{DejaVu Serif}", # serif font via preamble
 			]
 }
 			
@@ -4168,26 +4171,31 @@ elif 'reflectometry' in sys.argv:
 			if EXPERIMENTAL is not None:
 				
 				
-				reflectivity_data.plot(x='q', y=['Rq4'], style=['b'], logy=True)
+				reflectivity_data.plot(x='q', y=['Rq4'], style=['b'], logy=True, linewidth=3.0, label='Sim.')
 				if Rq4_std is not None:
-					plt.errorbar('q', 'Rq4_exp', yerr='Rq4_std', data=reflectivity_data, fmt='ro', label='exp.')
+					plt.errorbar('q', 'Rq4_exp', yerr='Rq4_std', data=reflectivity_data, fmt='ro', label='Exp.')
 					
-					plt.annotate(r'$\chi = {0}$'.format(round(Chi,2)), xy=(0.10, 2e-8), xytext=(0.10, 3e-8))
+					anot = plt.annotate(r'$\chi = {0}$'.format(round(Chi,2)), xy=(0.10, 2e-8), xytext=(0.10, 3e-8))
 			else:
 				reflectivity_data.plot(x='q', y='Rq4')
 			
-			#scale_y	= 1e8
-			#y		= reflectivity_data['Rq4']
-			#ticks_y = ticker.FuncFormatter(lambda y, pos: '{0:g}'.format(y/scale_y))
 			y_ticks	= plt.yticks()[0]
-			print(y_ticks)
-			plt.yticks(y_ticks, y_ticks*1e8)
+			y_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(y*1e8) for y in y_ticks]
+			plt.yticks(y_ticks, y_ticks_label)
 			plt.ylim(0.01e-8, 5.0e-8)
 			
-			plt.ylabel(r"\si{1E-03}{m}")
-			#plt.ylabel(r"$\mathsf{Rq^4 \times 10^{-8} (\SI{}{ \angstrom^{-4} })$")
-			#plt.xlabel(r"$\mathsf{q (\SI{}{\angstrom^{-4}})$")
-			plt.legend()
+			x_ticks	= plt.xticks()[0]
+			x_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(x,2)) for x in x_ticks]
+			plt.xticks(x_ticks, x_ticks_label)
+			plt.xlim(0.0, 0.25)
+			
+			
+			plt.ylabel(r"$ \mathsf{Rq^4 \times \SI{E-03}{(\angstrom^{-4}) } } $")
+			plt.xlabel(r"$\mathsf{ q (\SI{}{\angstrom^{-1} }) }$")
+			legend = plt.legend()
+			legend.get_texts()[0].set_text('Sim.')
+			legend.draggable(True)
+			anot.draggable(True)
 			plt.show()
 			
 		
