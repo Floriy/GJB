@@ -4,7 +4,7 @@ from shutil import copyfile
 import numpy as np
 import math
 import Utility as ut
-import os
+import os, sys, re
 import glob
 from scipy.interpolate import griddata
 from mpl_toolkits.mplot3d import Axes3D
@@ -203,8 +203,9 @@ class BaseProject(object):
 		except RuntimeError as e:
 			print(e)
 			
-		self.lipid_list = ['DSPC','DPPC','DLPC']
-		self.solvent_list = ['W','OCO','PW']
+		self.lipid_list		= ['DSPC','DPPC','DLPC']
+		self.solvent_list	= ['W','OCO','PW']
+		self.substrate_list	= ['SSUP','SSUN','SSna','SSn0']
 		
 		self.packmol_seed = None
 		self.packmol_input = None
@@ -303,6 +304,7 @@ class BaseProject(object):
 		self.nb_index = nb_index
 		
 		create_su = False
+		
 		try:
 			if self.defo:
 				sub.call( "cp {0}/defos_topo.itp .".format(path), shell=True)
@@ -321,6 +323,11 @@ class BaseProject(object):
 		
 		translate = None
 		
+		dimensions = str(ut.tail(file_found[0], 1)[0], 'utf-8').replace(repr('\n'),'')
+		dimensions = dimensions.split()
+		dimensions = [float(D) for D in dimensions]
+		print(dimensions)
+		
 		if 'TRANS' in inputs:
 			translate = [float(T)/10. for T in inputs['TRANS'].strip().split()]
 			
@@ -330,6 +337,254 @@ class BaseProject(object):
 																translate[0], translate[1], translate[2],
 																)
 			sub.call(translate_cmd, shell=True)
+		
+		
+		#Increase box size in each dimension
+		if 'NEWBOX' in inputs:
+			
+			increment	= [float(N)/10. for N in inputs['NEWBOX'].strip().split()]
+			newbox		= np.add(increment, dimensions)
+			
+			print("newbox :", newbox)
+			new_box_cmd = str("printf 'System\\n'  | {0} trjconv -f {1}.gro -s {1}.tpr -o {1}.gro -n {1}.ndx -pbc mol "
+								"-box {2} {3} {4}").format(self.softwares['GROMACS_LOC'], 
+																self.system,
+																newbox[0], newbox[1], newbox[2])
+			
+			dimensions	= newbox
+			sub.call(new_box_cmd, shell=True)
+		
+		
+		if 'THRESHOLD-Z' in inputs and 'THRESHOLD_ATOMS' in inputs: #TO MODIFY
+			thresholds			= float(inputs['THRESHOLD-Z'])/10.
+			thresholds_atoms	= inputs['THRESHOLD_ATOMS'].strip().split()
+			#[float(T)/10. for T in inputs['THRESHOLD'].strip().split()]
+			
+			atoms	= ""
+			nb_atoms	= 0
+			modified_topology	= {}
+			serials				= []
+			with open("{0}.gro".format(self.system),'r') as gro_input:
+				for line in gro_input:
+					split_line = line.split()
+
+					if len(split_line) < 3 or line.startswith('Generated'): continue
+					
+					# Add the pbc
+					if len(split_line) == 3:
+						atoms	+= line
+						continue
+					
+					#Look at the z below the thickness
+					#x		= float(line.split()[-6])
+					#y		= float(line.split()[-5])
+					z		= float(line.split()[-4])
+					name	= line[5:9].strip()
+					serial	= line[0:5].strip()
+					
+					# Dictionnary to update the topology
+					if name not in modified_topology:
+						modified_topology[name] = {'atoms': 0, 'molecules': 0}
+					
+					if name in thresholds_atoms:
+						#print("{0} in {1}".format(name, thresholds_atoms))
+						if z < thresholds:
+							atoms += line
+							modified_topology[name]['atoms'] += 1
+							nb_atoms				+= 1
+							
+							if serial not in serials:
+								serials.append(serial)
+								modified_topology[name]['molecules']	+= 1
+					else:
+						atoms += line
+						modified_topology[name]['atoms'] += 1
+						nb_atoms				+= 1
+						
+						if serial not in serials:
+							serials.append(serial)
+							modified_topology[name]['molecules']	+= 1
+					
+			
+			after_threshold_content = "AFTER_THRESHOLD-Z of {2}\n{0}\n{1}".format(nb_atoms, atoms, thresholds)
+			
+			system	= self.system.split('_')[0]
+			for name in modified_topology:
+				system	+= "_{0}{1}".format(modified_topology[name]['molecules'], name)
+			
+			with open('{0}.gro'.format(system),'w') as output_gro:
+				output_gro.write(after_threshold_content)
+			
+			for lipid in self.lipid_list:
+				if lipid in modified_topology:
+					self.lipid_type = lipid
+		
+			if self.lipid_type is not None:
+				self.lipid_types = [self.lipid_type]
+					
+			self.solvent_types = []
+			
+			for sol in self.solvent_list:
+				if sol in modified_topology:
+					self.solvent_types.append(sol)
+					
+			self.sample_molecules = {}
+			for name in modified_topology:
+				self.sample_molecules[name] = modified_topology[name]['molecules']
+			
+				
+			grotopdb_cmd = "{0} editconf -f {1}.gro -o {1}.pdb -c no".format(self.softwares['GROMACS_LOC'], system)
+			sub.call(grotopdb_cmd, shell=True)
+			
+			make_ndx_cmd	= """printf "q\\n" | {0} make_ndx -f {1}.gro -o {1}.ndx""".format(self.softwares['GROMACS_LOC'], system)
+			sub.call(make_ndx_cmd, shell=True)
+			
+			list_of_ndx	= None
+			with open("{0}.ndx".format(system)) as ndx:
+				content = ndx.read()
+				regex	= re.compile("\[ .*", re.MULTILINE)
+				list_of_ndx = regex.findall(content)
+				
+			
+			list_of_ndx	= [ndx[1:-1].strip() for ndx in list_of_ndx]
+			nb_index	= len(list_of_ndx)
+			
+			index_for_bilayer	= []
+			for lipid in self.lipid_list:
+				if lipid in list_of_ndx:
+					index_for_bilayer.append(list_of_ndx.index(lipid))
+			
+			index_for_defo	= []
+			if "DEFB" in list_of_ndx:
+				index_for_defo.append(list_of_ndx.index("DEFB"))
+				
+			index_for_substrate	= []
+			for su in self.substrate_list:
+				if su in list_of_ndx:
+					index_for_substrate.append(list_of_ndx.index(su))
+			
+			add_to_ndx		= ""
+			name_new_ndx	= ""
+			
+			
+			if index_for_bilayer:
+				index_for_bilayer	= [str(ndx) for ndx in index_for_bilayer]
+				add_to_ndx		+= repr("{0}\n".format(" | ".join(index_for_bilayer)))
+				name_new_ndx	+= repr("name {0} bilayer\n".format(nb_index))
+				nb_index		+= 1
+			
+			if index_for_defo:
+				index_for_defo	= [str(ndx) for ndx in index_for_defo]
+				add_to_ndx		+= repr("{0}\n".format(" | ".join(index_for_defo)))
+				name_new_ndx	+= repr("name {0} defo\n".format(nb_index))
+				nb_index		+= 1
+			
+			if index_for_substrate:
+				index_for_substrate	= [str(ndx) for ndx in index_for_substrate]
+				add_to_ndx		+= repr("{0}\n".format(" | ".join(index_for_substrate)))
+				name_new_ndx	+= repr("name {0} su\n".format(nb_index))
+				nb_index		+= 1
+				
+			make_index_input	= add_to_ndx + name_new_ndx + repr("q\n")
+			
+			print(make_index_input)
+			upating_ndx_cmd = """printf {2} | {0} make_ndx -f {1}.gro -n {1} -o {1}.ndx""".format(self.softwares['GROMACS_LOC'], system, make_index_input)
+			
+			sub.call(upating_ndx_cmd, shell=True)
+			
+			#name_to_remove	= thresholds_atoms + ["System"]
+			#index_to_remove	= []
+			
+			#for name in name_to_remove:
+				#for ndx in list_of_ndx:
+					#if name in ndx:
+						#index_to_remove.append(list_of_ndx.index(ndx))
+			
+			#new_index_input = ""
+			##removing old indexes for atoms we removed
+			#updating_index	= 0
+			#for index in index_to_remove:
+				#new_index_input	+= repr("del {0}\n".format(index-updating_index))
+				#updating_index	+= 1
+			
+
+			##updating indexes for the modified atoms
+			#new_index		= 0
+			#for name in thresholds_atoms:
+				#new_index_input	+= repr("r {0}\n".format(name))
+				#new_index	+= 1
+			
+			
+			##Retrieving the index
+			#self.nb_index = len(list_of_ndx) - updating_index + new_index
+			
+			#group_index = [str(i) for i in range(0, self.nb_index, 1)]
+			
+			#if not create_su:
+				#new_index_input	+= repr("{0}\nname {1} System\n".format(" | ".join(group_index), int(group_index[-1])+1))
+			
+			#new_index_input	+= repr("q\n")
+			
+			#print(new_index_input)
+			#upating_ndx_cmd = """printf {3} | {0} make_ndx -f {1}.gro -n {2} -o {1}.ndx""".format(self.softwares['GROMACS_LOC'], system,
+																				#self.system, new_index_input)
+			
+			
+			#sub.call(upating_ndx_cmd, shell=True)
+			
+			self.system = system
+			
+		else:
+			#if 'THRESHOLD-Z' not in inputs or 'THRESHOLD_ATOMS' not in inputs:
+			if 'THRESHOLD-Z' in inputs:
+				assert('THRESHOLD_ATOMS' in inputs), "You forgot to put THRESHOLD_ATOMS in your Parameters.csv"
+			if 'THRESHOLD_ATOMS' in inputs:
+				assert('THRESHOLD-Z' in inputs), "You forgot to put THRESHOLD-Z in your Parameters.csv"
+			
+			modified_topology	= {}
+			serials				= []
+			with open("{0}.gro".format(self.system),'r') as gro_input:
+				for line in gro_input:
+					split_line = line.split()
+					
+					if len(split_line) < 3 or line.startswith('Generated'): continue
+					
+					# Add the pbc
+					if len(split_line) == 3: continue
+					
+					z		= float(line.split()[-4])
+					name	= line[5:9].strip()
+					serial	= line[0:5].strip()
+					
+					# Dictionnary to update the topology
+					if name not in modified_topology:
+						modified_topology[name] = {'atoms': 0, 'molecules': 0}
+					
+
+					modified_topology[name]['atoms'] += 1
+					
+					if serial not in serials:
+						serials.append(serial)
+						modified_topology[name]['molecules']	+= 1
+				
+			
+			for lipid in self.lipid_list:
+				if lipid in modified_topology:
+					self.lipid_type = lipid
+		
+			if self.lipid_type is not None:
+				self.lipid_types = [self.lipid_type]
+					
+			self.solvent_types = []
+			
+			for sol in self.solvent_list:
+				if sol in modified_topology:
+					self.solvent_types.append(sol)
+					
+			self.sample_molecules = {}
+			for name in modified_topology:
+				self.sample_molecules[name] = modified_topology[name]['molecules']
+				
 		
 		if create_su:
 			# pdb file for su
@@ -343,10 +598,6 @@ class BaseProject(object):
 			elif self.su['SuType'].startswith('S'):
 				atom_type = self.su['SuType'][-3:] + (3 - len(self.su['SuType'][-3:]))*' '
 				
-			dimensions = str(ut.tail(file_found[0], 1)[0], 'utf-8').replace(repr('\n'),'')
-			dimensions = dimensions.split()
-			dimensions = [float(D) for D in dimensions]
-			print(dimensions)
 			
 			#if 'SCALE' in inputs:
 				#scaleby = inputs['SCALE'].strip().split()
@@ -535,6 +786,7 @@ class BaseProject(object):
 		if create_su:
 			self.create_topology()
 		else:
+			self.create_topology()
 			sub.call( "cp {0} .".format( '{0}/{1}'.format(path, top_file) ), shell=True)
 			sub.call( "cp {0} .".format( '{0}/martini*itp'.format(path) ), shell=True)
 			
@@ -771,7 +1023,7 @@ class BaseProject(object):
 		cmd += "### Reading the box vectors\n"
 		cmd += "read -r LX LY LZ<<<$(tail -n1 {0})\n\n".format(file_input)
 		
-		cmd += "### Get the index of atoms having an negative z\n"
+		cmd += "### Get the index of atoms having a negative z\n"
 		cmd += "printf {0} | {1} select -f {2} -on neg_z.ndx\n\n".format(repr('z < 0 \n'),prefix_gromacs_grompp, file_input)
 		
 		cmd += "    ### Removing pbc to manipulate it correcly\n"
@@ -1439,6 +1691,10 @@ class BaseProject(object):
 			if self.su is not None:
 				if self.nb_su is not None:
 					topo_file.write("{0} {1}\n".format(self.su['SuType'], self.nb_su))
+				else:
+					for su in self.substrate_list:
+						if su in self.sample_molecules:
+							topo_file.write("{0} {1}\n".format(su, self.sample_molecules[su]))
 	
 	
 	def pass_outputs(self):

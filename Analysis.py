@@ -512,9 +512,9 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 		upp_leaflet_data.append(np.mean(prop_values_up[indexes]))
 		bil_leaflet_data.append(np.mean(prop_values_bil[indexes]))
 		
-		low_leaflet_err.append(np.std(prop_values_low[indexes])	/ math.sqrt(len(prop_values_low[indexes]))	)
-		upp_leaflet_err.append(np.std(prop_values_up[indexes])	/ math.sqrt(len(prop_values_up[indexes]))	)
-		bil_leaflet_err.append(np.std(prop_values_bil[indexes])	/ math.sqrt(len(prop_values_bil[indexes]))	)
+		low_leaflet_err.append(np.std(prop_values_low[indexes]))	#/ math.sqrt(len(prop_values_low[indexes]))	)
+		upp_leaflet_err.append(np.std(prop_values_up[indexes]))		#/ math.sqrt(len(prop_values_up[indexes]))	)
+		bil_leaflet_err.append(np.std(prop_values_bil[indexes]))	#/ math.sqrt(len(prop_values_bil[indexes]))	)
 		
 		radius += dr
 	
@@ -4190,7 +4190,7 @@ elif 'reflectometry' in sys.argv:
 			plt.xlim(0.0, 0.25)
 			
 			
-			plt.ylabel(r"$ \mathsf{Rq^4 \times \SI{E-03}{(\angstrom^{-4}) } } $")
+			plt.ylabel(r"$ \mathsf{Rq^4 \times \SI{E-08}{(\angstrom^{-4}) } } $")
 			plt.xlabel(r"$\mathsf{ q (\SI{}{\angstrom^{-1} }) }$")
 			legend = plt.legend()
 			legend.get_texts()[0].set_text('Sim.')
