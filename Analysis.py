@@ -702,8 +702,8 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 	ax.set_xticklabels(x_ticks_label)
 	
 	plt.tight_layout()
-	plt.show()
-	#plt.savefig(graph_name)
+	#plt.show()
+	plt.savefig(graph_name)
 	plt.close()
 	
 	header="radius,lower leaflet,upper leaflet,bilayer"
@@ -1089,11 +1089,12 @@ def map_cmd(data):
 			#plot the interpolations every STRIDE
 			#nb_plot_frames = len(box_dim)
 			
-			grid_box = zip(grid_list, box_dim)
-			for index, g_b in enumerate(grid_box):
-				grid = g_b[0]
-				bdim = g_b[1]
-				name = "{0}/{1}_frame_{2}.svg".format(grid_graph_folder, prop, str(index).zfill(nb_frames))
+			#TEMP
+			#grid_box = zip(grid_list, box_dim)
+			#for index, g_b in enumerate(grid_box):
+				#grid = g_b[0]
+				#bdim = g_b[1]
+				#name = "{0}/{1}_frame_{2}.svg".format(grid_graph_folder, prop, str(index).zfill(nb_frames))
 				#plot_grid(grid, prop, name, bdim)
 			
 			##computing the mean
@@ -1125,7 +1126,7 @@ def map_cmd(data):
 			#grid_bilayer_std = np.sqrt( (grid_lower_leaflet_var + grid_upper_leaflet_var)/2.0 )
 			
 			
-			graph_name = "{0}/{1}_mean.eps".format(grid_graph_folder, prop)
+			graph_name = "{0}/{1}_mean.svg".format(grid_graph_folder, prop)
 			grid_name = "{0}/{1}_mean_".format(grid_folder, prop)
 			
 			"""
@@ -1169,7 +1170,7 @@ def map_cmd(data):
 			plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_time, ending_time)
 			
 			if RADIAL is not None:
-				graph_name = "{0}/{1}_radial.eps".format(grid_graph_folder, prop)
+				graph_name = "{0}/{1}_radial.svg".format(grid_graph_folder, prop)
 				file_name = "{0}/{1}.rad".format(grid_folder, prop)
 				compute_mean_radial_distribution2d(mean_list, RADIAL, prop, graph_name, file_name,
 													beginning_time, ending_time, pad_x, pad_y)
