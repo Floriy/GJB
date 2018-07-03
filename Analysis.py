@@ -338,7 +338,7 @@ def plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_t
 		levels = np.linspace(2.0, 6.0, 15)
 		colormap = mcm.BuPu_r
 	#figure for plots
-	fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(15,4.9), dpi=72, gridspec_kw = {'width_ratios':[5,5,5,1]})
+	fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(15,4.9), dpi=96, gridspec_kw = {'width_ratios':[5,5,5,1]})
 	
 	cs = [None, None, None]
 	#sp = [None, None, None]
@@ -655,7 +655,7 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 	bil_leaflet_err = np.array(bil_leaflet_err)
 		
 	#plotting the function for each leaflet and total bilayer
-	fig, ax = plt.subplots(nrows=1, ncols=1, dpi=72)
+	fig, ax = plt.subplots(nrows=1, ncols=1, dpi=96)
 	
 	#plot the curves
 	ax.plot(radii, low_leaflet_data, alpha=1.0, color='blue', label=r"$\mathsf{lower\ leaflet}$",linewidth=3.0)
