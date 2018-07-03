@@ -392,7 +392,7 @@ def plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_t
 	axs[2].set_xlabel(r"$\mathsf{L_x\ (\SI{}{\nano\metre})}$")
 	#axs[2].set_ylabel(r"$\mathsf{L_y\ (\SI{}{\nano\metre}})$")
 	
-	ticks = [r"$\mathsf{"+str(round(b,2))+"}$" for b in bounds]
+	ticks = [r"$\mathsf{{ {0:.2f} }}$".format(round(b,2)) for b in bounds]
 	CB1 = fig.colorbar(cs[0],cax=axs[3],orientation = 'vertical', boundaries=bounds, ticks=bounds, extend='both', extendfrac='auto')
 	CB1.set_ticklabels(ticks)
 	
@@ -679,10 +679,10 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 		y_name = r"$\mathsf{P_2}$"
 		ax.set_ylabel(y_name,rotation=0)
 	elif prop == "APL":
-		y_name = r"$\mathsf{ \frac{\displaystyle Area }{\displaystyle lipid }\ (\SI{}{\nano\metre^2}) } $"
+		y_name = r"$\mathsf{ A_L\ (\SI{}{\nano\metre^2}) } $"
 		ax.set_ylabel(y_name)
 	elif prop == "THICKNESS":
-		y_name = r"$\mathsf{Thickness\ (\SI{}{\nano\meter})}$"
+		y_name = r"$\mathsf{T_L (\SI{}{\nano\meter})}$"
 		ax.set_ylabel(y_name)
 		
 	#ax.grid('on')
@@ -695,10 +695,10 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 	y_ticks = ax.get_yticks()
 
 	
-	y_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(y,1)) for y in y_ticks]
+	y_ticks_label	= [r'$\mathsf{{ {0:.2f} }}$'.format(round(y,2)) for y in y_ticks]
 	ax.set_yticklabels(y_ticks_label)
 
-	x_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(x,1)) for x in x_ticks]
+	x_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(x,2)) for x in x_ticks]
 	ax.set_xticklabels(x_ticks_label)
 	
 	plt.tight_layout()
