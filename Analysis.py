@@ -273,8 +273,8 @@ def plot_grid(grid, prop, name, bdim):
 		levels = np.linspace(0.55, 0.75, 20)
 		colormap = mcm.plasma
 	if prop == 'THICKNESS':
-		bounds = np.linspace(0.0, 6.0, 30)
-		levels = np.linspace(0.0, 6.0, 30)
+		bounds = np.linspace(1.0, 5.0, 20)
+		levels = np.linspace(1.0, 5.0, 20)
 		colormap = mcm.Greys_r
 	#figure for plots
 	fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(15,6), dpi=72, gridspec_kw = {'width_ratios':[5,5,1]})
@@ -323,25 +323,29 @@ def plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_t
 	bounds = None
 	levels = None
 	if prop == 'ORDER':
-		bounds = np.linspace(-0.5, 1, 15)
+		plot_title = r"$\mathsf{P_2 for "
+		bounds = [-0.5, 0.0, 0.5, 1.0]
 		levels = np.linspace(-0.5, 1, 15)
 		colormap = mcm.viridis
 	if prop == 'APL':
-		bounds = np.linspace(0.55, 0.75, 20)
+		plot_title = r"$\mathsf{\frac{Area}{lipid} for "
+		bounds = np.linspace(0.55, 0.75, 5)
 		levels = np.linspace(0.55, 0.75, 20)
 		colormap = mcm.plasma
 	if prop == 'THICKNESS':
-		bounds = np.linspace(0.0, 6.0, 30)
-		levels = np.linspace(0.0, 6.0, 30)
+		plot_title = r"$\mathsf{Thickness for "
+		bounds = np.linspace(2.0, 6.0, 5)
+		levels = np.linspace(2.0, 6.0, 15)
 		colormap = mcm.BuPu_r
 	#figure for plots
-	fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(15,6), dpi=72, gridspec_kw = {'width_ratios':[5,5,5,1]})
+	fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(15,4.9), dpi=72, gridspec_kw = {'width_ratios':[5,5,5,1]})
 	
 	cs = [None, None, None]
 	#sp = [None, None, None]
 	
 	header = "#Averaged on {0:d} ps from {1:d} to {2:d}\n#".format(ending_time - beginning_time,
 																beginning_time, ending_time)
+	L_y_set = False
 	for leaflet in grid_dict:
 		# Setting the axes on which to plot
 		Nbleaflet = grid_dict[leaflet]['plot']
@@ -349,9 +353,18 @@ def plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_t
 		# Plot map
 		cs[ Nbleaflet ] = grid_dict[leaflet]['plot'].contourf(grid_x, grid_y, grid_dict[leaflet]['grid'], cmap = colormap, levels=levels)
 		#sp [ Nbleaflet ] = grid_dict_std[leaflet]['plot'].contourf(grid_x, grid_y, grid_dict[leaflet]['grid'], cmap = colormap, levels=levels)
-		grid_dict[leaflet]['plot'].set_title(prop+' for '+leaflet)
-		grid_dict[leaflet]['plot'].set_xlabel("Box-X (nm)")
-		grid_dict[leaflet]['plot'].set_ylabel("Box-Y (nm)")
+		name = None
+		
+		if leaflet == 'upper leaflet':
+			name = "upper\ leaflet"
+		elif leaflet == "lower leaflet":
+			name = "lower\ leaflet"
+		
+		grid_dict[leaflet]['plot'].set_title( r"$\mathsf{"+ name +r" }$") #prop+' for '+leaflet)
+		grid_dict[leaflet]['plot'].set_xlabel(r"$\mathsf{L_x\ (\SI{}{\nano\metre})}$")
+		if leaflet == 'lower leaflet':
+			grid_dict[leaflet]['plot'].set_ylabel(r"$\mathsf{L_y\ (\SI{}{\nano\metre})}$")
+			L_y_set = True
 		
 		grid_dict[leaflet]['plot'].set_xlim(0.0, mean_box[0])
 		grid_dict[leaflet]['plot'].set_ylim(0.0, mean_box[1])
@@ -374,11 +387,17 @@ def plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_t
 	
 	# Plot map
 	cs[2] = axs[2].contourf(grid_x, grid_y, bilayer_mean, cmap = colormap, levels=levels)
-	axs[2].set_title(prop+' for bilayer')
-	axs[2].set_xlabel("Box-X (nm)")
-	axs[2].set_ylabel("Box-Y (nm)")
 	
+	axs[2].set_title( r"$\mathsf{ bilayer }$")
+	axs[2].set_xlabel(r"$\mathsf{L_x\ (\SI{}{\nano\metre})}$")
+	#axs[2].set_ylabel(r"$\mathsf{L_y\ (\SI{}{\nano\metre}})$")
+	
+	ticks = [r"$\mathsf{"+str(round(b,2))+"}$" for b in bounds]
 	CB1 = fig.colorbar(cs[0],cax=axs[3],orientation = 'vertical', boundaries=bounds, ticks=bounds, extend='both', extendfrac='auto')
+	CB1.set_ticklabels(ticks)
+	
+	
+		
 	#Set the time as title
 	title = "Averaged on {0:d} ps from {1:d} to {2:d}".format(ending_time - beginning_time,
 																beginning_time, ending_time)
@@ -388,7 +407,22 @@ def plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_t
 		ax.autoscale(axis='x', tight=True)
 		ax.set_xlim(0.0, mean_box[0])
 		ax.set_ylim(0.0, mean_box[1])
+		
+		x_ticks = [0.0,5.0,10.0,15.0]
+		y_ticks = [0.0,5.0,10.0,15.0]
+		
+		ax.set_xticks(x_ticks)
+		ax.set_yticks(y_ticks)
+
+		y_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(y,1)) for y in y_ticks]
+		ax.set_yticklabels(y_ticks_label)
+
+		x_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(x,1)) for x in x_ticks]
+		ax.set_xticklabels(x_ticks_label)
+
 	
+		
+	plt.tight_layout()
 	plt.savefig(graph_name)
 	plt.close()
 
@@ -621,31 +655,54 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 	bil_leaflet_err = np.array(bil_leaflet_err)
 		
 	#plotting the function for each leaflet and total bilayer
-	fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(15,6), dpi=72)
+	fig, ax = plt.subplots(nrows=1, ncols=1, dpi=72)
 	
 	#plot the curves
-	ax.plot(radii, low_leaflet_data, alpha=1.0, color='blue', label='lower leaflet')
-	ax.plot(radii, upp_leaflet_data, alpha=1.0, color='red', label='upper leaflet')
-	ax.plot(radii, bil_leaflet_data, alpha=1.0, color='purple', label='bilayer')
+	ax.plot(radii, low_leaflet_data, alpha=1.0, color='blue', label=r"$\mathsf{lower\ leaflet}$",linewidth=3.0)
+	ax.plot(radii, upp_leaflet_data, alpha=1.0, color='red', label=r'$\mathsf{upper\ leaflet}$',linewidth=3.0)
+	ax.plot(radii, bil_leaflet_data, alpha=1.0, color='purple', label=r'$\mathsf{bilayer}$', linewidth=3.0)
 	
 	#plot the error
 	ax.fill_between(radii, low_leaflet_data-low_leaflet_err, low_leaflet_data+low_leaflet_err, 
-						alpha=0.3, facecolor='blue', linewidth=0)
+						alpha=0.2, facecolor='blue', linewidth=0)
 	
 	ax.fill_between(radii, upp_leaflet_data-upp_leaflet_err, upp_leaflet_data+upp_leaflet_err,
-						alpha=0.3, facecolor='red', linewidth=0)
+						alpha=0.2, facecolor='red', linewidth=0)
 	
 	ax.fill_between(radii, bil_leaflet_data-bil_leaflet_err, bil_leaflet_data+bil_leaflet_err,
-						alpha=0.3, facecolor='purple', linewidth=0)
+						alpha=0.2, facecolor='purple', linewidth=0)
 	
-	ax.set_xlabel("r (nm)")
-	ax.set_ylabel(prop)
+	ax.set_xlabel(r"$\mathsf{r\ (\SI{}{\nano\metre}})$")
+	
+	y_name = None
+	if prop == "ORDER":
+		y_name = r"$\mathsf{P_2}$"
+		ax.set_ylabel(y_name,rotation=0)
+	elif prop == "APL":
+		y_name = r"$\mathsf{ \frac{\displaystyle Area }{\displaystyle lipid }\ (\SI{}{\nano\metre^2}) } $"
+		ax.set_ylabel(y_name)
+	elif prop == "THICKNESS":
+		y_name = r"$\mathsf{Thickness\ (\SI{}{\nano\meter})}$"
+		ax.set_ylabel(y_name)
+		
 	ax.grid('on')
 	ax.legend()
 	
-	title = "Radial distribution of {0} \n averaged on {1:d} ps from {2:d} to {3:d} ps".format(prop, ending_time - beginning_time, beginning_time, ending_time)
-	plt.suptitle(title)
+	#title = "Radial distribution of {0} \n averaged on {1:d} ps from {2:d} to {3:d} ps".format(prop, ending_time - beginning_time, beginning_time, ending_time)
+	#plt.suptitle(title)
 	
+	x_ticks = ax.get_xticks()
+	y_ticks = ax.get_yticks()
+
+	
+	y_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(y,1)) for y in y_ticks]
+	ax.set_yticklabels(y_ticks_label)
+
+	x_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(x,1)) for x in x_ticks]
+	ax.set_xticklabels(x_ticks_label)
+	
+	plt.tight_layout()
+	plt.show()
 	plt.savefig(graph_name)
 	plt.close()
 	
@@ -1037,7 +1094,7 @@ def map_cmd(data):
 				grid = g_b[0]
 				bdim = g_b[1]
 				name = "{0}/{1}_frame_{2}.svg".format(grid_graph_folder, prop, str(index).zfill(nb_frames))
-				plot_grid(grid, prop, name, bdim)
+				#plot_grid(grid, prop, name, bdim)
 			
 			##computing the mean
 			# mean grid_x
@@ -1068,7 +1125,7 @@ def map_cmd(data):
 			#grid_bilayer_std = np.sqrt( (grid_lower_leaflet_var + grid_upper_leaflet_var)/2.0 )
 			
 			
-			graph_name = "{0}/{1}_mean.svg".format(grid_graph_folder, prop)
+			graph_name = "{0}/{1}_mean.eps".format(grid_graph_folder, prop)
 			grid_name = "{0}/{1}_mean_".format(grid_folder, prop)
 			
 			"""
@@ -2077,6 +2134,32 @@ elif 'analyse' in sys.argv:
 	try:
 		import matplotlib.pyplot as plt
 		import matplotlib.cm as mcm
+		from matplotlib import rcParams
+		from matplotlib import rc
+		import matplotlib.ticker as ticker #to change the ticks
+		
+		params = {
+		'pgf.texsystem': 'xelatex',        # change this if using xetex or lautex
+		'font.size': 16,
+		'figure.figsize': [8,4],
+		'axes.labelsize': 20,
+		'legend.fontsize': 20,
+		'xtick.labelsize': 18,
+		'ytick.labelsize': 18,
+		'text.usetex': True,
+		'font.family': 'sans-serif',
+		"text.latex.preamble": [
+			r"\usepackage[utf8]{inputenc}",    # use utf8 fonts 
+			r"\usepackage[T1]{fontenc}",        # plots will be generated
+
+			r"\usepackage[detect-all]{siunitx}",         # load additional packages
+			r"\usepackage{amsmath}",
+			r"\usepackage{amssymb}",
+			r"\sisetup{mode = math,math-rm=\mathsf}"
+			]
+		}
+		rcParams.update(params)
+		
 	except ImportError as e:
 		print("You need matplotlib.pyplot to use this script")
 		print("Error {0}".format(e))
@@ -3540,20 +3623,22 @@ elif 'reflectometry' in sys.argv:
 		import matplotlib as mpl
 		from matplotlib import rcParams
 		from matplotlib import rc
+		import matplotlib.ticker as ticker #to change the ticks
 		
 		#print(rcParams.keys())
 		#mpl.use('pgf')
 		params = {
 		'pgf.texsystem': 'xelatex',        # change this if using xetex or lautex
 		'font.size': 16,
+		'figure.figsize': [8,4],
 		'axes.labelsize': 20,
 		'legend.fontsize': 20,
-		'xtick.labelsize': 14,
-		'ytick.labelsize': 14,
+		'xtick.labelsize': 16,
+		'ytick.labelsize': 16,
 		'text.usetex': True,
 		'font.family': 'sans-serif',
 		"text.latex.preamble": [
-			r"\usepackage[utf8x]{inputenc}",    # use utf8 fonts 
+			r"\usepackage[utf8]{inputenc}",    # use utf8 fonts 
 			r"\usepackage[T1]{fontenc}",        # plots will be generated
 			#r"\usepackage{anyfontsize}",
 			#r"\fontsize{16}{19.20}",
@@ -3987,9 +4072,29 @@ elif 'reflectometry' in sys.argv:
 	
 	if CHECK:
 		if 'fittotal' in density_data:
-			density_data.plot(x='z', y='fittotal')
-		density_data.plot(x='z', y='total')
+			density_data.plot(x='z', y='fittotal', style=['b'], linewidth=3.0, label='Sim. SLD')
+		else:
+			density_data.plot(x='z', y='total')
+		
+		y_ticks	= plt.yticks()[0]
+		y_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(y*1e6,2)) for y in y_ticks]
+		plt.yticks(y_ticks, y_ticks_label)
+		#plt.ylim(0.01e-8, 5.0e-8)
+		
+		x_ticks	= plt.xticks()[0]
+		x_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(x,2)) for x in x_ticks]
+		plt.xticks(x_ticks, x_ticks_label)
+		#plt.xlim(0.0, 0.25)
+		
+		
+		plt.ylabel(r"$ \mathsf{SLD\ ( \times \SI{E-06}{\angstrom^{-2} } ) } $")
+		plt.xlabel(r"$\mathsf{ z\ (\SI{}{\angstrom}) }$")
+		#legend = plt.legend()
+		#legend.get_texts()[0].set_text('Sim. SLD')
+		#legend.draggable(True)
+		plt.tight_layout()
 		plt.show()
+			
 	
 	if REFLECTOMETRY is not None:
 		try:
@@ -4066,7 +4171,7 @@ elif 'reflectometry' in sys.argv:
 				
 				#taking into account roughness
 				pre_exp		= complex(-2,0)
-				exp_k_prod	= cmath.exp(pre_exp * k_prod)
+				exp_k_prod	= cmath.exp(pre_exp * k_prod * 1)
 				
 				R_fresnel	= (k_sub / k_sum) #* exp_k_prod
 				
@@ -4135,7 +4240,7 @@ elif 'reflectometry' in sys.argv:
 			
 			R		= reflectivity_data['R']
 			q_range	= reflectivity_data['q']
-			q_delta	= (q_max - q_min)/q_grid
+			#q_delta	= (q_max - q_min)/q_grid
 			
 			R_interp	= CubicSpline(q_range,R, extrapolate=True, bc_type='clamped')
 			
@@ -4143,16 +4248,18 @@ elif 'reflectometry' in sys.argv:
 			reflectivity_data	= reflectivity_data.assign(interp=values_interp)
 			
 			
-			
+			q_prec	= 0.0
 			for q in q_range:
 				Rpq	= 0.0
-				dq	= q_delta/q
+				dq	= 0.02 #(q - q_prec)/ q#q_delta/q
 				#print(dq)
 				for a, w in zip(nb_points, norm_weights):
 					#print(a)
 					Rpq += w * R_interp(q + a/p * dq)
 				
 				R_prime.append(Rpq)
+				q_prec	= q
+				
 			
 			Rpq4	= np.multiply(R_prime,q4)
 			reflectivity_data	= reflectivity_data.assign(Rpq4=Rpq4)
@@ -4166,8 +4273,6 @@ elif 'reflectometry' in sys.argv:
 			with pd.option_context('display.max_rows', None):
 				print(reflectivity_data)
 			
-			
-			import matplotlib.ticker as ticker #to change the ticks
 			if EXPERIMENTAL is not None:
 				
 				
@@ -4180,9 +4285,10 @@ elif 'reflectometry' in sys.argv:
 				reflectivity_data.plot(x='q', y='Rq4')
 			
 			y_ticks	= plt.yticks()[0]
-			y_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(y*1e8) for y in y_ticks]
+			y_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(y*1e8,2)) for y in y_ticks]
 			plt.yticks(y_ticks, y_ticks_label)
-			plt.ylim(0.01e-8, 5.0e-8)
+			maximum = np.amax(y_ticks) #5.0e-8 
+			plt.ylim(0.01e-8, maximum)
 			
 			x_ticks	= plt.xticks()[0]
 			x_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(x,2)) for x in x_ticks]
@@ -4191,7 +4297,7 @@ elif 'reflectometry' in sys.argv:
 			
 			
 			plt.ylabel(r"$ \mathsf{Rq^4 \times \SI{E-08}{(\angstrom^{-4}) } } $")
-			plt.xlabel(r"$\mathsf{ q (\SI{}{\angstrom^{-1} }) }$")
+			plt.xlabel(r"$\mathsf{ q\ (\SI{}{\angstrom^{-1} }) }$")
 			legend = plt.legend()
 			legend.get_texts()[0].set_text('Sim.')
 			legend.draggable(True)
