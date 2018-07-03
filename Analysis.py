@@ -1126,7 +1126,7 @@ def map_cmd(data):
 			#grid_bilayer_std = np.sqrt( (grid_lower_leaflet_var + grid_upper_leaflet_var)/2.0 )
 			
 			
-			graph_name = "{0}/{1}_mean.svg".format(grid_graph_folder, prop)
+			graph_name = "{0}/{1}_mean.eps".format(grid_graph_folder, prop)
 			grid_name = "{0}/{1}_mean_".format(grid_folder, prop)
 			
 			"""
@@ -1170,7 +1170,7 @@ def map_cmd(data):
 			plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_time, ending_time)
 			
 			if RADIAL is not None:
-				graph_name = "{0}/{1}_radial.svg".format(grid_graph_folder, prop)
+				graph_name = "{0}/{1}_radial.eps".format(grid_graph_folder, prop)
 				file_name = "{0}/{1}.rad".format(grid_folder, prop)
 				compute_mean_radial_distribution2d(mean_list, RADIAL, prop, graph_name, file_name,
 													beginning_time, ending_time, pad_x, pad_y)
