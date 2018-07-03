@@ -703,7 +703,7 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 	
 	plt.tight_layout()
 	plt.show()
-	plt.savefig(graph_name)
+	#plt.savefig(graph_name)
 	plt.close()
 	
 	header="radius,lower leaflet,upper leaflet,bilayer"
