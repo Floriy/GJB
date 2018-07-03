@@ -399,9 +399,9 @@ def plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_t
 	
 		
 	#Set the time as title
-	#title = "Averaged on {0:d} ps from {1:d} to {2:d}".format(ending_time - beginning_time,
+	title = "Averaged on {0:d} ps from {1:d} to {2:d}".format(ending_time - beginning_time,
 																beginning_time, ending_time)
-	#plt.suptitle(title)
+	plt.suptitle(title)
 	
 	for ax in axs[:-1]:
 		ax.autoscale(axis='x', tight=True)
