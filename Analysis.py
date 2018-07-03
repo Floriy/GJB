@@ -685,7 +685,7 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 		y_name = r"$\mathsf{Thickness\ (\SI{}{\nano\meter})}$"
 		ax.set_ylabel(y_name)
 		
-	ax.grid('on')
+	#ax.grid('on')
 	ax.legend()
 	
 	#title = "Radial distribution of {0} \n averaged on {1:d} ps from {2:d} to {3:d} ps".format(prop, ending_time - beginning_time, beginning_time, ending_time)
@@ -702,7 +702,7 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 	ax.set_xticklabels(x_ticks_label)
 	
 	plt.tight_layout()
-	#plt.show()
+	plt.show()
 	plt.savefig(graph_name)
 	plt.close()
 	
