@@ -672,7 +672,7 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 	ax.fill_between(radii, bil_leaflet_data-bil_leaflet_err, bil_leaflet_data+bil_leaflet_err,
 						alpha=0.2, facecolor='purple', linewidth=0)
 	
-	ax.set_xlabel(r"$\mathsf{r\ (\SI{}{\nano\metre}})$")
+	ax.set_xlabel(r"$\mathsf{radius\ (\SI{}{\nano\metre}})$")
 	
 	y_name = None
 	if prop == "ORDER":
@@ -702,7 +702,7 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 	ax.set_xticklabels(x_ticks_label)
 	
 	plt.tight_layout()
-	plt.show()
+	#plt.show()
 	plt.savefig(graph_name)
 	plt.close()
 	
@@ -1169,7 +1169,7 @@ def map_cmd(data):
 			plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_time, ending_time)
 			
 			if RADIAL is not None:
-				graph_name = "{0}/{1}_radial.svg".format(grid_graph_folder, prop)
+				graph_name = "{0}/{1}_radial.eps".format(grid_graph_folder, prop)
 				file_name = "{0}/{1}.rad".format(grid_folder, prop)
 				compute_mean_radial_distribution2d(mean_list, RADIAL, prop, graph_name, file_name,
 													beginning_time, ending_time, pad_x, pad_y)
