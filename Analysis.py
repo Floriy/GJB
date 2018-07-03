@@ -329,13 +329,13 @@ def plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_t
 		colormap = mcm.viridis
 	if prop == 'APL':
 		plot_title = r"$\mathsf{\frac{Area}{lipid} for "
-		bounds = np.linspace(0.55, 0.75, 5)
-		levels = np.linspace(0.55, 0.75, 20)
+		bounds = np.linspace(0.60, 0.70, 5)
+		levels = np.linspace(0.60, 0.70, 10)
 		colormap = mcm.plasma
 	if prop == 'THICKNESS':
 		plot_title = r"$\mathsf{Thickness for "
-		bounds = np.linspace(2.0, 6.0, 5)
-		levels = np.linspace(2.0, 6.0, 15)
+		bounds = np.linspace(3.0, 5.0, 6)
+		levels = np.linspace(3.0, 5.0, 20)
 		colormap = mcm.BuPu_r
 	#figure for plots
 	fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(15,4.9), dpi=96, gridspec_kw = {'width_ratios':[5,5,5,1]})
@@ -678,22 +678,26 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 	if prop == "ORDER":
 		y_name = r"$\mathsf{P_2}$"
 		ax.set_ylabel(y_name,rotation=0)
+		ax.set_yticks([-0.5, 0.25, 0.0, 0.5,0.75, 1.0])
 	elif prop == "APL":
 		y_name = r"$\mathsf{ A_L\ (\SI{}{\nano\metre^2}) } $"
 		ax.set_ylabel(y_name)
+		ax.set_yticks([0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68])
 	elif prop == "THICKNESS":
 		y_name = r"$\mathsf{T_L (\SI{}{\nano\meter})}$"
 		ax.set_ylabel(y_name)
+		ax.set_yticks([3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5])
 		
-	#ax.grid('on')
-	ax.legend()
+	ax.grid('on')
+	#ax.legend()
 	
 	#title = "Radial distribution of {0} \n averaged on {1:d} ps from {2:d} to {3:d} ps".format(prop, ending_time - beginning_time, beginning_time, ending_time)
 	#plt.suptitle(title)
 	
 	x_ticks = ax.get_xticks()
 	y_ticks = ax.get_yticks()
-
+	
+	print(y_ticks)
 	
 	y_ticks_label	= [r'$\mathsf{{ {0:.2f} }}$'.format(round(y,2)) for y in y_ticks]
 	ax.set_yticklabels(y_ticks_label)
@@ -701,6 +705,7 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 	x_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(x,2)) for x in x_ticks]
 	ax.set_xticklabels(x_ticks_label)
 	
+	print(y_ticks_label)
 	plt.tight_layout()
 	#plt.show()
 	plt.savefig(graph_name)
@@ -4186,7 +4191,7 @@ elif 'reflectometry' in sys.argv:
 				C_mat	= npm.matrix([[exp_ib, R_fresnel * exp_ib],[R_fresnel * exp_ibneg, exp_ibneg]],
 										dtype=complex)
 				
-				M = M @ C_mat
+				M = np.matmul(M,C_mat)
 				
 				# Putting the top k and phase factor for the next bottom one 
 				k_j				= k_i
