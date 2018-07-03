@@ -1046,6 +1046,7 @@ def map_cmd(data):
 		beginning_time = int(box_dim[0][0])
 		ending_time = int(box_dim[-1][0])
 		
+		print(beginning_time, ending_time)
 		#compute the mean box
 		box_dimension = np.array([i[1:] for i in box_dim])
 		mean_box = np.mean(box_dimension, axis=0)
