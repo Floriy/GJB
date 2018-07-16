@@ -303,7 +303,8 @@ class BaseProject(object):
 		#Retrieving the index
 		self.nb_index = nb_index
 		
-		create_su = False
+		create_su		= False
+		add_monolayer	= False
 		
 		try:
 			if self.defo:
@@ -317,6 +318,9 @@ class BaseProject(object):
 					sub.call( "cp {0}/su_posres_gen.itp .".format(path), shell=True)
 				else:
 					create_su = True
+			
+			if self.mono:
+				add_monolayer = True
 			
 		except IOError as e:
 			print(e)
@@ -341,7 +345,6 @@ class BaseProject(object):
 		
 		#Increase box size in each dimension
 		if 'NEWBOX' in inputs:
-			
 			increment	= [float(N)/10. for N in inputs['NEWBOX'].strip().split()]
 			newbox		= np.add(increment, dimensions)
 			
@@ -778,6 +781,71 @@ class BaseProject(object):
 			sub.call(add_su_ndx_cmd, shell=True)
 		
 			self.system = system
+		
+		
+		#if add_monolayer:
+			#grotopdb_cmd = "{0} editconf -f {1}.gro -o {1}.pdb -c no".format(self.softwares['GROMACS_LOC'], self.system)
+			#sub.call(grotopdb_cmd, shell=True)
+			
+			#if 'APL' in self.mono:
+				#self.nb_lipid_monolayer = int( dimensions[0] * dimensions[1] / 100 / float(self.mono['APL']) )
+			#elif 'NBLIPIDS' in self.mono:
+				#self.nb_lipid_monolayer = int(self.mono['APL'])
+				
+			
+			
+			#shell = 7.0
+			#self.packmol_input += """
+								#avoid_overlap yes
+								
+								#output {0}.pdb
+								
+								## Input structure
+								#structure {1}.pdb
+									#fixed 0. 0. {2} 0.0 0.0 0.0
+								#end structure
+								
+								## Substrate
+								#structure substrate.pdb
+									#fixed 0. 0. 0. 0. 0. 0.
+								#end structure
+								
+								#""".format(system, self.system, total_thickness+shell)
+								
+			
+			##su_pdb_content = pdb_file_list['SU']['content'].replace("TEMP", su_type)
+			##su_pdb_content = su_pdb_content.replace("TEM", atom_type)
+			
+			##with open(pdb_file_list['SU']['name'],'w') as su_pdb:
+				##su_pdb.write(ut.RemoveUnwantedIndent(su_pdb_content))
+								
+			#with open("packmol_{0}.input".format(self.system), 'w') as packmol_file:
+				#packmol_file.write(ut.RemoveUnwantedIndent(self.packmol_input))
+								
+			#packmol_cmd = str("{0} < packmol_{1}.input > packmol_{1}.output "
+					#).format(self.softwares['PACKMOL'], self.system)
+			
+			#sub.call(packmol_cmd, shell=True)
+			
+			
+			#pdbtogro_cmd = "{0} editconf -f {1}.pdb -o {1}.gro -box {2} {3} {4} -c no".format(self.softwares['GROMACS_LOC'], system,
+																				#dimensions[0], dimensions[1], 
+																				#dimensions[2] + (total_thickness + 2*shell)/10)
+			#sub.call(pdbtogro_cmd, shell=True)
+			
+			#group_index = [str(i) for i in range(0, self.nb_index-1, 1)]
+			
+			#make_ndx_input = """ "r {0}\\nname {1} su\\ndel 0\\ndel 0\\n{2}\\nname {3} System\\nq\\n" """.format(self.su['SuType'],
+																									#self.nb_index,
+																									#" | ".join(group_index),
+																									#int(group_index[-1])+1)
+			
+			#add_su_ndx_cmd = """printf {3} | {0} make_ndx -f {1}.gro -n {2} -o {1}.ndx""".format(self.softwares['GROMACS_LOC'], system,
+																				#self.system, make_ndx_input)
+			
+			#sub.call(add_su_ndx_cmd, shell=True)
+		
+			#self.system = system
 		
 		
 		self.output_file = "{0}.gro".format(self.system)
@@ -2568,6 +2636,10 @@ class Membrane(BaseProject):
 		if self.mono is not None: 
 			make_index += "chain C\n"
 			naming_index += "name {0} mono{1}\n".format(self.nb_index+count_index, self.lipid_type)
+			count_index += 1
+			
+			make_index += "chain C\n"
+			naming_index += "name {0} mono\n".format(self.nb_index+count_index, self.lipid_type)
 			count_index += 1
 		
 		if self.nb_sol_vapor is not None:

@@ -1644,12 +1644,19 @@ xvgOpt.add_argument('-f', '--file', dest='xvg_file',
 					type=str, required=True,
                     help='Set the name of the file to plot')
 
+xvgOpt.add_argument('--chi', dest='chi',
+					type=str, default=None,
+                    help='Set the quantity to use to characterise discrepancy')
+
 xvgOpt.add_argument('--integrate', dest='limits',
 					type=float, nargs=2, default=None,
                     help='Set the limits for integration')
 
 xvgOpt.add_argument('--plot', action='store_true',
                     help='Plot the selected quantities')
+
+xvgOpt.add_argument('--err', action='store_true',
+                    help='Plot the selected with error bars')
 
 xvgOpt.add_argument('--mean', action='store_true',
                     help='Return the mean, std and stderr values of the selected quantities')
@@ -1681,11 +1688,11 @@ reflectometryOpt.add_argument('--limits', dest='limits',
 
 reflectometryOpt.add_argument('-sub','--sublayers', dest='sublayers',
 					type=str, nargs='*', default=None,
-                    help='Set the sub layers composition to compute the reflectivity [[mol density thickness rugosity], ...]')
+                    help='Set the sub layers composition to compute the reflectivity [[mol thickness rugosity], ...] or [[mol_atom thickness rugosity density]]')
 
 reflectometryOpt.add_argument('-sup','--superlayers', dest='superlayers',
 					type=str, nargs='*', default=None,
-                    help='Set the super layers composition to compute the reflectivity [[mol density thickness rugosity], ...]')
+                    help='Set the super layers composition to compute the reflectivity [[mol thickness rugosity], ...] or [[mol_atom thickness rugosity density]]')
 
 reflectometryOpt.add_argument('-q', dest='qrange',
 					type=float, nargs=3, default=None,
@@ -1701,6 +1708,14 @@ reflectometryOpt.add_argument('-res', dest='resolution',
 reflectometryOpt.add_argument('-exp', dest='experimental',
 					type=str, default=None,
                     help='File with data from experimental neutron reflectometry')
+
+reflectometryOpt.add_argument('-conv', dest='convolve',
+					type=int, default=None,
+                    help='convolve the the SLD with a gaussian')
+
+reflectometryOpt.add_argument('--output', dest='output',
+					type=str, nargs=2, default=None,
+                    help='1st param: destination folder \n 2nd param: output plots with selected format [svg, svgz, ps, eps, pdf, png, rgba, raw, emf]')
 
 #dlambda/lambda = 0.1 for Koutsioubas
 
@@ -3636,26 +3651,29 @@ elif 'reflectometry' in sys.argv:
 		#mpl.use('pgf')
 		params = {
 		'pgf.texsystem': 'xelatex',        # change this if using xetex or lautex
-		'font.size': 16,
+		'pgf.rcfonts': False,
+		'text.usetex': True,
+		'text.latex.unicode' : True,
+		#'font.size': 16,
 		'figure.figsize': [8,4],
 		'axes.labelsize': 20,
 		'legend.fontsize': 20,
 		'xtick.labelsize': 16,
 		'ytick.labelsize': 16,
-		'text.usetex': True,
-		'font.family': 'sans-serif',
+		#'font.family': 'sans-serif',
+		"pgf.preamble": [
+			r"\usepackage{unicode-math}",
+			r"\setmainfont{XITS}",
+			r"\mathversion{XITS Math}",
+			r"\usepackage[detect-all]{siunitx}",    # load additional packages
+			],
 		"text.latex.preamble": [
-			r"\usepackage[utf8]{inputenc}",    # use utf8 fonts 
-			r"\usepackage[T1]{fontenc}",        # plots will be generated
-			#r"\usepackage{anyfontsize}",
-			#r"\fontsize{16}{19.20}",
-			#r"\DeclareMathSizes{10}{10}{10}{10}",
+			r"\usepackage{unicode-math}",
 			r"\usepackage[detect-all]{siunitx}",         # load additional packages
+			r"\sisetup{mode = math,math-rm=\mathsf}"
 			r"\usepackage{amsmath}",
 			r"\usepackage{amssymb}",
-			r"\sisetup{mode = math,math-rm=\mathsf}"
-			#r"\usepackage{unicode-math}",  # unicode math setup
-			#r"\setmathfont{xits-math.otf}",
+			"\renewcommand{\familydefault}{\sfdefault}",
 			]
 }
 			
@@ -3677,6 +3695,8 @@ elif 'reflectometry' in sys.argv:
 	Q_RANGE			= cmdParam.qrange
 	EXPERIMENTAL	= cmdParam.experimental
 	RESOLUTION		= cmdParam.resolution
+	CONVOLVE		= cmdParam.convolve
+	OUTPUT			= cmdParam.output
 	
 	CHECK			= cmdParam.check
 	sl_data = {}
@@ -3754,6 +3774,33 @@ elif 'reflectometry' in sys.argv:
 	cols.insert(0, cols.pop(cols.index('z')))
 	# use ix to reorder
 	density_data = density_data.ix[:, cols]
+
+	if CONVOLVE is not None:
+		# Formula from DOI: 10.1021/acs.jpcb.6b05433#
+		p = CONVOLVE
+		
+		nb_points			= np.arange(-p,p+1,1)
+		term_in_exp			= -2 * np.power(nb_points/p ,2 )
+		weight_terms		= np.exp(term_in_exp)
+		normalising_term	= np.sum(weight_terms)
+		
+		
+		norm_weights		= weight_terms / normalising_term
+		
+		
+		SLD_prime	= []
+		
+		SLD			= density_data['total']
+		z		= density_data['z']
+		
+		conv_SLD	= np.convolve(SLD, norm_weights, mode='same')
+		
+		density_data['total']	= conv_SLD
+		
+		#plt.plot(z, conv_SLD)
+		#plt.plot(z, SLD)
+		#plt.show()
+		#plt.close()
 	
 	if LIMITS is not None:
 		lower_limit = density_data['z'] >= LIMITS[0]
@@ -3769,6 +3816,8 @@ elif 'reflectometry' in sys.argv:
 	sup_layers_dict = {}
 	
 	print(density_data)
+	
+
 	
 	if SUBLAYERS is not None:
 		
@@ -3798,9 +3847,9 @@ elif 'reflectometry' in sys.argv:
 									  								}})
 			with_density = True
 		
-		min_z	= density_data['z'][0]
+		min_z	= density_data['z'][density_data.index[0]]
 		
-		total_value_at_sup	= density_data['total'][0]
+		total_value_at_sup	= density_data['total'][density_data.index[0]]
 		total_new_z_bin		= []
 		total_new_sld		= []
 		
@@ -4089,19 +4138,36 @@ elif 'reflectometry' in sys.argv:
 		#plt.ylim(0.01e-8, 5.0e-8)
 		
 		x_ticks	= plt.xticks()[0]
-		x_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(x,2)) for x in x_ticks]
+		x_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(x*10,2)) for x in x_ticks]
 		plt.xticks(x_ticks, x_ticks_label)
 		#plt.xlim(0.0, 0.25)
 		
-		
 		plt.ylabel(r"$ \mathsf{SLD\ ( \times \SI{E-06}{\angstrom^{-2} } ) } $")
 		plt.xlabel(r"$\mathsf{ z\ (\SI{}{\angstrom}) }$")
-		#legend = plt.legend()
-		#legend.get_texts()[0].set_text('Sim. SLD')
-		#legend.draggable(True)
+		
+		#plt.ylabel(r"\SI{ E-06 }{ \angstrom^{-2} }")
+		#plt.xlabel(r"$\mathsf{ z\  }$")
 		plt.tight_layout()
-		plt.show()
+		
+		
+		if OUTPUT is not None:
+			name	= None
+			dest	= OUTPUT[0]
+			ext		= OUTPUT[1]
 			
+			if not dest.endswith('/'):
+				dest	+= '/'
+			if not dest.startswith('.'):
+				ext		= '.' + OUTPUT[1]
+			
+			if XVG_FILE.endswith('MDADENS.xvg'):
+				name = dest + XVG_FILE.replace('MDADENS.xvg', 'MDASLD{0}'.format(ext))
+			if XVG_FILE.endswith('DENS.xvg'):
+				name = dest + XVG_FILE.replace('DENS.xvg', 'SLD{0}'.format(ext))
+			plt.savefig(name)
+		else:
+			plt.show()
+	
 	
 	if REFLECTOMETRY is not None:
 		try:
@@ -4243,37 +4309,51 @@ elif 'reflectometry' in sys.argv:
 			norm_weights		= weight_terms / normalising_term
 			
 			
+			#R_prime	= []
+			
+			#R		= reflectivity_data['R']
+			#q_range	= reflectivity_data['q']
+			##q_delta	= (q_max - q_min)/q_grid
+			
+			#R_interp	= CubicSpline(q_range,R, extrapolate=True, bc_type='clamped')
+			
+			#values_interp	= np.multiply(R_interp(q_range),q4)
+			#reflectivity_data	= reflectivity_data.assign(interp=values_interp)
+			
+			
+			#q_prec	= 0.0
+			#for q in q_range:
+				#Rpq	= 0.0
+				#dq	= 0.02 #(q - q_prec)/ q#q_delta/q
+				##print(dq)
+				#for a, w in zip(nb_points, norm_weights):
+					##print(a)
+					#Rpq += w * R_interp(q + a/p * dq)
+				
+				#R_prime.append(Rpq)
+				#q_prec	= q
+				
+			
+			#Rpq4	= np.multiply(R_prime,q4)
+			#reflectivity_data	= reflectivity_data.assign(Rpq4=Rpq4)
+			
+			
+			#reflectivity_data.plot(x='q', y=['Rq4','Rpq4', 'interp'])
+			#plt.show()
+			
 			R_prime	= []
 			
-			R		= reflectivity_data['R']
-			q_range	= reflectivity_data['q']
-			#q_delta	= (q_max - q_min)/q_grid
+			R		= reflectivity_data['Rq4']
+			q		= reflectivity_data['q']
 			
-			R_interp	= CubicSpline(q_range,R, extrapolate=True, bc_type='clamped')
+			conv_R	= np.convolve(R, norm_weights, mode='same')
 			
-			values_interp	= np.multiply(R_interp(q_range),q4)
-			reflectivity_data	= reflectivity_data.assign(interp=values_interp)
+			reflectivity_data['Rq4']	= conv_R
 			
-			
-			q_prec	= 0.0
-			for q in q_range:
-				Rpq	= 0.0
-				dq	= 0.02 #(q - q_prec)/ q#q_delta/q
-				#print(dq)
-				for a, w in zip(nb_points, norm_weights):
-					#print(a)
-					Rpq += w * R_interp(q + a/p * dq)
-				
-				R_prime.append(Rpq)
-				q_prec	= q
-				
-			
-			Rpq4	= np.multiply(R_prime,q4)
-			reflectivity_data	= reflectivity_data.assign(Rpq4=Rpq4)
-			
-			
-			reflectivity_data.plot(x='q', y=['Rq4','Rpq4', 'interp'])
-			plt.show()
+			#plt.plot(q, conv_R)
+			#plt.plot(q, R)
+			#plt.show()
+			#plt.close()
 			
 		
 		if CHECK:
@@ -4294,7 +4374,7 @@ elif 'reflectometry' in sys.argv:
 			y_ticks	= plt.yticks()[0]
 			y_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(y*1e8,2)) for y in y_ticks]
 			plt.yticks(y_ticks, y_ticks_label)
-			maximum = np.amax(y_ticks) #5.0e-8 
+			maximum =  5.0e-8 #np.amax(y_ticks)
 			plt.ylim(0.01e-8, maximum)
 			
 			x_ticks	= plt.xticks()[0]
@@ -4310,7 +4390,25 @@ elif 'reflectometry' in sys.argv:
 			legend.draggable(True)
 			anot.draggable(True)
 			plt.tight_layout()
-			plt.show()
+			
+			if OUTPUT is not None:
+				name = None
+				name	= None
+				dest	= OUTPUT[0]
+				ext		= OUTPUT[1]
+				
+				if not dest.endswith('/'):
+					dest	+= '/'
+				if not dest.startswith('.'):
+					ext		= '.' + OUTPUT[1]
+				
+				if XVG_FILE.endswith('MDADENS.xvg'):
+					name = dest + XVG_FILE.replace('MDADENS.xvg', 'MDAREF{0}'.format(ext))
+				if XVG_FILE.endswith('DENS.xvg'):
+					name = dest + XVG_FILE.replace('DENS.xvg', 'REF{0}'.format(ext))
+				plt.savefig(name)
+			else:
+				plt.show()
 			
 		
 		# get a list of columns
@@ -4370,6 +4468,8 @@ elif 'reflectometry' in sys.argv:
 		
 		xvg_out.write(header+"\n")
 		xvg_out.close()
+		
+		
 	
 	
 
@@ -4390,7 +4490,32 @@ elif 'xvgplot' in sys.argv:
 	try:
 		import matplotlib.pyplot as plt
 		import matplotlib.cm as mcm
+		from matplotlib import rcParams
 		from matplotlib import rc
+		import matplotlib.ticker as ticker #to change the ticks
+		
+		params = {
+		'pgf.texsystem': 'xelatex',        # change this if using xetex or lautex
+		'font.size': 16,
+		'figure.figsize': [8,4],
+		'axes.labelsize': 20,
+		'legend.fontsize': 20,
+		'xtick.labelsize': 18,
+		'ytick.labelsize': 18,
+		'text.usetex': True,
+		'font.family': 'sans-serif',
+		"text.latex.preamble": [
+			r"\usepackage[utf8]{inputenc}",    # use utf8 fonts 
+			r"\usepackage[T1]{fontenc}",        # plots will be generated
+
+			r"\usepackage[detect-all]{siunitx}",         # load additional packages
+			r"\usepackage{amsmath}",
+			r"\usepackage{amssymb}",
+			r"\sisetup{mode = math,math-rm=\mathsf}"
+			]
+		}
+		rcParams.update(params)
+		
 	except ImportError as e:
 		print("You need matplotlib.pyplot to use this script")
 		print("Error {0}".format(e))
@@ -4400,6 +4525,8 @@ elif 'xvgplot' in sys.argv:
 	INTEGRATE_LIMITS = cmdParam.limits
 	PLOT = cmdParam.plot
 	MEAN = cmdParam.mean
+	ERR  = cmdParam.err
+	CHI  = cmdParam.chi
 	
 	quantities_in_file = {}
 	if XVG_FILE.endswith('EN.xvg'):
@@ -4462,6 +4589,9 @@ elif 'xvgplot' in sys.argv:
 				output_file.seek(0)
 			else:
 				print("{0} was not in {1}".format(qtty, XVG_FILE))
+	if CHI:
+		quantities_in_file[CHI]['values'] = np.loadtxt(output_file, dtype='float', usecols=(quantities_in_file[CHI]['values'],) )
+		output_file.seek(0)
 			
 	else:
 		for qtty in quantities_in_file:
@@ -4471,7 +4601,7 @@ elif 'xvgplot' in sys.argv:
 	
 	#plotting the function for each leaflet and total bilayer
 	if PLOT:
-		fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(15,6), dpi=72)
+		fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(15,6), dpi=96)
 		ax.set_xlabel(quantities_in_file['X']['unit'])
 		if QUANTITIES is not None:
 			for qtty in QUANTITIES:
@@ -4485,28 +4615,98 @@ elif 'xvgplot' in sys.argv:
 															label=qtty+' '+quantities_in_file[qtty]['unit'])
 		
 		if XVG_FILE.endswith('DENS.xvg'):
-			ax.set_ylabel('Density (CG/nm^3)')
-			ax.set_xlabel('Z-coord (nm)')
+			ax.set_ylabel(r'$\mathsf{\left<\rho(z)\right>_t \SI{}{beads/nm^3}}$')
+			ax.set_xlabel(r'$\mathsf{z\ (\SI{}{\nano\metre})}$')
 			
 		elif XVG_FILE.endswith('SLD.xvg'):
 			#rc('text', usetex=True)
 			#ax.yaxis.major.formatter._useMathText = True
-			ax.set_ylabel('SLD (10^{-6} A^{-1})')
-			ax.set_xlabel('Z-coord (nm)')
+			ax.set_ylabel(r'$\mathsf{SLD (10^{-6} A^{-1})}$')
+			ax.set_xlabel(r'$\mathsf{z\ (\SI{}{\nano\metre})}$')
 			ax.ticklabel_format(style='sci',axis='y', scilimits=(0,0))
 		elif XVG_FILE == 'flipflop.xvg' or XVG_FILE == 'solvent_per_leaflet.xvg':
 			ax.set_xlabel('Time (ps)')
 			
 		
+		x_ticks = ax.get_xticks()
+		y_ticks = ax.get_yticks()
+		
+		print(y_ticks)
+		
+		y_ticks_label	= [r'$\mathsf{{ {0:.2f} }}$'.format(round(y,2)) for y in y_ticks]
+		ax.set_yticklabels(y_ticks_label)
+
+		x_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(round(x,2)) for x in x_ticks]
+		ax.set_xticklabels(x_ticks_label)
 		ax.grid('on')
 		ax.legend()
 		ax.legend().draggable()
 		
 		#plt.show()
-		plt.savefig(XVG_FILE.replace('xvg','svg'))
+		plt.savefig(XVG_FILE.replace('xvg','eps'))
 		plt.close()
 	
-	
+	if ERR:
+		fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8,4), dpi=96)
+		ax_chi	= None
+		#ax.set_xlabel(quantities_in_file['X']['unit'])
+		
+		if CHI:
+			ax_chi = ax.twinx()
+			match = np.reciprocal(quantities_in_file[CHI]['values']) * 100
+			ax_chi.bar(quantities_in_file['X']['values'], height=match, color='b', alpha=0.25)
+		
+		if QUANTITIES is not None:
+			for qtty in QUANTITIES:
+				if qtty in quantities_in_file:
+					if qtty == "err": continue
+					ax.errorbar(quantities_in_file['X']['values'], quantities_in_file[qtty]['values'], yerr=quantities_in_file['err']['values'], fmt='ro',label='point', markersize=10.0, linewidth=2.0)
+					ax.plot(quantities_in_file['X']['values'], quantities_in_file[qtty]['values'], linestyle='-',color='r', linewidth=2.0)
+					ax.set_xticks(quantities_in_file['X']['values'])
+		
+			
+		ax.set_ylim([2.0,4.5])
+		ax_chi.set_ylim([0,25])
+		if CHI:
+			y_ticks_chi = ax_chi.get_yticks()
+			y_ticks_chi_label	= [r'$\mathsf{{ {0} }}$'.format(int(y)) for y in y_ticks_chi]
+			ax_chi.set_yticklabels(y_ticks_chi_label)
+			ax_chi.set_ylabel(r'$\mathsf{{Similitude\ exp.\ \scriptstyle (\%) }}$', color='b')
+			
+			ax_chi.tick_params('y', colors='b')
+			ax_chi.yaxis.label.set_color('blue')
+		
+		x_ticks = ax.get_xticks()
+		y_ticks = ax.get_yticks()
+		
+		y_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(y) for y in y_ticks]
+		ax.yaxis.label.set_color('red')
+		ax.set_yticklabels(y_ticks_label)
+
+		x_ticks_label	= [r'$\mathsf{{ {0} }}$'.format(int(x)) for x in x_ticks]
+		ax.yaxis.label.set_color('black')
+		ax.set_xticklabels(x_ticks_label)
+		ax.set_ylabel(r'$\mathsf{{Eau\ par\ lipide}}$', color='b')
+		ax.set_xlabel(r'$\mathsf{{Densite\ mur\ (\SI{}{grains/nm^3})}}$')
+		
+		if CHI:
+			ax.tick_params('y', colors='r')
+			ax.yaxis.label.set_color('red')
+			ax.spines['left'].set_color('red')
+			ax_chi.spines['right'].set_color('blue')
+			
+		ax.patch.set_visible(False)
+		ax_chi.grid(True)
+		ax.set_zorder(2)
+		ax_chi.set_zorder(1)
+		#ax.legend()
+		#ax.legend().draggable()
+		
+		fig.tight_layout()
+		#plt.show()
+		fig.savefig(XVG_FILE.replace('xvg','eps'))
+		plt.close()
+		
 	if INTEGRATE_LIMITS is not None:
 		print("##################################################")
 		print("##################   INTEGRATE   #################")

@@ -102,3 +102,6 @@ Nad9-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 N0d9-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wn0 P4,9-3,9 8
 
+P4d12-C1d8_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUP C1,9-3,12 8
+
