@@ -1,0 +1,9 @@
+#include "martini_v2.2.itp"
+#include "martini_v2.0_lipids.itp"
+
+[ system ]
+BILAYER_784DPPC_24238W
+
+[ molecules ]
+DPPC 784
+W 24238

@@ -120,117 +120,131 @@ class BaseProject(object):
 	def __init__(self, sample, softwares, path_to_default):
 		try:
 			#Softwares
-			self.softwares = softwares
-			self.path_to_default = path_to_default
-			self.protocol = sample['PROTOCOL']
+			self.softwares			= softwares
+			self.path_to_default	= path_to_default
+			self.protocol			= sample['PROTOCOL']
 			
-			self.job_id = sample['JOBID']
-			self.job_num = sample['JOBNUM']
-			self.job_seed = sample['SEED']
+			self.job_id				= sample['JOBID']
+			self.job_num			= sample['JOBNUM']
+			self.job_seed			= sample['SEED']
 
-			self.node = sample['NODE']
-			self.nbnodes = sample['NBNODES']
-			self.ppn = sample['PPN']
+			self.node				= sample['NODE']
+			self.nbnodes			= sample['NBNODES']
+			self.ppn				= sample['PPN']
 
-			self.mdrun_opt = sample['MDRUN_OPT']
+			self.mdrun_opt			= sample['MDRUN_OPT']
 
-			self.sample_molecules = sample['SAMPLE']
-			self.type = sample['TYPE']
+			self.sample_molecules	= sample['SAMPLE']
+			self.type				= sample['TYPE']
 			
-			self.geometry = sample['GEOMETRY']
-			self.dimensions = {'LX': float(sample['GEOMETRY']['LX']),
-								'LY': float(sample['GEOMETRY']['LY']), 
-								'LZ': float(sample['GEOMETRY']['LZ'])}
+			self.geometry			= sample['GEOMETRY']
+			self.dimensions			= {'LX': float(sample['GEOMETRY']['LX']),
+										'LY': float(sample['GEOMETRY']['LY']), 
+										'LZ': float(sample['GEOMETRY']['LZ'])}
+			self.bottom_z			= 0.0
 			
-			self.lz_vaccum = None
+			self.sol_thickness		= None
+			if self.type.startswith('MONO'):
+				self.sol_thickness = float(sample['GEOMETRY']['SOL_THICKNESS'])
+			
+			self.lz_vaccum			= None
 			if 'LzVac' in sample['GEOMETRY']:
-				self.lz_vaccum = float(sample['GEOMETRY']['LzVac'])
+				self.lz_vaccum	= float(sample['GEOMETRY']['LzVac'])
 						   
-			self.fillmode = None
+			self.fillmode			= None
 			if 'FILLMODE' in sample['GEOMETRY']:
-				self.fillmode = sample['GEOMETRY']['FILLMODE']
-			self.radius = None
+				self.fillmode	= sample['GEOMETRY']['FILLMODE']
+			
+			self.radius				= None
 			if 'Radius' in sample['GEOMETRY']:
-				self.radius = sample['GEOMETRY']['Radius']
+				self.radius		= sample['GEOMETRY']['Radius']
 			
 			#defo related
-			self.defo = None
+			self.defo				= None
 			
 			#su related
-			self.su			= None
-			self.nb_su		= None
-			self.rugosity	= None
+			self.su					= None
+			self.nb_su				= None
+			self.rugosity			= None
 			# monolayer related
-			self.mono = None
+			self.mono				= None
 			
 			#wall related
-			self.wall = None
+			self.wall				= None
 			
 			#thermostat related
-			self.thermostat = None
+			self.thermostat			= None
 			
 			if 'DEFO' in sample:
-				self.defo = sample['DEFO']
-				self.defo_dict = {'DEFB' : {} }
+				self.defo		= sample['DEFO']
+				self.defo_dict	= {'DEFB' : {} }
 			
 			if 'SU' in sample:
-				self.su = sample['SU']
+				self.su			= sample['SU']
+				
 				if 'RUGOSITY' in sample['SU']:
-					entries = sample['SU']['RUGOSITY'].split('|')
+					entries			= sample['SU']['RUGOSITY'].split('|')
 					self.rugosity	= {}
+					
 					for e in entries:
 						parameter_name	= e.split(':')[0]
 						parameter_value	= e.split(':')[1]
+						
 						if ut.is_number(parameter_value):
 							self.rugosity.update({parameter_name : float(parameter_value)})
 						else:
 							self.rugosity.update({parameter_name : parameter_value})
 				
 			if 'MONO' in sample:
-				self.mono = sample['MONO']
+				self.mono	= sample['MONO']
 			
 			if 'WALL' in sample:
-				self.wall = sample['WALL']
+				self.wall		= sample['WALL']
+				
+				if self.su is None:
+					self.bottom_z	= 3.0
 				
 			if 'THERMOSTAT' in sample:
-				self.thermostat = sample['THERMOSTAT']
+				self.thermostat	= sample['THERMOSTAT']
 
-			self.protocol = sample['PROTOCOL']
+			self.protocol			= sample['PROTOCOL']
 			
-			self.system = None
-			self.shell = 3.0
+			self.system				= None
+			self.shell				= 3.0
 			
 		except RuntimeError as e:
 			print(e)
 			
-		self.lipid_list		= ['DSPC','DPPC','DLPC']
-		self.solvent_list	= ['W','OCO','PW']
-		self.substrate_list	= ['SSUP','SSUN','SSna','SSn0']
+		self.lipid_list				= ['DSPC','DPPC','DLPC']
+		self.solvent_list			= ['W','OCO','PW']
+		self.substrate_list			= ['SSUP','SSUN','SSna','SSn0']
 		
-		self.packmol_seed = None
-		self.packmol_input = None
+		self.packmol_seed			= None
+		self.packmol_input			= None
 		
-		self.lipid_types = None
-		self.solvent_types = None
+		self.lipid_types			= None
+		self.solvent_types			= None
 		
 		if sample['SEED'] == 'time':
-			self.packmol_seed = int(time.time())
+			self.packmol_seed	= int(time.time())
+			
 		elif sample['SEED'] == 'jobnum':
-			self.packmol_seed = sample['JOBNUM'] * 123456789
+			self.packmol_seed	= sample['JOBNUM'] * 123456789
 			
 		
 		if self.packmol_seed is not None:
-			self.packmol_input = """
+			self.packmol_input	= """
 								# Packmol seed was set using {0}
 								seed {1:d}
-								tolerance 3.0
+								tolerance 5.0
 								filetype pdb\n""".format(sample['SEED'], self.packmol_seed)
 		else:
-			self.packmol_input = """
+			self.packmol_input	= """
 								# Packmol seed was set using default
 								tolerance 3.0
 								filetype pdb\n"""
-		self.packmol_input += """
+								
+		self.packmol_input			+= """
 								sidemax 1000000"""
 	
 	
@@ -304,6 +318,7 @@ class BaseProject(object):
 		self.nb_index = nb_index
 		
 		create_su		= False
+		generate_su		= False
 		add_monolayer	= False
 		
 		try:
@@ -314,10 +329,12 @@ class BaseProject(object):
 			if self.su:
 				su_posres = "{0}/su_posres_gen.itp".format(path)
 				
-				if os.path.isfile(su_posres):
+				if 'GEN_SU' in inputs:
+					generate_su		= True
+				elif os.path.isfile(su_posres):
 					sub.call( "cp {0}/su_posres_gen.itp .".format(path), shell=True)
 				else:
-					create_su = True
+					create_su	= True
 			
 			if self.mono:
 				add_monolayer = True
@@ -327,10 +344,11 @@ class BaseProject(object):
 		
 		translate = None
 		
+		# Get the dimensions of the box from the input gro file
 		dimensions = str(ut.tail(file_found[0], 1)[0], 'utf-8').replace(repr('\n'),'')
 		dimensions = dimensions.split()
 		dimensions = [float(D) for D in dimensions]
-		print(dimensions)
+		
 		
 		if 'TRANS' in inputs:
 			translate = [float(T)/10. for T in inputs['TRANS'].strip().split()]
@@ -363,7 +381,7 @@ class BaseProject(object):
 			thresholds_atoms	= inputs['THRESHOLD_ATOMS'].strip().split()
 			#[float(T)/10. for T in inputs['THRESHOLD'].strip().split()]
 			
-			atoms	= ""
+			atoms		= ""
 			nb_atoms	= 0
 			modified_topology	= {}
 			serials				= []
@@ -537,6 +555,8 @@ class BaseProject(object):
 			
 			self.system = system
 			
+		elif 'GEN_SU' in inputs:
+			pass
 		else:
 			#if 'THRESHOLD-Z' not in inputs or 'THRESHOLD_ATOMS' not in inputs:
 			if 'THRESHOLD-Z' in inputs:
@@ -782,76 +802,173 @@ class BaseProject(object):
 		
 			self.system = system
 		
-		
-		#if add_monolayer:
-			#grotopdb_cmd = "{0} editconf -f {1}.gro -o {1}.pdb -c no".format(self.softwares['GROMACS_LOC'], self.system)
-			#sub.call(grotopdb_cmd, shell=True)
+		if generate_su:
+			""" Create a substrate for the given input"""
+			su_density	= float(self.su['Density'])
+			thickness	= float(self.su['Thickness'])
 			
-			#if 'APL' in self.mono:
-				#self.nb_lipid_monolayer = int( dimensions[0] * dimensions[1] / 100 / float(self.mono['APL']) )
-			#elif 'NBLIPIDS' in self.mono:
-				#self.nb_lipid_monolayer = int(self.mono['APL'])
+			assert(len(self.su['SuType']) <= 4),"The name of the SU should be 4 letters max (Otherwise problem with PDB file format)" 
+			
+			su_type = self.su['SuType'] + (4 - len(self.su['SuType']))*' '
+			
+			atom_type = None
+			if self.su['SuType'].startswith('SU'):
+				atom_type = self.su['SuType'][-2:] + (3 - len(self.su['SuType'][-2:]))*' '
+			elif self.su['SuType'].startswith('S'):
+				atom_type = self.su['SuType'][-3:] + (3 - len(self.su['SuType'][-3:]))*' '
+			
+			self.nb_su	= int(su_density * dimensions[0] * dimensions[1] * thickness/10.)
+			
+			system = "substrate_{0}{1}{2}T{3}A".format(self.nb_su, self.su['SuType'], self.su['Version'], int(thickness))
+			
+			shell = 1.0
+			self.packmol_input += """
+								
+								output {0}.pdb
+								
+								structure {1}
+									chain S
+									number {2:g}
+									inside box 0. 0. {3}  {4} {5} {6}
+								end structure
+								""".format(system, pdb_file_list['SU']['name'],
+											self.nb_su, self.bottom_z,
+											dimensions[0]*10 - shell, dimensions[1]*10 - shell, thickness - shell)
+			
+			su_pdb_content = pdb_file_list['SU']['content'].replace("TEMP", su_type)
+			su_pdb_content = su_pdb_content.replace("TEM", atom_type)
+			
+			with open(pdb_file_list['SU']['name'],'w') as su_pdb:
+				su_pdb.write(ut.RemoveUnwantedIndent(su_pdb_content))
 				
+			with open("packmol_substrate.input".format(self.system), 'w') as packmol_file:
+				packmol_file.write(ut.RemoveUnwantedIndent(self.packmol_input))
+				
+			packmol_cmd = str("{0} < packmol_substrate.input > packmol_substrate.output "
+					).format(self.softwares['PACKMOL'], self.system)
+			
+			sub.call(packmol_cmd, shell=True)
 			
 			
-			#shell = 7.0
-			#self.packmol_input += """
-								#avoid_overlap yes
+			pdbtogro_cmd = "{0} editconf -f {1}.pdb -o {1}.gro -box {2} {3} {4} -c no".format(self.softwares['GROMACS_LOC'], system,
+																				dimensions[0], dimensions[1], thickness/10. )
+			
+			sub.call(pdbtogro_cmd, shell=True)
+			
+			make_ndx_input = """ "r {0}\\nname 3 su\\nq\\n" """.format(self.su['SuType'])
+			
+			add_su_ndx_cmd = """printf {2} | {0} make_ndx -f {1}.gro -o {1}.ndx""".format(self.softwares['GROMACS_LOC'], system, 
+																				 			make_ndx_input)
+			
+			sub.call(add_su_ndx_cmd, shell=True)
+			
+			self.system = system
+			
+		if add_monolayer:
+			monolayer_z	= None
+			
+			if 'THRESHOLD-Z' in inputs:
+				monolayer_z = thresholds
+			else:
+				monolayer_z = dimensions[2]
+			
+			grotopdb_cmd = "{0} editconf -f {1}.gro -o {1}.pdb -c no".format(self.softwares['GROMACS_LOC'], self.system)
+			sub.call(grotopdb_cmd, shell=True)
+			
+			if 'APL' in self.mono:
+				self.nb_lipid_monolayer = int( dimensions[0] * dimensions[1] / 100 / float(self.mono['APL']) )
+			
+			elif 'NBLIPIDS' in self.mono:
+				self.nb_lipid_monolayer = int(self.mono['APL'])
+			
+			else:
+				assert(False), "Your forgot to set the area per lipid (APL) or number of lipids in the monolayer to add"
+			
+			self.tmt = None
+			self.dz = None
+			
+			if self.lipid_type == 'DSPC':
+				self.tmt = 30.0
+				self.dz = 7.0
+			elif self.lipid_type in ('DPPC','DLPC'):
+				self.tmt = 30.0
+				self.dz = 10.0
+			
+			shell = 3.0
+			defo_mono_packmol_input = ""
+			if self.defo is not None:
+				if self.defo['Height'] in ["follow", "box", "mono"]:
+					defo_mono_packmol_input = """
+								outside cylinder  {0} {1}  0. 0.  0.  1.  {2}  {3}
+								""".format(self.dimensions[0]/2., self.dimensions[1]/2.,
+										self.defo['Radius'], self.dimensions[2])
 								
-								#output {0}.pdb
+			if dimensions[2] < self.tmt + monolayer_z:
+				dimensions[2] += self.tmt
+			
+			system += "MONO{0}{1}".format(self.lipid_type, self.nb_lipid_monolayer)
+			self.packmol_input += """
+								avoid_overlap yes
 								
-								## Input structure
-								#structure {1}.pdb
-									#fixed 0. 0. {2} 0.0 0.0 0.0
-								#end structure
+								output {0}.pdb
 								
-								## Substrate
-								#structure substrate.pdb
-									#fixed 0. 0. 0. 0. 0. 0.
-								#end structure
+								# Input structure
+								structure {1}.pdb
+									fixed 0. 0. 0. 0.0 0.0 0.0
+								end structure
 								
-								#""".format(system, self.system, total_thickness+shell)
+								# Monolayer added
+								structure {2}
+									chain C
+									resnumbers 3
+									number {3:g}
+									inside box 0. 0.  {4}  {5} {6} {7}
+									constrain_rotation x 180 10
+									constrain_rotation y 180 10
+									{8}
+								end structure
+								
+								""".format(system, self.system, pdb_file_list[self.lipid_type]['name'],
+				   							self.nb_lipid_monolayer, monolayer_z,
+				   							dimensions[0],dimensions[1],dimensions[2])
 								
 			
-			##su_pdb_content = pdb_file_list['SU']['content'].replace("TEMP", su_type)
-			##su_pdb_content = su_pdb_content.replace("TEM", atom_type)
-			
-			##with open(pdb_file_list['SU']['name'],'w') as su_pdb:
-				##su_pdb.write(ut.RemoveUnwantedIndent(su_pdb_content))
+			#if 
 								
-			#with open("packmol_{0}.input".format(self.system), 'w') as packmol_file:
-				#packmol_file.write(ut.RemoveUnwantedIndent(self.packmol_input))
+			with open("packmol_{0}.input".format(self.system), 'w') as packmol_file:
+				packmol_file.write(ut.RemoveUnwantedIndent(self.packmol_input))
 								
-			#packmol_cmd = str("{0} < packmol_{1}.input > packmol_{1}.output "
-					#).format(self.softwares['PACKMOL'], self.system)
+			packmol_cmd = str("{0} < packmol_{1}.input > packmol_{1}.output "
+					).format(self.softwares['PACKMOL'], self.system)
 			
-			#sub.call(packmol_cmd, shell=True)
+			sub.call(packmol_cmd, shell=True)
 			
 			
-			#pdbtogro_cmd = "{0} editconf -f {1}.pdb -o {1}.gro -box {2} {3} {4} -c no".format(self.softwares['GROMACS_LOC'], system,
-																				#dimensions[0], dimensions[1], 
-																				#dimensions[2] + (total_thickness + 2*shell)/10)
-			#sub.call(pdbtogro_cmd, shell=True)
+			pdbtogro_cmd = "{0} editconf -f {1}.pdb -o {1}.gro -box {2} {3} {4} -c no".format(self.softwares['GROMACS_LOC'], system,
+																				dimensions[0], dimensions[1], dimensions[2])
+			sub.call(pdbtogro_cmd, shell=True)
 			
-			#group_index = [str(i) for i in range(0, self.nb_index-1, 1)]
+			group_index = [str(i) for i in range(0, self.nb_index-1, 1)]
 			
-			#make_ndx_input = """ "r {0}\\nname {1} su\\ndel 0\\ndel 0\\n{2}\\nname {3} System\\nq\\n" """.format(self.su['SuType'],
-																									#self.nb_index,
-																									#" | ".join(group_index),
-																									#int(group_index[-1])+1)
+			make_ndx_input = """ "r {0}\\nname mono{1} su\\ndel 0\\ndel 0\\n{2}\\nname {3} System\\nq\\n" """.format(self.lipid_type,
+																									self.nb_index,
+																									" | ".join(group_index),
+																									int(group_index[-1])+1)
 			
-			#add_su_ndx_cmd = """printf {3} | {0} make_ndx -f {1}.gro -n {2} -o {1}.ndx""".format(self.softwares['GROMACS_LOC'], system,
-																				#self.system, make_ndx_input)
+			add_su_ndx_cmd = """printf {3} | {0} make_ndx -f {1}.gro -n {2} -o {1}.ndx""".format(self.softwares['GROMACS_LOC'], system,
+																				self.system, make_ndx_input)
 			
-			#sub.call(add_su_ndx_cmd, shell=True)
+			sub.call(add_su_ndx_cmd, shell=True)
 		
-			#self.system = system
+			self.system = system
 		
 		
 		self.output_file = "{0}.gro".format(self.system)
 		self.index_file = "{0}.ndx".format(self.system)
 		
 		if create_su:
+			self.create_topology()
+		elif generate_su:
 			self.create_topology()
 		else:
 			self.create_topology()
@@ -1740,6 +1857,7 @@ class BaseProject(object):
 			
 			if self.lipid_types:
 				for lipid in self.lipid_types:
+					print(self.sample_molecules)
 					lipid_number = self.sample_molecules[lipid]
 					
 					if self.mono is not None:
@@ -1822,21 +1940,21 @@ class Membrane(BaseProject):
 			assert(False), "Your Parameters.csv contains a lipid not yet defined in Prepare.py"
 			
 		# Setting the bilayer position
-		self.bilayer_height = None
-		if 'BilayerHeight' in self.geometry:
-			self.bilayer_height = self.geometry['BilayerHeight']
+		self.height = None
+		if 'HEIGHT' in self.geometry:
+			self.height = self.geometry['HEIGHT']
 		else:
-			self.bilayer_height = self.dimensions['LZ']/2.0
+			self.height = self.dimensions['LZ']/2.0
 		
-		self.bottom_z = 0.0
 		self.m1_head_min, self.m1_head_max, self.m1_tail_min, self.m1_tail_max = (None,)*4
 		self.m2_head_min, self.m2_head_max, self.m2_tail_min, self.m2_tail_max = (None,)*4
 		self.m3_head_min, self.m3_head_max, self.m3_tail_min, self.m3_tail_max = (None,)*4
 		
 		self.update_tails_and_heads_positions()
 		
-		self.adjust_bilayer_position()
-		self.update_tails_and_heads_positions()
+		if self.type.startswith('BI'):
+			self.adjust_bilayer_position()
+			self.update_tails_and_heads_positions()
 		
 		self.system = "{0}_{1}{2}_{3}{4}".format(self.type, self.sample_molecules[self.lipid_type],
 																	self.lipid_type, self.sample_molecules[self.solvent_type], 
@@ -1857,7 +1975,11 @@ class Membrane(BaseProject):
 		self.defo_dict = {}
 		
 		if self.defo is not None:
-			self.nb_defo, self.defo_dict = self.add_defo()
+			if self.type.startswith('BI'):
+				self.nb_defo, self.defo_dict = self.add_defo_bilayer()
+			elif self.type.startswith('MONO'):
+				self.nb_defo, self.defo_dict = self.add_defo_monolayer()
+			
 			self.system += "_{0}DEF{1}".format(self.nb_defo, self.defo['Version'])
 		
 		#Adding the substrate
@@ -1872,13 +1994,20 @@ class Membrane(BaseProject):
 		
 		# Writing packmol_input while keeping track of the molecules in the sample
 		self.nb_index = 2 # start at 2 because the index has already [system] and [other]
-		self.write_packmol_input()
+		
+		if self.type.startswith('BI'):
+			self.write_packmol_bilayer()
+		elif self.type.startswith('MONO'):
+			self.write_packmol_monolayer()
 		
 		if self.lz_vaccum is not None:
 			self.dimensions['LZ'] = self.lz_vaccum
 		
 		# Calling packmol, vmd and gmx make_index
-		self.create_sample(self.nb_index)
+		if self.type.startswith('BI'):
+			self.create_bilayer(self.nb_index)
+		elif self.type.startswith('MONO'):
+			self.create_monolayer(self.nb_index)
 		
 		# creating the topology for su and defo if in sample
 		self.create_topology()
@@ -1890,19 +2019,19 @@ class Membrane(BaseProject):
 		lbz = self.dimensions['LZ']/2.0
 		
 		#Checking that the Bilayer lipids do not overlap with the Monolayer lipids and the substrate
-		if (self.bilayer_height - self.tmt) < 0.0:
-			self.bilayer_height -= self.bilayer_height - self.tmt
+		if (self.height - self.tmt) < 0.0:
+			self.height -= self.height - self.tmt
 			
-		if (self.bilayer_height + self.tmt) > self.dimensions['LZ']:
-			self.bilayer_height += self.dimensions['LZ'] - self.bilayer_height - self.tmt
+		if (self.height + self.tmt) > self.dimensions['LZ']:
+			self.height += self.dimensions['LZ'] - self.height - self.tmt
 			
 		#Checking that the Solvent is not too dense
-		if self.bilayer_height < lbz: #Too much Solvent below
+		if self.height < lbz: #Too much Solvent below
 			volume_lbz = self.dimensions['LX']*self.dimensions['LY']*(lbz - self.tmt)
 			density_sol = self.nb_solvent_per_monolayer[self.solvent_type]/volume_lbz
 			
 			#volume of solvent to remove
-			vol_to_remove = lbz - self.bilayer_height
+			vol_to_remove = lbz - self.height
 			vol_to_remove *= self.dimensions['LX']*self.dimensions['LY']
 			
 			#Nb of particles to remove
@@ -1911,13 +2040,13 @@ class Membrane(BaseProject):
 			self.nb_sol_bottom -= nb_particles_to_relocate
 			self.nb_sol_top += nb_particles_to_relocate
 			
-		if self.bilayer_height > lbz: #Too much Solvent above
+		if self.height > lbz: #Too much Solvent above
 			volume_lbz = self.dimensions['LX']*self.dimensions['LY']
 			volume_lbz *= self.dimensions['LZ'] - lbz - self.tmt
 			
 			density_sol = self.nb_solvent_per_monolayer[self.solvent_type]/volume_lbz
 			
-			vol_to_remove = self.bilayer_height - lbz
+			vol_to_remove = self.height - lbz
 			vol_to_remove *= self.dimensions['LX']*self.dimensions['LY']
 			nb_particles_to_relocate = int(density_sol * vol_to_remove)
 			
@@ -1929,16 +2058,47 @@ class Membrane(BaseProject):
 	def update_tails_and_heads_positions(self):
 		""" Method updating the positions of heads and tails
 		"""
-		self.m1_head_min = self.bilayer_height - self.tmt
-		self.m1_head_max = self.bilayer_height - self.tmt + self.dz
-		self.m1_tail_min = self.bilayer_height - self.dz
-		self.m1_tail_max = self.bilayer_height
+		
+		if self.type.startswith('BI'):
+			self.m1_head_min = self.height - self.tmt
+			self.m1_head_max = self.height - self.tmt + self.dz
+			self.m1_tail_min = self.height - self.dz
+			self.m1_tail_max = self.height
 
-		self.m2_head_min = self.bilayer_height + self.tmt - self.dz
-		self.m2_head_max = self.bilayer_height + self.tmt
-		self.m2_tail_min = self.bilayer_height
-		self.m2_tail_max = self.bilayer_height + self.dz
-	
+			self.m2_head_min = self.height + self.tmt - self.dz
+			self.m2_head_max = self.height + self.tmt
+			self.m2_tail_min = self.height
+			self.m2_tail_max = self.height + self.dz
+			
+		elif self.type.startswith('MONO'):
+			self.m1_head_min = self.height - self.sol_thickness/2. - self.dz
+			self.m1_head_max = self.height - self.sol_thickness/2.
+			self.m1_tail_min = self.height - self.sol_thickness/2. - self.tmt
+			self.m1_tail_max = self.height - self.sol_thickness/2. - self.tmt + self.dz
+
+			self.m2_head_min = self.height + self.sol_thickness/2.
+			self.m2_head_max = self.height + self.sol_thickness/2. + self.dz
+			self.m2_tail_min = self.height + self.sol_thickness/2. + self.tmt - self.dz
+			self.m2_tail_max = self.height + self.sol_thickness/2. + self.tmt
+		
+		if self.su is None and self.wall is not None:
+			self.m1_head_min += self.bottom
+			self.m1_head_max += self.bottom
+			self.m1_tail_min += self.bottom
+			self.m1_tail_max += self.bottom
+			
+			self.m2_head_min += self.bottom
+			self.m2_head_max += self.bottom
+			self.m2_tail_min += self.bottom
+			self.m2_tail_max += self.bottom
+
+
+
+
+
+
+
+
 	
 	
 	
@@ -1970,6 +2130,11 @@ class Membrane(BaseProject):
 		self.m3_tail_min = self.mono['LzM'] + self.tmt - self.dz
 		self.m3_tail_max = self.mono['LzM'] + self.tmt
 		
+		if self.su is None and self.wall is not None:
+			self.m3_head_min += self.bottom
+			self.m3_head_max += self.bottom
+			self.m3_tail_min += self.bottom
+			self.m3_tail_max += self.bottom
 		#add the monolayer at the top of box or chose the position and move the solvent ?
 		
 		
@@ -1983,7 +2148,7 @@ class Membrane(BaseProject):
 		"""
 		thickness = float(self.su['Thickness'])
 		# Shifting all the coordinates in Z
-		self.bilayer_height += thickness
+		self.height += thickness
 		
 		self.m1_head_min += thickness
 		self.m1_head_max += thickness
@@ -2014,7 +2179,7 @@ class Membrane(BaseProject):
 	
 	
 	
-	def add_defo(self):
+	def add_defo_bilayer(self):
 		"""Method to add defo in the Membrane
 		"""
 		if self.defo['Height'] == 'box':
@@ -2023,7 +2188,7 @@ class Membrane(BaseProject):
 			
 		elif self.defo['Height'] == 'bilayer':
 			#Set the Defo height from the substrate to the top of the bilayer
-			length_defo_bi = self.bilayer_height + self.tmt + self.dz/4.0
+			length_defo_bi = self.height + self.tmt + self.dz/4.0
 			
 		elif self.defo['Height'] == 'mono':
 			#Set the Defo height from the substrate to the top of the monolayer
@@ -2185,11 +2350,11 @@ class Membrane(BaseProject):
 				The length a will depend on the circumradius : a = 2*R*math.sin(pi/(defo_per_layer-1))
 				The angle theta will depend on the number of defo_per_layer theta = 360./(defo_per_layer-1)
 				example with 4 defo per layer and one layer:
-					2          The bonds will be |  And the angles:
-					/ | \          1-2   5-1       |     1-5-2
-				3--5--1         2-3   5-2       |     2-5-3
+				      2          The bonds will be |  And the angles:
+				    / | \          1-2   5-1       |     1-5-2
+				   3--5--1         2-3   5-2       |     2-5-3
 					\ | /          3-4   5-3       |     3-5-4
-					4            4-1   5-4       |     4-5-1
+				      4            4-1   5-4       |     4-5-1
 				"""
 				if self.defo['Interactions'] == 'bond':
 					topo_defo += self.bonds_topology(defo_dict[defo_layer])
@@ -2218,6 +2383,204 @@ class Membrane(BaseProject):
 		
 		return nb_defo, defo_dict
 		
+	def add_defo_monolayer(self):
+		"""Method to add defo in the Membrane
+		"""
+		if self.defo['Height'] == 'box':
+			#Set the Defo height from the substrate to the mono layer
+			length_defo_mono	= self.dimensions['LZ']
+		
+		elif self.defo['Height'] == 'mono':
+			#Set the Defo height from the substrate to the top of the monolayer
+			length_defo_mono	= 2*self.tmt + self.sol_thickness + self.dz
+			
+		elif self.defo['Height'] == 'follow':
+			#Set the Defo height from the bottom of the bilayer to its top
+			length_defo_mono	= self.tmt + self.dz/2.0
+			
+		
+		defo_per_layer	= int(self.defo['DpL']) + 1
+		
+		#Set a dictionnary for automation in defos creation
+		defo_dict		= {"DEFT": None, "DEFB": None}
+		
+		nb_layers_mono	= int(length_defo_mono/float(self.defo['DzDefo']))
+		
+		#Total number of defo
+		nb_defo_per_mono = nb_layers_mono * defo_per_layer
+		
+		defo_dict['DEFB'] = {'length': length_defo_mono, 'nb layers': nb_layers_mono,'nb defo':nb_defo_per_mono,'defo outside': [], 
+										'defo inside': [], 'defo total': [], 'xyz file':'defo_mono_bot.xyz',
+										'format defo':"format_DEFB.vmd",'chain':'X', 'topo':'defo_mono_topo.itp'}
+		
+		defo_dict['DEFT'] = {'length': length_defo_mono, 'nb layers': nb_layers_mono,'nb defo':nb_defo_per_mono,'defo outside': [], 
+										'defo inside': [], 'defo total': [], 'xyz file':'defo_mono_top.xyz',
+										'format defo':"format_DEFT.vmd",'chain':'Y', 'topo':'defo_mono_topo.itp'}
+			
+		
+		
+		if self.mono is not None:
+			defo_dict['DEFM']['nb defo'] = nb_layers_mono*defo_per_layer
+		
+		#Radius for the hole
+		radius_defo = float(self.defo['Radius'])
+		
+		#Topology for defo
+		topo_defo = """;;;;;; DEFOS FOR BILAYER\n"""
+		
+		
+		#Total number of defo
+		nb_defo = 0
+		
+		#Creating and Writing the defos configuration
+		for defo_layer in defo_dict:
+			
+			posres_defo = """;;;;;;POSRES FOR DEFO_{0}\n""".format(defo_layer)
+			posres_defo += ut.RemoveUnwantedIndent("""
+						[position_restraints]
+						;ai   funct   fcx     fcy     fcz
+						
+						""")
+			
+			xyz = defo_dict[defo_layer]['xyz file']
+			
+			if os.path.exists(xyz):
+				os.remove(xyz)
+			
+			xyz_out = open(xyz,'a')
+			
+			#Writing the number of defo grains for each layer
+			xyz_out.write( "{0}\n\n".format(defo_dict[defo_layer]['nb defo']) )
+		
+			defo_numb = 0
+
+			#Creating the xyz file for the bilayer
+			if defo_per_layer != 1:
+				for i in range(0, defo_dict[defo_layer]['nb layers']):
+					z_current_defo = float(self.defo['DzDefo'])*i
+					
+					for j in np.arange(0., 360., 360./(defo_per_layer-1)):
+						angle = math.radians(j)
+						xyz_out.write(ut.RemoveUnwantedIndent(
+							"""
+							DEF  {0}  {1}  {2} \n
+							""".format(radius_defo*math.cos(angle), radius_defo*math.sin(angle), z_current_defo)
+							))
+						defo_numb += 1
+						defo_dict['DEFB']['defo outside'].append(defo_numb)
+					xyz_out.write(ut.RemoveUnwantedIndent(
+							"""
+							DEF  0.0 0.0 {0} \n
+							""".format(z_current_defo)
+							))
+					defo_numb += 1
+					defo_dict['DEFB']['defo inside'].append(defo_numb)
+					
+				
+				defo_dict[defo_layer]['defo total'].extend(defo_dict[defo_layer]['defo inside'])
+				defo_dict[defo_layer]['defo total'].extend(defo_dict[defo_layer]['defo outside'])
+				defo_dict[defo_layer]['defo total'].sort()
+				
+			else:
+				for i in range(0, defo_dict[defo_layer]['nb layers']):
+					z_current_defo = float(self.defo['DzDefo'])*i
+					xyz_out.write(ut.RemoveUnwantedIndent(
+							"""
+							DEF  0.0 0.0 {0} \n
+							""".format(z_current_defo)
+							))
+					defo_numb += 1
+					defo_dict[defo_layer]['defo total'].append(defo_numb)
+			
+			xyz_out.close()
+			
+			
+		
+		
+			#Formating the defos
+			format_defo = open(defo_dict[defo_layer]['format defo'],"w")
+			format_defo.write(ut.RemoveUnwantedIndent(
+				"""
+				mol load xyz {0}
+				set all [atomselect top "all"]
+					
+				$all set resname {1}
+				$all set name DEF
+				$all set type DEF
+				$all set chain {2}
+					
+				package require pbctools
+				pbc set {{0.5 0.5 {3}}}
+					
+				$all writepdb {4}
+				unset all
+					
+				exit
+				""".format(xyz, defo_layer, defo_dict[defo_layer]['chain'] , defo_dict[defo_layer]['length'], xyz.replace('xyz','pdb'))
+				))
+			format_defo.close()
+			
+			cmd = str("""{0} -dispdev text -e {1} > {2}""").format(self.softwares['VMD'], defo_dict[defo_layer]['format defo'],
+																defo_dict[defo_layer]['format defo'].replace('vmd','log'))
+			sub.call(cmd, shell=True)
+			
+								
+							
+			topo_defo += ut.RemoveUnwantedIndent("""
+							[moleculetype]
+							;molname    nrexcl
+							{0} 1
+							
+							[atoms]
+							;id     type     resnr    residu  atom    cgnr    charge
+							
+							""".format(defo_layer))
+			
+			for defnb in defo_dict[defo_layer]['defo total']:
+				topo_defo += " {0}     DEF     1    {1}    DEF     {0}     0\n".format(defnb, defo_layer)
+				posres_defo += " {0}    1     FCX   FCY   FCZ\n".format(defnb)
+				
+			#Checking for contrains
+			if 'Interactions' in self.defo:
+				"""
+				The length a will depend on the circumradius : a = 2*R*math.sin(pi/(defo_per_layer-1))
+				The angle theta will depend on the number of defo_per_layer theta = 360./(defo_per_layer-1)
+				example with 4 defo per layer and one layer:
+				      2          The bonds will be |  And the angles:
+				    / | \          1-2   5-1       |     1-5-2
+				   3--5--1         2-3   5-2       |     2-5-3
+					\ | /          3-4   5-3       |     3-5-4
+				      4            4-1   5-4       |     4-5-1
+				"""
+				if self.defo['Interactions'] == 'bond':
+					topo_defo += self.bonds_topology(defo_dict[defo_layer])
+
+				elif self.defo['Interactions'] == 'bond&angles':
+					topo_defo += self.bonds_angles_topology( defo_dict[defo_layer])
+					
+				else:
+					pass
+				
+			topo_defo += """\n;PLACE_FOR_{0}_POSRES\n\n\n""".format(defo_layer)
+			
+			posres_file_defo = open('defo_posres_{0}_gen.itp'.format(defo_layer),'w')
+			posres_file_defo.write(posres_defo)
+			posres_file_defo.close()
+			
+			nb_defo += len(defo_dict[defo_layer]['defo total'])
+			
+		
+		
+		topo_file_defo = open('defos_topo.itp','w')
+		topo_file_defo.write(topo_defo)
+		topo_file_defo.close()
+		
+		
+		
+		return nb_defo, defo_dict
+		
+	
+	
 	
 	
 	
@@ -2367,171 +2730,118 @@ class Membrane(BaseProject):
 	
 	
 	
-	def write_packmol_input(self):
+	def write_packmol_monolayer(self):
 		""" Method to write packmol input for membrane creation"""
+		shell = 3.0
 		self.packmol_input += """
-							output {0}.pdb""".format(self.system)
+								output {0}.pdb""".format(self.system)
+		
 		
 		defo_packmol_input = ""
 		if self.defo is not None:
-			defo_packmol_input = """
-							outside cylinder  {0} {1}  0. 0.  0.  1.  {2}  {3}
-							""".format(self.dimensions['LY']/2., self.dimensions['LY']/2.,
-										self.defo['Radius'], self.dimensions['LZ'])
+			defo_packmol_input = """outside cylinder  {0} {1}  0. 0.  0.  1.  {2}  {3}""".format(self.dimensions['LY']/2., self.dimensions['LY']/2.,
+																										self.defo['Radius'], self.dimensions['LZ'])
 		
 		self.packmol_input += """
-							# Bottom layer
-							structure {1}
+								
+								#Bottom layer
+								
+								structure {1}
 								chain A
 								resnumbers 3
 								number {2:g}
 								inside box 0. 0. {3}  {4} {5} {6}
-								constrain_rotation x 180 10
-								constrain_rotation y 180 10
+								constrain_rotation x 0 10
+								constrain_rotation y 0 10
 								{9}
-							end structure
+								end structure
 							
-							# Top layer
-							structure {1}
+								#Top layer
+								
+								
+								structure {1}
 								chain B
 								resnumbers 3
 								number {2:g}
 								inside box 0. 0.  {7}  {4} {5} {8}
-								constrain_rotation x 0 10
-								constrain_rotation y 0 10
+								constrain_rotation x 180 10
+								constrain_rotation y 180 10
 								{9}
-							end structure
-								
+								end structure
+									
 							""".format(self.system, pdb_file_list[self.lipid_type]['name'],
 										self.nb_lipid_monolayer[self.lipid_type],
-										self.m1_head_min, self.dimensions['LX'],
-										self.dimensions['LY'], self.m1_tail_max,
-										self.m1_tail_min, self.m2_head_max, 
+										self.m1_tail_min, self.dimensions['LX'] - shell,
+										self.dimensions['LY'] -shell, self.m1_head_max,
+										self.m2_head_min, self.m2_tail_max, 
 										defo_packmol_input)
 		# 2 chains for the lipids
 		self.nb_index += 1
-		
-		if self.mono is not None:
-			defo_mono_packmol_input = ""
-			if self.defo is not None:
-				if self.defo['Height'] in ["follow", "box", "mono"]:
-					defo_mono_packmol_input = defo_packmol_input
 			
-			self.packmol_input +="""
-							# Monolayer
-							structure {0}
-								chain C
-								resnumbers 3
-								number {1:g}
-								inside box 0. 0.  {2}  {3} {4} {5}
-								constrain_rotation x 180 10
-								constrain_rotation y 180 10
-								{6}
-							end structure
-							
-							""".format(pdb_file_list[self.lipid_type]['name'], self.mono['NbLipidsM'], self.mono['LzM'],
-										self.dimensions['LX'], self.dimensions['LY'],
-										self.mono['LzM'] + self.tmt,
-										defo_mono_packmol_input)
-			
-		packmol_instruction_W_mol = ""
+		packmol_instruction_W_mol = "end structure"
 		if self.solvent_type =='PW':
 			packmol_instruction_W_mol = """
-								atoms 2 3
-								radius 0.2
-								end atoms"""
+										atoms 2 3
+										radius 0.2
+										end atoms
+									end structure"""
 			
-		if self.nb_sol_bottom:
-			self.packmol_input += """
-							# Bottom Solvent
-							structure {0}
-								chain D
-								number {1:g}
-								inside box 0. 0. {2}  {3} {4} {5}
+		self.packmol_input += """
+								# Solvent
+								structure {0}
+									chain D
+									number {1:g}
+									inside box 0. 0. {2}  {3} {4} {5}
 								{6}
-							end structure
-							""".format(pdb_file_list[self.solvent_type]['name'], self.nb_sol_bottom,
-										self.bottom_z,
-										self.dimensions['LX'], self.dimensions['LY'],
-										self.m1_head_min, packmol_instruction_W_mol)
-			
-			
-		if self.nb_sol_top:
-			self.packmol_input += """
-							# Top solvent
-							structure {0}
-								chain E
-								number {1:g}
-								inside box 0. 0. {2}  {3} {4} {5}
-								{6}
-							end structure
-							""".format(pdb_file_list[self.solvent_type]['name'], self.nb_sol_top,
-										self.m2_head_max,
-										self.dimensions['LX'], self.dimensions['LY'],
-										self.dimensions['LZ'], packmol_instruction_W_mol)
-			
-
-		
-		
-		#if self.nb_sol_vapor:
-			#self.packmol_input += """
-							## Vapor solvent
-							#structure {0}
-								#chain V
-								#number {1:g}
-								#inside box 0. 0. {2}  {3} {4} {5}
-								#{6}
-							#end structure
-							#""".format(pdb_file_list[self.solvent_type]['name'],self.nb_sol_vapor,
-										#self.mono['LzM']+self.tmt,
-										#self.dimensions['LX'], self.dimensions['LY'],
-										#self.lz_vaccum, packmol_instruction_W_mol)
+						""".format(pdb_file_list[self.solvent_type]['name'], self.sample_molecules[self.solvent_type] ,
+									self.m1_head_max,
+									self.dimensions['LX'] - shell, self.dimensions['LY'] - shell,
+									self.m2_head_min, packmol_instruction_W_mol)
 			
 		# A chain for solvent
 		self.nb_index += 1
 			
 		if self.defo is not None:
+			mid_top_layer		= self.height + self.tmt/2. + self.sol_thickness/2.
+			mid_bottom_layer	= self.height - self.tmt/2. - self.sol_thickness/2.
+			
 			if self.defo['Height'] == 'follow':
 				self.packmol_input += """
-							# Bilayer defo
-							structure {0}
-								chain X
-								number 1
-								resnumbers 3
-								fixed {1} {2} {3} 0.0 0.0 0.0
-								radius 0.
-								center
-							end structure
-							""".format(self.defo_dict['DEFB']['xyz file'].replace('xyz','pdb'),
+								# top layer defo
+								structure {0}
+									chain X
+									number 1
+									resnumbers 3
+									fixed {1} {2} {3} 0.0 0.0 0.0
+									radius 0.
+									center
+								end structure
+								
+								# bottom layer defo
+								structure {4}
+									chain Y
+									number 1
+									resnumbers 3
+									fixed {1} {2} {5} 0.0 0.0 0.0
+									radius 0.
+									center
+								end structure
+							""".format(self.defo_dict['DEFT']['xyz file'].replace('xyz','pdb'),
 										self.dimensions['LX']/2.0, self.dimensions['LY']/2.0,
-										self.bilayer_height)
-				
-				if self.mono is not None:
-					self.packmol_input += """
-							# Monolayer defo
-							structure {0}
-								chain Y
-								number 1
-								resnumbers 3
-								fixed {1} {2} {3} 0.0 0.0 0.0
-								radius 0.
-							end structure
-							""".format(self.defo_dict['DEFM']['xyz file'].replace('xyz','pdb'),
-										self.dimensions['LX']/2.0, self.dimensions['LY']/2.0,
-										self.mono['LzM']-self.dz/8.0)
-					self.nb_index += 1
-				
-				
+										mid_top_layer, self.defo_dict['DEFB']['xyz file'].replace('xyz','pdb'),
+										mid_bottom_layer)
+				self.nb_index += 1
+			
 			else:
 				self.packmol_input += """
-							# defo
-							structure {0}
-								chain X
-								number 1
-								resnumbers 3
-								fixed {1} {2} {3} 0.0 0.0 0.0
-								radius 0.
-							end structure
+								# defo
+								structure {0}
+									chain X
+									number 1
+									resnumbers 3
+									fixed {1} {2} {3} 0.0 0.0 0.0
+									radius 0.
+								end structure
 							""".format(self.defo_dict['DEFB']['xyz file'].replace('xyz','pdb').
 										self.dimensions['LX']/2.0, self.dimensions['LY']/2.0,
 										self.bottom_z)
@@ -2541,12 +2851,12 @@ class Membrane(BaseProject):
 						
 		if self.su is not None:
 			self.packmol_input += """
-							# Substrate
-							structure {0}
-								chain S
-								number {1:g}
-								inside box 0. 0. 0.  {2} {3} {4}
-							end structure
+								# Substrate
+								structure {0}
+									chain S
+									number {1:g}
+									inside box 0. 0. 0.  {2} {3} {4}
+								end structure
 							""".format(pdb_file_list['SU']['name'], self.nb_su, self.dimensions['LX'], self.dimensions['LY'], self.su['Thickness'])
 			
 			# for SU
@@ -2582,7 +2892,7 @@ class Membrane(BaseProject):
 	
 	
 	
-	def create_sample(self, index):
+	def create_bilayer(self, index):
 		"""Method calling packmol to create the sample"""
 		packmol_cmd = str("""{0} < packmol_{1}.input > packmol_{1}.output """
 					).format(self.softwares['PACKMOL'], self.system)
@@ -2730,6 +3040,316 @@ class Membrane(BaseProject):
 	
 	
 	
+	def write_packmol_bilayer(self):
+		""" Method to write packmol input for membrane creation"""
+		self.packmol_input += """
+							output {0}.pdb""".format(self.system)
+		
+		defo_packmol_input = ""
+		if self.defo is not None:
+			defo_packmol_input = """
+									outside cylinder  {0} {1}  0. 0.  0.  1.  {2}  {3}
+							""".format(self.dimensions['LY']/2., self.dimensions['LY']/2.,
+										self.defo['Radius'], self.dimensions['LZ'])
+		
+		self.packmol_input += """
+								# Bottom layer
+								structure {1}
+									chain A
+									resnumbers 3
+									number {2:g}
+									inside box 0. 0. {3}  {4} {5} {6}
+									constrain_rotation x 180 10
+									constrain_rotation y 180 10
+									{9}
+								end structure
+								
+								# Top layer
+								structure {1}
+									chain B
+									resnumbers 3
+									number {2:g}
+									inside box 0. 0.  {7}  {4} {5} {8}
+									constrain_rotation x 0 10
+									constrain_rotation y 0 10
+									{9}
+								end structure
+									
+							""".format(self.system, pdb_file_list[self.lipid_type]['name'],
+										self.nb_lipid_monolayer[self.lipid_type],
+										self.m1_head_min, self.dimensions['LX'],
+										self.dimensions['LY'], self.m1_tail_max,
+										self.m2_tail_min, self.m2_head_max, 
+										defo_packmol_input)
+		# 2 chains for the lipids
+		self.nb_index += 1
+		
+		if self.mono is not None:
+			defo_mono_packmol_input = ""
+			if self.defo is not None:
+				if self.defo['Height'] in ["follow", "box", "mono"]:
+					defo_mono_packmol_input = defo_packmol_input
+			
+			self.packmol_input +="""
+								# Monolayer
+								structure {0}
+									chain C
+									resnumbers 3
+									number {1:g}
+									inside box 0. 0.  {2}  {3} {4} {5}
+									constrain_rotation x 180 10
+									constrain_rotation y 180 10
+									{6}
+								end structure
+								
+							""".format(pdb_file_list[self.lipid_type]['name'], self.mono['NbLipidsM'], self.mono['LzM'],
+										self.dimensions['LX'], self.dimensions['LY'],
+										self.mono['LzM'] + self.tmt,
+										defo_mono_packmol_input)
+			
+		packmol_instruction_W_mol = ""
+		if self.solvent_type =='PW':
+			packmol_instruction_W_mol = """
+									atoms 2 3
+									radius 0.2
+									end atoms"""
+			
+		if self.nb_sol_bottom:
+			self.packmol_input += """
+								# Bottom Solvent
+								structure {0}
+									chain D
+									number {1:g}
+									inside box 0. 0. {2}  {3} {4} {5}
+									{6}
+								end structure
+							""".format(pdb_file_list[self.solvent_type]['name'], self.nb_sol_bottom,
+										self.bottom_z,
+										self.dimensions['LX'], self.dimensions['LY'],
+										self.m1_head_min, packmol_instruction_W_mol)
+			
+			
+		if self.nb_sol_top:
+			self.packmol_input += """
+								# Top solvent
+								structure {0}
+									chain E
+									number {1:g}
+									inside box 0. 0. {2}  {3} {4} {5}
+									{6}
+								end structure
+							""".format(pdb_file_list[self.solvent_type]['name'], self.nb_sol_top,
+										self.m2_head_max,
+										self.dimensions['LX'], self.dimensions['LY'],
+										self.dimensions['LZ'], packmol_instruction_W_mol)
+			
+
+		
+		
+		#if self.nb_sol_vapor:
+			#self.packmol_input += """
+							## Vapor solvent
+							#structure {0}
+								#chain V
+								#number {1:g}
+								#inside box 0. 0. {2}  {3} {4} {5}
+								#{6}
+							#end structure
+							#""".format(pdb_file_list[self.solvent_type]['name'],self.nb_sol_vapor,
+										#self.mono['LzM']+self.tmt,
+										#self.dimensions['LX'], self.dimensions['LY'],
+										#self.lz_vaccum, packmol_instruction_W_mol)
+			
+		# A chain for solvent
+		self.nb_index += 1
+			
+		if self.defo is not None:
+			if self.defo['Height'] == 'follow':
+				self.packmol_input += """
+								# Bilayer defo
+								structure {0}
+									chain X
+									number 1
+									resnumbers 3
+									fixed {1} {2} {3} 0.0 0.0 0.0
+									radius 0.
+									center
+								end structure
+							""".format(self.defo_dict['DEFB']['xyz file'].replace('xyz','pdb'),
+										self.dimensions['LX']/2.0, self.dimensions['LY']/2.0,
+										self.height)
+				
+				if self.mono is not None:
+					self.packmol_input += """
+								# Monolayer defo
+								structure {0}
+									chain Y
+									number 1
+									resnumbers 3
+									fixed {1} {2} {3} 0.0 0.0 0.0
+									radius 0.
+								end structure
+							""".format(self.defo_dict['DEFM']['xyz file'].replace('xyz','pdb'),
+										self.dimensions['LX']/2.0, self.dimensions['LY']/2.0,
+										self.mono['LzM']-self.dz/8.0)
+					self.nb_index += 1
+				
+				
+			else:
+				self.packmol_input += """
+								# defo
+								structure {0}
+									chain X
+									number 1
+									resnumbers 3
+									fixed {1} {2} {3} 0.0 0.0 0.0
+									radius 0.
+								end structure
+							""".format(self.defo_dict['DEFB']['xyz file'].replace('xyz','pdb').
+										self.dimensions['LX']/2.0, self.dimensions['LY']/2.0,
+										self.bottom_z)
+				
+			# for DEF
+			self.nb_index += 1
+						
+		if self.su is not None:
+			self.packmol_input += """
+								# Substrate
+								structure {0}
+									chain S
+									number {1:g}
+									inside box 0. 0. 0.  {2} {3} {4}
+								end structure
+							""".format(pdb_file_list['SU']['name'], self.nb_su, self.dimensions['LX'], self.dimensions['LY'], self.su['Thickness'])
+			
+			# for SU
+			self.nb_index += 1
+					
+			# pdb file for su
+			assert(len(self.su['SuType']) <= 4),"The name of the SU should be 4 letters max (Otherwise problem with PDB file format)" 
+			
+			su_type = self.su['SuType'] + (4 - len(self.su['SuType']))*' '
+			
+			atom_type = None
+			if self.su['SuType'].startswith('SU'):
+				atom_type = self.su['SuType'][-2:] + (3 - len(self.su['SuType'][-2:]))*' '
+			elif self.su['SuType'].startswith('S'):
+				atom_type = self.su['SuType'][-3:] + (3 - len(self.su['SuType'][-3:]))*' '
+			
+			su_pdb_content = pdb_file_list['SU']['content'].replace("TEMP", su_type)
+			su_pdb_content = su_pdb_content.replace("TEM", atom_type)
+			
+			with open(pdb_file_list['SU']['name'],'w') as su_pdb:
+				su_pdb.write(ut.RemoveUnwantedIndent(su_pdb_content))
+			
+					
+		with open('packmol_'+self.system+'.input','w') as pack_input:
+			pack_input.write( ut.RemoveUnwantedIndent(self.packmol_input))
+			
+		with open(pdb_file_list[self.lipid_type]['name'],'w') as lipid_pdb:
+			lipid_pdb.write( ut.RemoveUnwantedIndent(pdb_file_list[self.lipid_type]['content']) )
+			
+		with open(pdb_file_list[self.solvent_type]['name'],'w') as solvent_pdb:
+			solvent_pdb.write( ut.RemoveUnwantedIndent(pdb_file_list[self.solvent_type]['content']) )
+	
+	
+	
+	def create_monolayer(self, index):
+		"""Method calling packmol to create the sample"""
+		packmol_cmd = str("""{0} < packmol_{1}.input > packmol_{1}.output """
+					).format(self.softwares['PACKMOL'], self.system)
+		
+		sub.call(packmol_cmd, shell=True)
+		
+		#Convert the pdb to gro and put the pbc then check the box vectors at the end of the .gro
+		editconf_cmd = str("{0} editconf -f {1}.pdb -o {1}.gro "
+							"-box {2} {3} {4} -c no").format(self.softwares['GROMACS_LOC'], self.system,
+														0.1*self.dimensions['LX'], 0.1*self.dimensions['LY'], 0.1*self.dimensions['LZ'])
+		
+		sub.call(editconf_cmd, shell=True, stdout=open('pdb2gro.txt','w'), stderr=open('err_pdb2gro.txt','w'))
+		
+		self.check_pbc()
+		
+		make_index = "chain A\nchain B\n"
+		naming_index = "name {0} bottom_mono\nname {1} top_mono\n".format(self.nb_index, self.nb_index+1, self.lipid_type)
+		count_index = 2
+		
+		
+		if self.su is not None:
+			make_index += "chain S\n"
+			naming_index += "name {0} su\n".format(self.nb_index+count_index)
+			count_index += 1
+		
+		if self.defo is not None:
+			if self.defo['Height'] == 'follow':
+				make_index += "chain X\n"
+				naming_index += "name {0} defo_top\n".format(self.nb_index + count_index)
+				
+				make_index += "chain Y\n"
+				naming_index += "name {0} defo_bottom\n".format(self.nb_index + count_index + 1)
+				
+				naming_index += "{0} | {1}\nname {2} defo\n".format(self.nb_index + count_index, self.nb_index + count_index + 1, self.nb_index + count_index + 2)
+				count_index += 3
+					
+			else:
+				make_index += "chain X\n"
+				naming_index += "name {0} defo\n".format(self.nb_index+count_index)
+				count_index += 1
+			
+		
+		# end of the make_index file
+		naming_index += "q\n"
+		
+		self.nb_index += count_index
+		# Writing the script to file
+		make_index_str = make_index + naming_index
+		
+		with open('make_index.input','w+') as make_index_script:
+			make_index_script.write(make_index_str)
+		
+		# Calling the script
+		with open('make_index.output','w') as outfile:
+			errfile = open('make_index.err','w')
+			make_index_cmd = str("""{0}make_ndx -f {1}.pdb -o {1}.ndx < make_index.input"""
+												).format(self.softwares['GROMACS_LOC'], self.system)
+			sub.call(make_index_cmd, shell=True, stdout=outfile, stderr=errfile)
+			
+			errfile.close()
+		
+		self.output_file = "{0}.gro".format(self.system)
+		self.index_file = "{0}.ndx".format(self.system)
+		
+		ApL = self.dimensions['LX'] * self.dimensions['LY']
+		
+		if self.defo is not None:
+			ApL -= 3.141516 * float(self.defo['Radius'])**2
+		
+		ApL /= self.nb_lipid_monolayer[self.lipid_type]
+		
+		message = """
+				================================
+				================================
+				Packmol finished initial input file
+				{0} {1} || {2} {3} ||""".format(self.lipid_type, self.sample_molecules[self.lipid_type],
+											self.solvent_type, self.sample_molecules[self.solvent_type])
+			
+		if self.defo is not None:
+			message += " DEF{0} {1} ".format(self.defo['Version'], self.nb_defo)
+		
+		if self.su is not None:
+			message += " SU{0} {1} ".format(self.su['Version'], self.nb_su)
+				
+		message += """
+				box sizes : {0}, {1}, {2}
+				Area per lipid = {3} A**2
+				===============================
+				===============================
+				""".format(self.dimensions['LX'], self.dimensions['LY'], self.dimensions['LZ'], ApL)
+		
+		print(ut.RemoveUnwantedIndent(message))
+	
+	
+	
 	
 
 
@@ -2791,8 +3411,6 @@ class Solvent(BaseProject):
 		self.system = self.system = "{0}".format(self.type)
 		for sol in self.solvent_types:
 			self.system += "_{0}{1}".format(self.sample_molecules[sol], sol)
-		
-		self.bottom_z = 0.0
 		
 		#Adding the substrate
 		self.nb_su = None

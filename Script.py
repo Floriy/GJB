@@ -211,7 +211,8 @@ def main(argv=sys.argv):
 								
 						else:
 							break
-					
+					if 'MONO' in Jobs[jobNumber]['TYPE']:
+						assert( 'SOL_THICKNESS' in Jobs[jobNumber]['GEOMETRY'] ), "If you use MONOLAYER type, you need to set solvent thickness using SOL_THICKNESS in GEOMETRY parameters."
 					continue
 				
 				# Stores the parameters for the monolayer of the sample for the job
@@ -762,7 +763,7 @@ def main(argv=sys.argv):
 		#**********************************************#
 		#**********************************************#
 		# Lipids files #
-		if( current_job['TYPE'] == 'BILAYER' or current_job['TYPE'] == 'TRILAYER'):
+		if current_job['TYPE'] in ['BILAYER','TRILAYER','MONOLAYER']:
 			if software_version.startswith('4') :
 				EMdefault = open(path_to_default+'/mdp_lipids/GROMACS4/EMdefault.mdp','r')
 				NVTdefault = open(path_to_default+'/mdp_lipids/GROMACS4/NVTdefault.mdp','r')
@@ -908,7 +909,7 @@ def main(argv=sys.argv):
 				#					STEP IS INITIALIZATION
 				#============================================================
 				if current_job['PROTOCOL'][md_step]['stepType'].startswith('INIT'):
-					if current_job['TYPE'] in ['BILAYER','TRILAYER']:
+					if current_job['TYPE'] in ['BILAYER','TRILAYER','MONOLAYER']:
 						Sample = Prepare.Membrane(current_job, Softwares, path_to_default)
 						
 						
@@ -936,7 +937,7 @@ def main(argv=sys.argv):
 						the protocol will be define in the same way as INPUT
 					"""
 					
-					if current_job['TYPE'] in ['BILAYER','TRILAYER']:
+					if current_job['TYPE'] in ['BILAYER','TRILAYER','MONOLAYER']:
 						Sample = Prepare.Membrane(current_job, Softwares, path_to_default)
 						
 					if current_job['TYPE'] in ['SOLVENT']:
@@ -1022,6 +1023,62 @@ def main(argv=sys.argv):
 						
 					previous_cmd_files['OUTPUT'] = output_file
 					
+					continue
+				
+				#============================================================
+				#					STEP IS CREATE SUBSTRATE WITH GROMACS
+				#============================================================
+				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('CREATE_SU'):
+					file_output = None
+					file_index = None
+					system = None
+					
+					prefix_gromacs_grompp = None
+					prefix_gromacs_mdrun = None
+					
+					if 'RUNTYPE' in current_job:
+						if current_job['RUNTYPE'][int(md_step)] == 'CREATE':
+							prefix_gromacs_grompp = prefix_gromacs_grompp_create
+							prefix_gromacs_mdrun = prefix_gromacs_mdrun_create
+							
+						elif current_job['RUNTYPE'][int(md_step)] == 'PROD':
+							prefix_gromacs_grompp = prefix_gromacs_grompp_prod
+							prefix_gromacs_mdrun = prefix_gromacs_mdrun_prod
+					else:
+						prefix_gromacs_grompp = prefix_gromacs_grompp_prod
+						prefix_gromacs_mdrun = prefix_gromacs_mdrun_prod
+						
+					assert(prefix_gromacs_grompp is not None or prefix_gromacs_mdrun is not None), str("There was a problem in adding the "
+																								"substrate (prefix for gromacs)")
+						
+					cmd,  file_output, file_index, system = Sample.add_substrate_in_run(current_job, md_step,
+																							previous_cmd_files, 
+																							prefix_gromacs_grompp,
+																							prefix_gromacs_mdrun)
+					
+					sofar_cmd = "echo 'Inserting substrate done' >> {0}_SoFar.txt\n\n\n".format(name)
+					
+					if 'RUNTYPE' in current_job:
+						if current_job['RUNTYPE'][int(md_step)] == 'CREATE':
+							script_file_create.write(cmd)
+							script_file_create.write(sofar_cmd)
+							
+						elif current_job['RUNTYPE'][int(md_step)] == 'PROD':
+							script_file_prod.write(cmd)
+							script_file_prod.write(sofar_cmd)
+					else:
+						script_file_prod.write(cmd)
+						script_file_prod.write(sofar_cmd)
+					
+					if 'SEQUENTIAL' in current_job:
+						script_file_run.write(cmd)
+						script_file_run.close()
+					
+					assert(file_output is not None or file_index is not None or system is not None), "There was a problem in adding the substrate"
+					
+					previous_cmd_files['OUTPUT'] = file_output
+					previous_cmd_files['INDEX'] = file_index
+					previous_cmd_files['SYSTEM'] = system
 					continue
 				
 				#============================================================
