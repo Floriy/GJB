@@ -2016,6 +2016,10 @@ if 'compute' in sys.argv:
 							interacting_group = 'DEF'
 									
 					
+					fatslim_memb_cmd		= ""
+					fatslim_apl_cmd			= ""
+					fatslim_thick_cmd		= ""
+					fatslim_order_cmd		= ""
 					
 					fatslim_memb_cmd = "{0} membranes -c {1}  -n {2}  --output-index-hg {3} --cutoff {4} --hg-group {5} ".format(
 																										FATSLIM,
@@ -2043,45 +2047,43 @@ if 'compute' in sys.argv:
 					if 'ORDER' in PROPERTIES:
 						fatslim_order_cmd = "{0} order -c {1}  -n {2} --cutoff {3} --hg-group {4} ".format(FATSLIM, gro_file, ndx_file, CUTOFF,
 																										HEAD_GROUP)
-					
-					if MAIN_AXIS is not None:
-						fatslim_order_cmd += "--main-axis {0} {1} {2} ".format(MAIN_AXIS[0], MAIN_AXIS[1], MAIN_AXIS[2])
 						
-					if TRAJECTORY is not None: 
-						fatslim_memb_cmd += "-t {0} ".format(xtc_file)
-						fatslim_apl_cmd += "-t {0} ".format(xtc_file)
-						fatslim_thick_cmd += "-t {0} ".format(xtc_file)
-						fatslim_order_cmd += "-t {0} ".format(xtc_file)
+						if MAIN_AXIS is not None:
+							fatslim_order_cmd += "--main-axis {0} {1} {2} ".format(MAIN_AXIS[0], MAIN_AXIS[1], MAIN_AXIS[2])
 						
-						if BEGIN_FRAME is not None: 
-							fatslim_memb_cmd += "--begin-frame {0} ".format(BEGIN_FRAME)
-							fatslim_apl_cmd += "--begin-frame {0} ".format(BEGIN_FRAME)
-							fatslim_thick_cmd += "--begin-frame {0} ".format(BEGIN_FRAME)
-							fatslim_order_cmd += "--begin-frame {0} ".format(BEGIN_FRAME)
+						
+					for command in [fatslim_memb_cmd, fatslim_apl_cmd, fatslim_thick_cmd, fatslim_order_cmd]:
+						if command:
+							if TRAJECTORY is not None: 
+								command += "-t {0} ".format(xtc_file)
+								
+								if BEGIN_FRAME is not None: 
+									command += "--begin-frame {0} ".format(BEGIN_FRAME)
+								
+								if END_FRAME is not None: 
+									command += "--end-frame {0} ".format(END_FRAME)
+								
 							
-						if END_FRAME is not None: 
-							fatslim_memb_cmd += "--end-frame {0} ".format(END_FRAME)
-							fatslim_apl_cmd += "--end-frame {0} ".format(END_FRAME)
-							fatslim_thick_cmd += "--end-frame {0} ".format(END_FRAME)
-							fatslim_order_cmd += "--end-frame {0} ".format(END_FRAME)
+							#Add interacting group for def found previously
+							if interacting_group is not None:
+								command += "--interacting-group {0} ".format(interacting_group)
+							
 						
-					#Add interacting group for def found previously
-					if interacting_group is not None:
-						fatslim_memb_cmd += "--interacting-group {0} ".format(interacting_group)
-						fatslim_apl_cmd += "--interacting-group {0} ".format(interacting_group)
-						fatslim_thick_cmd += "--interacting-group {0} ".format(interacting_group)
-						fatslim_order_cmd += "--interacting-group {0} ".format(interacting_group)
-						
-					# Adding plot for properties
-					fatslim_apl_cmd += "--plot-apl {0} --plot-area {1} ".format(plotname.replace('tmp','_APL.xvg'),
-																				plotname.replace('tmp','_AREA.xvg'))
-					fatslim_thick_cmd += "--plot-thickness {0} ".format(plotname.replace('tmp','_THICKNESS.xvg'))
-					fatslim_order_cmd += "--plot-order {0} ".format(plotname.replace('tmp','_ORDER.xvg'))
 					
 					# Adding plot for properties
-					fatslim_apl_cmd += "--export-apl-raw {0} ".format(csv_apl_name)
-					fatslim_thick_cmd += "--export-thickness-raw {0} ".format(csv_thickness_name)
-					fatslim_order_cmd += "--export-order-raw {0} ".format(csv_order_name)
+					if fatslim_apl_cmd:
+						fatslim_apl_cmd	+= "--plot-apl {0} --plot-area {1} ".format(plotname.replace('tmp','_APL.xvg'),
+																				plotname.replace('tmp','_AREA.xvg'))
+						fatslim_apl_cmd	+= "--export-apl-raw {0} ".format(csv_apl_name)
+						
+					
+					if fatslim_thick_cmd:
+						fatslim_thick_cmd	+= "--plot-thickness {0} ".format(plotname.replace('tmp','_THICKNESS.xvg'))
+						fatslim_thick_cmd	+= "--export-thickness-raw {0} ".format(csv_thickness_name)
+						
+					if fatslim_thick_cmd:
+						fatslim_order_cmd += "--plot-order {0} ".format(plotname.replace('tmp','_ORDER.xvg'))
+						fatslim_order_cmd += "--export-order-raw {0} ".format(csv_order_name)
 					
 					#cmd_for_all = "#! /bin/bash -x\n"
 					cmd_for_all = "## Script generated from the following command:\n##"
@@ -2089,6 +2091,50 @@ if 'compute' in sys.argv:
 					cmd_for_all += fatslim_memb_cmd+"\n\n"+fatslim_apl_cmd+"\n\n"
 					cmd_for_all += fatslim_thick_cmd+"\n\n"
 					cmd_for_all += fatslim_order_cmd+"\n\n"
+							
+							
+					#if TRAJECTORY is not None: 
+						#fatslim_memb_cmd += "-t {0} ".format(xtc_file)
+						#fatslim_apl_cmd += "-t {0} ".format(xtc_file)
+						#fatslim_thick_cmd += "-t {0} ".format(xtc_file)
+						#fatslim_order_cmd += "-t {0} ".format(xtc_file)
+						
+						#if BEGIN_FRAME is not None: 
+							#fatslim_memb_cmd += "--begin-frame {0} ".format(BEGIN_FRAME)
+							#fatslim_apl_cmd += "--begin-frame {0} ".format(BEGIN_FRAME)
+							#fatslim_thick_cmd += "--begin-frame {0} ".format(BEGIN_FRAME)
+							#fatslim_order_cmd += "--begin-frame {0} ".format(BEGIN_FRAME)
+							
+						#if END_FRAME is not None: 
+							#fatslim_memb_cmd += "--end-frame {0} ".format(END_FRAME)
+							#fatslim_apl_cmd += "--end-frame {0} ".format(END_FRAME)
+							#fatslim_thick_cmd += "--end-frame {0} ".format(END_FRAME)
+							#fatslim_order_cmd += "--end-frame {0} ".format(END_FRAME)
+						
+					##Add interacting group for def found previously
+					#if interacting_group is not None:
+						#fatslim_memb_cmd += "--interacting-group {0} ".format(interacting_group)
+						#fatslim_apl_cmd += "--interacting-group {0} ".format(interacting_group)
+						#fatslim_thick_cmd += "--interacting-group {0} ".format(interacting_group)
+						#fatslim_order_cmd += "--interacting-group {0} ".format(interacting_group)
+						
+					## Adding plot for properties
+					#fatslim_apl_cmd += "--plot-apl {0} --plot-area {1} ".format(plotname.replace('tmp','_APL.xvg'),
+																				#plotname.replace('tmp','_AREA.xvg'))
+					#fatslim_thick_cmd += "--plot-thickness {0} ".format(plotname.replace('tmp','_THICKNESS.xvg'))
+					#fatslim_order_cmd += "--plot-order {0} ".format(plotname.replace('tmp','_ORDER.xvg'))
+					
+					## Adding plot for properties
+					#fatslim_apl_cmd += "--export-apl-raw {0} ".format(csv_apl_name)
+					#fatslim_thick_cmd += "--export-thickness-raw {0} ".format(csv_thickness_name)
+					#fatslim_order_cmd += "--export-order-raw {0} ".format(csv_order_name)
+					
+					##cmd_for_all = "#! /bin/bash -x\n"
+					#cmd_for_all = "## Script generated from the following command:\n##"
+					#cmd_for_all += "## {0} \n##\n\n".format(' '.join(sys.argv))
+					#cmd_for_all += fatslim_memb_cmd+"\n\n"+fatslim_apl_cmd+"\n\n"
+					#cmd_for_all += fatslim_thick_cmd+"\n\n"
+					#cmd_for_all += fatslim_order_cmd+"\n\n"
 					
 					
 					script_file = '/'.join(ndx_file.split('/')[:-1])+"/fatslim-script.sh"
@@ -2112,9 +2158,9 @@ if 'compute' in sys.argv:
 					os.makedirs(thickness_graph_dir, exist_ok=True)
 					
 					##list of csv_files
-					csv_files = [csv_apl_name, csv_order_name, csv_thickness_name]
-					graph_dirs = [apl_graph_dir, order_graph_dir, thickness_graph_dir]
-					pdb_dirs = [pdb_apl_dir, pdb_order_dir, pdb_thickness_dir]
+					#csv_files = [csv_apl_name, csv_order_name, csv_thickness_name]
+					#graph_dirs = [apl_graph_dir, order_graph_dir, thickness_graph_dir]
+					#pdb_dirs = [pdb_apl_dir, pdb_order_dir, pdb_thickness_dir]
 					
 					#Create a list with box dimensions for each step
 					
