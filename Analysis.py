@@ -2053,7 +2053,7 @@ if 'compute' in sys.argv:
 						
 						
 					for command in [fatslim_memb_cmd, fatslim_apl_cmd, fatslim_thick_cmd, fatslim_order_cmd]:
-						if command:
+						if command != "":
 							if TRAJECTORY is not None: 
 								command += "-t {0} ".format(xtc_file)
 								
@@ -2071,17 +2071,17 @@ if 'compute' in sys.argv:
 						
 					
 					# Adding plot for properties
-					if fatslim_apl_cmd:
+					if fatslim_apl_cmd != "":
 						fatslim_apl_cmd	+= "--plot-apl {0} --plot-area {1} ".format(plotname.replace('tmp','_APL.xvg'),
 																				plotname.replace('tmp','_AREA.xvg'))
 						fatslim_apl_cmd	+= "--export-apl-raw {0} ".format(csv_apl_name)
 						
 					
-					if fatslim_thick_cmd:
+					if fatslim_thick_cmd := "":
 						fatslim_thick_cmd	+= "--plot-thickness {0} ".format(plotname.replace('tmp','_THICKNESS.xvg'))
 						fatslim_thick_cmd	+= "--export-thickness-raw {0} ".format(csv_thickness_name)
 						
-					if fatslim_thick_cmd:
+					if fatslim_thick_cmd != "":
 						fatslim_order_cmd += "--plot-order {0} ".format(plotname.replace('tmp','_ORDER.xvg'))
 						fatslim_order_cmd += "--export-order-raw {0} ".format(csv_order_name)
 					
