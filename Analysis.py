@@ -1377,6 +1377,11 @@ fatslimOpt.add_argument('--idfreq', dest='idfreq',
 					type=int, default=None,
                     help='Set the frequency for fatslim')
 
+# option quantities to compute using fatslim
+fatslimOpt.add_argument('--prop', dest='properties',
+					type=str, nargs='*', default= default_properties,
+                    help='Set the name of the properties to compute with fatslim. (default = ORDER, APL and THICKNESS)')
+
 ## parameters for analysis ##############################################################
 analyse = sub_parser.add_parser('analyse')
 
@@ -1555,6 +1560,9 @@ gmxOpt.add_argument('--locpres', action='store_true',
 gmxOpt.add_argument('--select', action='store_true',
                     help='Compute solvent per lipid')
 
+gmxOpt.add_argument('--order', action='store_true',
+                    help='Compute order parameter [2011.11.27, Helgi I. Ingolfsson]')
+
 gmxOpt.add_argument('--headgroup', dest='headgroup',
 					type=str, nargs='*', default=None,
                     help='Set the name of headgroup')
@@ -1568,7 +1576,7 @@ gmxOpt.add_argument('--tailgroup', dest='tailgroup',
                     help='Set the name of tailgroup')
 
 
-# Adding parser options to gromacs analysis##############################################################
+# Adding parser options to MDAanalysis##############################################################
 mda = sub_parser.add_parser('mda')
 
 mdaOpt = mda.add_argument_group("General options")
@@ -1726,26 +1734,27 @@ print(cmdParam)
 if 'compute' in sys.argv:
 	start_time = time.time()
 	# Setting general options
-	GMX = cmdParam.gmx_path
-	MD_RUN_INPUT = cmdParam.md_run_input
-	FOLDER = cmdParam.folder
-	FATSLIM = cmdParam.fatslim
+	GMX				= cmdParam.gmx_path
+	MD_RUN_INPUT	= cmdParam.md_run_input
+	FOLDER			= cmdParam.folder
+	FATSLIM			= cmdParam.fatslim
 
 	# Setting parameters for fatslim
-	HEAD_GROUP = cmdParam.head_group
-	CONF_FILE = cmdParam.conf
-	TRAJECTORY = cmdParam.trajectory
-	BEGIN_FRAME = cmdParam.begin_frame
-	END_FRAME = cmdParam.end_frame
+	HEAD_GROUP		= cmdParam.head_group
+	CONF_FILE		= cmdParam.conf
+	TRAJECTORY		= cmdParam.trajectory
+	BEGIN_FRAME		= cmdParam.begin_frame
+	END_FRAME		= cmdParam.end_frame
 	
-	INDEX = cmdParam.index
-	IDFREQ = cmdParam.idfreq
-	CUTOFF = cmdParam.cutoff
-	CUTOFF_THICK = cmdParam.cutthick
-	CUTOFF_APL = cmdParam.cutapl
-	MAIN_AXIS = cmdParam.main_axis
+	INDEX			= cmdParam.index
+	IDFREQ			= cmdParam.idfreq
+	CUTOFF			= cmdParam.cutoff
+	CUTOFF_THICK	= cmdParam.cutthick
+	CUTOFF_APL		= cmdParam.cutapl
+	MAIN_AXIS		= cmdParam.main_axis
+	PROPERTIES		= cmdParam.properties
 
-	filesFound = {}
+	filesFound		= {}
 
 	if MD_RUN_INPUT is not None and FOLDER is not None:
 		"""
@@ -2016,20 +2025,23 @@ if 'compute' in sys.argv:
 																										CUTOFF,
 																										HEAD_GROUP)
 					
-					fatslim_apl_cmd = "{0} apl -c {1}  -n {2} --cutoff {3} --apl-cutoff {4} --hg-group {5} ".format(FATSLIM, gro_file, 
+					if 'APL' in PROPERTIES:
+						fatslim_apl_cmd = "{0} apl -c {1}  -n {2} --cutoff {3} --apl-cutoff {4} --hg-group {5} ".format(FATSLIM, gro_file, 
 																													ndx_file,
 																													CUTOFF,
 																													CUTOFF_APL,
 																													HEAD_GROUP)
 					
-					fatslim_thick_cmd = "{0} thickness -c {1}  -n {2} --cutoff {3} --thickness-cutoff {4} --hg-group {5} ".format(FATSLIM, 
+					if 'THICKNESS' in PROPERTIES:
+						fatslim_thick_cmd = "{0} thickness -c {1}  -n {2} --cutoff {3} --thickness-cutoff {4} --hg-group {5} ".format(FATSLIM, 
 																																gro_file,
 																																ndx_file,
 																																CUTOFF,
 																																CUTOFF_THICK, 
 																																HEAD_GROUP)
 					
-					fatslim_order_cmd = "{0} order -c {1}  -n {2} --cutoff {3} --hg-group {4} ".format(FATSLIM, gro_file, ndx_file, CUTOFF,
+					if 'ORDER' in PROPERTIES:
+						fatslim_order_cmd = "{0} order -c {1}  -n {2} --cutoff {3} --hg-group {4} ".format(FATSLIM, gro_file, ndx_file, CUTOFF,
 																										HEAD_GROUP)
 					
 					if MAIN_AXIS is not None:
@@ -2747,6 +2759,7 @@ elif 'gromacs' in sys.argv:
 	DENSITY		=	cmdParam.density
 	ENERGY		=	cmdParam.energy
 	SELECT		=	cmdParam.select
+	ORDER		=	cmdParam.order
 	LOCAL_TEMP	=	cmdParam.loctemp
 	LOCAL_PRESS	=	cmdParam.locpres
 	
@@ -2833,18 +2846,22 @@ elif 'gromacs' in sys.argv:
 		
 		# Directory for gmx energy
 		if ENERGY:
-			energy_dir = analysisFolder+'/GMX_ENERGY'
+			energy_dir	= analysisFolder+'/GMX_ENERGY'
 			os.makedirs(energy_dir)
 		
 		# Directory for gmx density
 		if DENSITY:
-			density_dir = analysisFolder+'/GMX_DENSITY'
+			density_dir	= analysisFolder+'/GMX_DENSITY'
 			os.makedirs(density_dir)
 		
 		# Directory for gmx density
 		if SELECT:
-			select_dir = analysisFolder+'/GMX_SELECT'
+			select_dir	= analysisFolder+'/GMX_SELECT'
 			os.makedirs(select_dir)
+			
+		if ORDER:
+			order_dir	= analysisFolder + '/ORDER'
+			os.makedirs(order_dir)
 		
 		if HEADGROUP is not None or LINKGROUP is not None or TAILGROUP is not None:
 			ndx_dir = analysisFolder +'/GMX_NDX'
@@ -2920,12 +2937,16 @@ elif 'gromacs' in sys.argv:
 							print(e)
 						
 					# Setting the begining and end of analysis
-					begin_end = ""
-					
+					begin_end		= ""
+					begin_end_dt	= ""
 					if BEGIN_FRAME is not None:
-						begin_end +=" -b {0}".format(BEGIN_FRAME)
+						begin_end		+= " -b {0}".format(BEGIN_FRAME)
 					if END_FRAME is not None:
-						begin_end +=" -e {0}".format(END_FRAME)
+						begin_end 		+= " -e {0}".format(END_FRAME)
+					if DT is not None:
+						begin_end_dt	+= begin_end + " -dt {0}".format(DT)
+					else:
+						begin_end_dt	 = begin_end
 						
 					if ENERGY:
 						job_energy_dir = analysisFolder+'/GMX_ENERGY/'
@@ -2964,7 +2985,7 @@ elif 'gromacs' in sys.argv:
 						groups_for_output += repr('\n\n')
 						
 						try:
-							density_cmd = "{0} | {1} density -dens number {2} -f {3} -s {4} -o {5} -ng {6} -n {7}".format(groups_for_output, GMX, begin_end, xtc_file, tpr_file,
+							density_cmd = "{0} | {1} density -dens number {2} -f {3} -s {4} -o {5} -ng {6} -n {7}".format(groups_for_output, GMX, begin_end_dt, xtc_file, tpr_file,
 																											job_density_dir + density_xvg_file, 
 																											nb_index, ndx_file_out)
 							sub.call(density_cmd, shell=True)
@@ -3009,33 +3030,33 @@ elif 'gromacs' in sys.argv:
 						
 						## Call gmx select
 						try:
-							select_cmd = """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end, xtc_file, tpr_file,
+							select_cmd = """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end_dt, xtc_file, tpr_file,
 																											ndx_file,
 																											job_select_dir+'/'+ 'lower_leaflet_hg_bil.dat',
 																											lower_leaflet_hg_bil)
 							
-							select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end, xtc_file, tpr_file,
+							select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end_dt, xtc_file, tpr_file,
 																											ndx_file,
 																											job_select_dir+'/'+ 'upper_leaflet_hg_bil.dat',
 																											upper_leaflet_hg_bil)
 							
-							select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end, xtc_file, tpr_file,
+							select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end_dt, xtc_file, tpr_file,
 																											ndx_file,
 																											job_select_dir+'/'+ 'lower_leaflet_solvent_bil.dat',
 																											lower_leaflet_solvent_bil)
 							
-							select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end, xtc_file, tpr_file,
+							select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end_dt, xtc_file, tpr_file,
 																											ndx_file,
 																											job_select_dir+'/'+ 'upper_leaflet_solvent_bil.dat',
 																											upper_leaflet_solvent_bil)
 							
 							if 'mono' in read_index_out:
-								select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end, xtc_file, tpr_file,
+								select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end_dt, xtc_file, tpr_file,
 																											ndx_file,
 																											job_select_dir+'/'+ 'leaflet_hg_mono.dat',
 																											leaflet_hg_mono)
 								
-								select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end, xtc_file, tpr_file,
+								select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end_dt, xtc_file, tpr_file,
 																											ndx_file,
 																											job_select_dir+'/'+ 'leaflet_solvent_mono.dat',
 																											leaflet_solvent_mono)
@@ -3182,6 +3203,31 @@ elif 'gromacs' in sys.argv:
 						ulsb_file.close()
 					
 					
+					#if ORDER is not None:
+						#order_density_dir	= analysisFolder+'/ORDER/'
+						#order_dat_file		= job_name + '-' + xtc_file.split('-')[-1].replace('.'+EXTENSION, '_ORDER.dat')
+						
+						#top_file_name		= xtc_file.split('-')[0].split('_')[0] + '.top'
+						
+						#topology_dict		= {"system": None, "molecules": {}}
+						#with open(top_file_name,'r') as top_file_content:
+							#current_section = ""
+							#for line in top_file_content:
+								
+								#if '[' in line:
+									#current_section = line.strip()[1:-1].strip()
+								#elif current_section == "system":
+									#topology_dict[current_section]
+								#elif current_section == "molecules":
+									#name, number = line.split()
+									#topology_dict[current_section].update({name : int(number)})
+						
+						#for mol in topology_dict:
+							#if mol in lipids_list:
+								#nb_lipids = topology_dict['molecules'][mol]
+								#Utility.do_order(xtc_file, BEGIN_FRAME, END_FRAME, DT, [0,0,1] , nb_lipids, mol, GMX)
+								#shutil.copyfile('order.dat', order_density_dir + order_dat_file)
+								#os.remove('order.dat')
 					
 		else:
 			for job_name, file_names in filesFound.items():

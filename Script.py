@@ -234,64 +234,6 @@ def main(argv=sys.argv):
 					
 					continue
 				
-				"""
-				## Stores information on the defo: defo per layer, Height, DzDefo, Radius, Version, TauDefo (thermostat), Tdefo (thermostat)
-				#if row_name.startswith('DEFO'):
-					#Jobs[jobNumber].update({ 'DEFO': {}})
-					
-					#for paramDefo in range(1, len(row), 2):
-						#if row[paramDefo]:
-							#paramDefoVal = row[paramDefo+1].strip(' ')
-							#Jobs[jobNumber]['DEFO'].update( {row[paramDefo].strip(' '): paramDefoVal })
-							
-						#else:
-							#break
-						
-					#with open(path_to_default+'/DEFO/Parameters_defo.csv','r') as Defo_Params:
-						#defoParam = csv.reader(Defo_Params, delimiter=',', skipinitialspace=True)
-						#Jobs[jobNumber]['DEFO'].update( { 'presets' : {} } )
-						
-						#for row in defoParam:
-							##Skip empty rows 
-							#test_row = list(filter(None, row))
-							##Skip lines starting with '#' or empty lines
-							#if '#' in row[0] or not test_row: continue
-						
-							#firstCol = row[0].strip(' ')
-							#if firstCol:
-								#name = firstCol
-								##Creates a dictionary for each preset
-								#Jobs[jobNumber]['DEFO']['presets'].update( { name : {}  })
-								
-								##Associates the parameters set in Parameters.csv to the correct protocol step dictionary
-								#for index, param in enumerate(row[1:]):
-									#if param:
-										#Jobs[jobNumber]['DEFO']['presets'][name].update( { param.strip(' ') : index } )
-							
-							#else:
-								#for param, paramValue in Jobs[jobNumber]['DEFO']['presets'][name].items():
-									
-									#paramValue = row[paramValue+1]
-									
-									#if paramValue:
-										#if ut.is_number(paramValue):
-											#if('.' in paramValue or not float(paramValue).is_integer() ):
-												#Jobs[jobNumber]['DEFO']['presets'][name][param] = float(paramValue)
-												
-											#else:
-												#Jobs[jobNumber]['DEFO']['presets'][name][param] = int(paramValue)
-												
-										#else:
-											#Jobs[jobNumber]['DEFO']['presets'][name][param] = paramValue.strip(' ')
-										
-									
-								
-							
-						
-					
-					continue
-				"""
-				
 				# Stores information on the support: version, density, nblipids
 				if row_name.startswith('SU') or row_name.startswith('WALL') or row_name.startswith('DEFO'):
 					name = row[0].strip()
@@ -392,59 +334,6 @@ def main(argv=sys.argv):
 						
 					stepNumber += 1
 					continue
-				"""
-				## Stores information on the support: version, density, nblipids
-				#if row_name.startswith('WALL'):
-					#Jobs[jobNumber].update({ 'WALL': {}})
-					
-					#for paramWall in range(1, len(row), 2):
-						
-						#if row[paramWall]:
-							#paramWallVal = row[paramWall+1].strip(' ')
-							#Jobs[jobNumber]['WALL'].update( {row[paramWall].strip(' '): paramWallVal })
-							
-						#else:
-							#break
-						
-					#with open(path_to_default+'/WALL/Parameters_wall.csv','r') as Wall_Params:
-						
-						#wallParam = csv.reader(Wall_Params, delimiter=',', skipinitialspace=True)
-						#Jobs[jobNumber]['WALL'].update( { 'presets' : {} } )
-						
-						#for row in wallParam: 
-							##Skip empty rows 
-							#test_row = list(filter(None, row))
-							
-							##Skip lines starting with '#' or empty lines
-							#if '#' in row[0] or not test_row: continue
-						
-							#firstCol = row[0].strip(' ')
-							#if firstCol:
-								#name = firstCol
-								##Creates a dictionary for each preset
-								#Jobs[jobNumber]['WALL']['presets'].update( { name : {}  })
-								
-								##Associates the parameters set in Parameters.csv to the correct protocol step dictionary
-								#for index, param in enumerate(row[1:]):
-									#if param:
-										#Jobs[jobNumber]['WALL']['presets'][name].update( { param.strip(' ') : index } )
-								
-							#else:
-								#for param, paramValue in Jobs[jobNumber]['WALL']['presets'][name].items():
-									
-									#paramValue = row[paramValue+1]
-									
-									#if paramValue:
-										#if ut.is_number(paramValue):
-											#if('.' in paramValue or not float(paramValue).is_integer() ):
-												#Jobs[jobNumber]['WALL']['presets'][name][param] = float(paramValue)
-											#else:
-												#Jobs[jobNumber]['WALL']['presets'][name][param] = int(paramValue)
-										#else:
-											#Jobs[jobNumber]['WALL']['presets'][name][param] = paramValue.strip(' ')
-					#continue
-					"""
-				
 				
 				if row_name.startswith('GADD_SU') or row_name.startswith('ADD_WALL'):
 					name = row[0].strip()
@@ -953,7 +842,7 @@ def main(argv=sys.argv):
 				#============================================================
 				
 				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('COPY') :
-					assert(0), "Copy not yet implemented"
+					assert(False), "Copy not yet implemented"
 					"""
 					CopyFrom = Jobs[ Jobs[job_number]['PROTOCOL'][step]['samplenumber'] ]['JOBID'] 
 					try:

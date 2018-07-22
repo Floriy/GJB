@@ -1932,7 +1932,7 @@ class Membrane(BaseProject):
 		
 		if self.lipid_type == 'DSPC':
 			self.tmt = 30.0
-			self.dz = 7.0
+			self.dz = 10.0
 		elif self.lipid_type in ('DPPC','DLPC'):
 			self.tmt = 30.0
 			self.dz = 10.0
@@ -2392,11 +2392,11 @@ class Membrane(BaseProject):
 		
 		elif self.defo['Height'] == 'mono':
 			#Set the Defo height from the substrate to the top of the monolayer
-			length_defo_mono	= 2*self.tmt + self.sol_thickness + self.dz
+			length_defo_mono	= 2*self.tmt + self.sol_thickness + 2*self.dz
 			
 		elif self.defo['Height'] == 'follow':
 			#Set the Defo height from the bottom of the bilayer to its top
-			length_defo_mono	= self.tmt + self.dz/2.0
+			length_defo_mono	= self.tmt + self.dz
 			
 		
 		defo_per_layer	= int(self.defo['DpL']) + 1
