@@ -2077,7 +2077,7 @@ if 'compute' in sys.argv:
 						fatslim_apl_cmd	+= "--export-apl-raw {0} ".format(csv_apl_name)
 						
 					
-					if fatslim_thick_cmd := "":
+					if fatslim_thick_cmd != "":
 						fatslim_thick_cmd	+= "--plot-thickness {0} ".format(plotname.replace('tmp','_THICKNESS.xvg'))
 						fatslim_thick_cmd	+= "--export-thickness-raw {0} ".format(csv_thickness_name)
 						
