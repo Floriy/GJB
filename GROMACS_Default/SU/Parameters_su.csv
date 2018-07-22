@@ -10,17 +10,33 @@ FREEZE,freezegrps,freezedim,ref-t,tau-t,,,,,,
 FREEZE_K,freezegrps,freezedim,ref-t,tau-t,,,,,,
 ,su,Y Y Y,0,1.5,,,,,,
 ,,,,,,,,,,
-POSRES,ref-t,tau-t,,posres,FCX,FCY,FCZ,,,
+POSRES1000,ref-t,tau-t,,posres,FCX,FCY,FCZ,,,
+,323,1,,on,5000,5000,1000,,,
+POSRES2000,ref-t,tau-t,,posres,FCX,FCY,FCZ,,,
+,323,1,,on,5000,5000,2000,,,
+POSRES3000,ref-t,tau-t,,posres,FCX,FCY,FCZ,,,
+,323,1,,on,5000,5000,3000,,,
+POSRES4000,ref-t,tau-t,,posres,FCX,FCY,FCZ,,,
 ,323,1,,on,5000,5000,4000,,,
+POSRES5000,ref-t,tau-t,,posres,FCX,FCY,FCZ,,,
+,323,1,,on,5000,5000,5000,,,
+POSRES10000,ref-t,tau-t,,posres,FCX,FCY,FCZ,,,
+,323,1,,on,5000,5000,10000,,,
+
 POSRESZ_FREEZEXY,ref-t,tau-t,,posres,FCX,FCY,FCZ,,freezegrps,freezedim
 ,323,1,,on,0,0,2000,,su,Y Y N
-POSRESZ5000_FREEZEXY,ref-t,tau-t,,posres,FCX,FCY,FCZ,,freezegrps,freezedim
-,323,1,,on,0,0,5000,,su,Y Y N
-
 NO_TEMP,ref-t,tau-t,,,,,,,,
 ,323,-1,,,,,,,,
 
 FREE,ref-t,tau-t,
-    ,323,1
+    ,323,2
 EM_FREE,
 ,
+NVT323_FREEZE,freezegrps,freezedim,ref-t,tau-t,,,,,,
+,su,Y Y Y,323,1,,,,,,
+
+NVT0_FREEZE,freezegrps,freezedim,ref-t,tau-t,,,,,,
+,su,Y Y Y,0,1,,,,,,
+
+FREEZEXY,freezegrps,freezedim,ref-t,tau-t,,,,,,
+,su,Y Y N,323,1,,,,,,
