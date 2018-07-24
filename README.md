@@ -71,7 +71,17 @@ After that, each two rows correspond to a simulation step with its associated pa
 
 The overall format system + simulation steps is repeated for every job and separated using empty rows. To stop reading the file before its end a **END_OF_PROJECT** section can be set before other jobs.
 
-This next part describes the different sections for a job:
+With Parameters.csv set, the jobs are created using the command:
+
+```
+./Production.py -s local -p Parameters.csv
+```
+The option -s selects where the job will be submitted (*local* `-s local`, *PBS* `-s pbs`, *TGCC* `-s tgcc`) and the -p option sets the .csv file from which to read parameters.
+
+If -s is set on `pbs` or `tgcc`, a PBSinfo.csv or TGCCinfo.csv are required to get related information (see default PBSinfo.csv and TGCCinfo.csv).
+
+
+The next part describes the different sections for a job:
 
 #### JOBID
 
