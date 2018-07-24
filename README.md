@@ -1,6 +1,6 @@
 # Gromacs Job Production/Analysis
 
-This code aims at providing tools to easily generate gromacs simulation protocol and analyse results with parts based on already existing codes.
+This code aims at providing tools to easily generate gromacs simulation protocols and analyse results with parts based on already existing codes.
 
 ## Getting Started
 
