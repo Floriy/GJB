@@ -199,7 +199,7 @@ If `INPUT` is used the following parameters are needed:
 
 Each simulation step is described using two rows.
 
-- The first row defines and the name of the step and the parameters to set.
+- The first row defines the name of the step and the parameters to set.
 - The second row sets the parameters values.
 
 Example:
