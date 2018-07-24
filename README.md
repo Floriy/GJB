@@ -191,9 +191,12 @@ Example for 6 simulation steps:
 
 The first step of the simulation protocol is the creation of the system. It can be either initialised using the `INIT` section (no parameters needed) or the `INPUT` that will use files from other simulations as starting point.
 
-If `INPUT` is used the following parameters are needed:
+If `INPUT` is used the following parameter is needed:
 
-- the path to a system configuration file is selected using the `GRO` parameter. If the .top, .tpr and .ndx have similar naming convention there is no need to specify them. Otherwise their path are set separately using the `TOP`, `TPR` and `NDX` parameters resp.
+- The path to a system configuration file is selected using the `GRO` parameter. If the .top, .tpr and .ndx have similar naming convention there is no need to specify them. Otherwise their path are set separately using the `TOP`, `TPR` and `NDX` parameters resp.
+
+And the following parameters are optional:
+
 - If you want to add a substrate to the existing configuration you can select the substrate you want to use (path to a .gro file) using the `SU` parameter. The thickness, particle type and version of the substrate should be set in the SU section.
 - If a DEFO is already in the input configuration, you need to specify the parameters of the DEFO. In particular, the version for the topology.
 - If you want to generate a substrate having the same dimensions has the input, the parameter `GEN_SU` will allow you to do that. The thickness, particle type and version of the substrate to generate should be set in the SU section.
