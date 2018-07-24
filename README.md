@@ -73,7 +73,7 @@ The overall format system + simulation steps is repeated for every job and separ
 
 This next part describes the different sections in the first part of a job:
 
-##### JOBID
+##### `JOBID`
 
 This section describes the name, number and packmol seed for the current job.
 
