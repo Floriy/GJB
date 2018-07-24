@@ -66,12 +66,12 @@ Gromacs default files contain topology files for MARTINI, default molecular dyna
 
 After this first block jobs are represented in two parts.
 A first part describes the system to simulate, job related parameters and gromacs mdrun options (see Parameters.csv with optional sections tagged with #).
-The second part starting after the section PROTOCOL describes the simulation protocol. The first rwo after the protocol section describes the way the system is generated. It is either initialised with the parameters set in the first part using the INIT section or obtained from another simulation using the INPUT section.
+The second part starting after the section **PROTOCOL** describes the simulation protocol. The first rwo after the protocol section describes the way the system is generated. It is either initialised with the parameters set in the first part using the **INIT** section or obtained from another simulation using the **INPUT** section.
 After that, each two rows correspond to a simulation step with its associated parameters and their set values. The first column sets the name of the step and the next columns define the parameters and their values. The format is repeated for every step.
 
-The overall format system + simulation steps is repeated for every job and separated using empty rows. To stop reading the file before its end a END_OF_PROJECT section can be set before other jobs.
+The overall format system + simulation steps is repeated for every job and separated using empty rows. To stop reading the file before its end a **END_OF_PROJECT** section can be set before other jobs.
 
-This next part describes the different sections in the first part of a job:
+This next part describes the different sections for a job:
 
 #### JOBID
 
@@ -129,7 +129,7 @@ This section aims at setting the substrate parameters.
 The following parameters are optional:
 
 - In the case of membranes the bilayer height can be set relative to the substrate thickness using `BilayerHeight`.  in Angstrom.
-- For rough or patterned substrates a parameter `RUGOSITY` can be set to describe the roughness. The `RUGOSITY` is described by a set of parameters defined with parameter:value and separated with | .
+- For rough or patterned substrates a parameter `RUGOSITY` can be set to describe the roughness. The `RUGOSITY` is described by a set of parameters defined with parameter:value and separated by | .
 
 For this section there is no parameter order.
 
@@ -153,8 +153,23 @@ For this section there is no parameter order.
 This section sets the limit between system definition and simulation steps.
 
 If walls, defo or substrate are set in the system, parameters `DEFO`, `WALL` and `SU` must be set in the same row as the `PROTOCOL` section.
-These parameters define the protocol for the simulations steps and consists in parameters template name (defined in GROMACS_Default/[SU,DEFO,WALL]) separated by +.
+These parameters define the protocol for the simulations steps and consists in parameter preset names (defined in GROMACS_Default/[SU,DEFO,WALL]) separated by +.
 There should be as many name as simulations steps.
+
+Example for 6 simulation steps:
+
+<table style="width:100%">
+  <tr>
+    <th> PROTOCOL </th>
+    <th> DEFO</th> 
+    <td> d1+d4+d2+d3+d1+d6 </td>
+    <th> WALL </th>
+    <td> w2+w3+w1+w5+w1+w6 </td>
+    <th> SU </th>
+    <td> s1+s4+s2+s3+s1+s1 </td>
+  </tr>
+</table>
+
 
 #### INIT or INPUT
 
@@ -166,8 +181,8 @@ If `INPUT` is used the following parameters are needed:
 - If you want to add a substrate to the existing configuration you can select the substrate you want to use (path to a .gro file) using the `SU` parameter. The thickness, particle type and version of the substrate should be set in the SU section.
 - If a DEFO is already in the input configuration, you need to specify the parameters of the DEFO. In particular, the version for the topology.
 - If you want to generate a substrate having the same dimensions has the input, the parameter `GEN_SU` will allow you to do that. The thickness, particle type and version of the substrate to generate should be set in the SU section.
-- Using the parameter `TRANSLATE` you can translate the system in each direction `X Y Z` in Angstrom. (gmx trjconv is used with pbc)
-- With the parameter `NEWBOX` you can increase the box dimensions `LX LY LZ` in Angstrom.
+- Using the parameter `TRANSLATE` you can translate the system in each direction *X Y Z* in Angstrom. (gmx trjconv is used with pbc)
+- With the parameter `NEWBOX` you can increase the box dimensions *LX LY LZ* in Angstrom.
 - Using the `THRESHOLD-Z` along with `THRESHOLD_ATOMS` parameters you can remove particles of type `THRESHOLD_ATOMS` above a given z value in Angstrom set with `THRESHOLD-Z`.
 
 #### Simulation steps
