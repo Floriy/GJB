@@ -123,7 +123,7 @@ This section aims at setting the artficial molecule (DEFO) parameters.
 - The `Height` which can be set to *follow*, *bilayer* or *box*. The former creates defo molecules for each membrane (bilayer and monolayer for example), the second only for the bilayer and the latter along the whole box in the z-direction.
 - The distance between layers of artificial particles (DEF) is set using `DzDefo` in Angstrom.
 - The number of DEF in a layer is set with `DpL` (DEF per layer) with 0 meaning only the DEF at the center.
-- For packmol sample generation, the radius beyond which the lipid positions can be initialised is set using the `Radius` parameter in nanometre.
+- For packmol sample generation, the radius beyond which the lipid positions can be initialised is set using the `Radius` parameter in Angstrom.
 - The topology version of the DEF particles is set using the `Version` parameter.
 - To set constraint between DEF you can set the parameter `Constraints` to *bonds*, *angles* or *bond&angles*.
 - The force between in-plane, out-of-plane bonds and angles can be set using `FbondN`, `FbondP`, `FangleN`, and `FangleP` resp. with the value in kJ/mol/nm.
