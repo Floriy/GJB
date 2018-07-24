@@ -76,6 +76,12 @@ With Parameters.csv set, the jobs are created using the command:
 ```
 ./Production.py -s local -p Parameters.csv
 ```
+if Production.py is set to executable or:
+
+```
+python3 Production.py -s local -p Parameters.csv
+```
+
 The option -s selects where the job will be submitted (*local* `-s local`, *PBS* `-s pbs`, *TGCC* `-s tgcc`) and the -p option sets the .csv file from which to read parameters.
 
 If -s is set on `pbs` or `tgcc`, a PBSinfo.csv or TGCCinfo.csv are required to get related information (see default PBSinfo.csv and TGCCinfo.csv).
