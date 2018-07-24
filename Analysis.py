@@ -2054,6 +2054,7 @@ if 'compute' in sys.argv:
 						
 					for command in [fatslim_memb_cmd, fatslim_apl_cmd, fatslim_thick_cmd, fatslim_order_cmd]:
 						if command != "":
+							print(command)
 							if TRAJECTORY is not None: 
 								command += "-t {0} ".format(xtc_file)
 								

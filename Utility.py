@@ -60,21 +60,21 @@ def ComputeAverage(qtty):
 
 #Completer for interactive session
 class Completer:
-    def __init__(self, words):
-        self.words = words
-        self.prefix = None
-    def complete(self, prefix, index):
-        if str(prefix) != self.prefix:
-            # we have a new prefix!
-            # find all words that start with this prefix
-            self.matching_words = [
-                w for w in self.words if w.startswith(prefix)
-                ]
-            self.prefix = prefix
-        try:
-            return self.matching_words[index]
-        except IndexError:
-            return None
+	def __init__(self, words):
+		self.words = words
+		self.prefix = None
+	def complete(self, prefix, index):
+		if str(prefix) != self.prefix:
+			# we have a new prefix!
+			# find all words that start with this prefix
+			self.matching_words = [
+				w for w in self.words if w.startswith(prefix)
+				]
+			self.prefix = prefix
+		try:
+			return self.matching_words[index]
+		except IndexError:
+			return None
 
 #Removes first indentation of a string
 def RemoveUnwantedIndent(indentedtext):
@@ -87,12 +87,38 @@ def deleteContent(pfile):
     pfile.seek(0)
     pfile.truncate()
 
-#Tail linux function 
+
 def tail(filef, n):
-	Output = sub.Popen("tail -n"+str(n)+" "+filef, stdout=sub.PIPE, stderr=sub.PIPE, shell=True)
-	text = Output.stdout.readlines()
+	"""
+		Function returning the n last lines of a file
+	"""
+	tail_cmd	= "tail -n{0} {1}".format(n, file_name)
+	output		= sub.Popen(, stdout=sub.PIPE, stdout=sub.PIPE, stderr=sub.PIPE, shell=True)
+	text = output.stdout.readlines()
+	
 	return text
 
+def grep_from_file(file_name, pattern):
+	"""
+		Function to grep from a file lines matching a pattern.
+	"""
+	grep_pattern_cmd	= """cat {0} | grep {1} """.format(file_name,pattern)
+	grep_pattern_proc	= sub.Popen(read_index_cmd, stdout=sub.PIPE, stderr=sub.PIPE, shell=True)
+	output				= read_index_proc.stdout.read()
+	
+	return output
+
+def get_box_dimensions(file_name):
+	"""
+		Function to get the dimensions of the box from a .gro file
+	"""
+	output = str(tail(file_name, 1)[0], 'utf-8').replace(repr('\n'),'')
+	output = output.strip().split()
+	dimensions = [float(o) for o in output]
+	
+	return dimensions
+	
+	
 #Function to search text under heading
 def group_by_heading(some_source, heading):
 		buffer= []
@@ -111,19 +137,19 @@ def group_by_heading(some_source, heading):
 # Do-order script integration
 #2011.11.27 - Helgi I. Ingolfsson - Fix POPC and POPE (tail order is flipped in regular Martini 2.1 itp)
 def read_gro(file, atoms):
-  line_counter = 0
-  number_of_particles = 0
-  first, second = [], []
-  for line in open(file):
-    if line_counter == 1:
-      number_of_particles = int(line)
-    elif line_counter > 1 and line_counter < number_of_particles + 2:
-      if line[10:15].strip() == atoms[0]:
-        first.append([float(line[20:28]), float(line[28:36]), float(line[36:44])])
-      elif line[10:15].strip() == atoms[1]:
-        second.append([float(line[20:28]), float(line[28:36]), float(line[36:44])])
-    line_counter += 1
-  return [first, second]
+	line_counter = 0
+	number_of_particles = 0
+	first, second = [], []
+	for line in open(file):
+		if line_counter == 1:
+		number_of_particles = int(line)
+		elif line_counter > 1 and line_counter < number_of_particles + 2:
+		if line[10:15].strip() == atoms[0]:
+			first.append([float(line[20:28]), float(line[28:36]), float(line[36:44])])
+		elif line[10:15].strip() == atoms[1]:
+			second.append([float(line[20:28]), float(line[28:36]), float(line[36:44])])
+		line_counter += 1
+	return [first, second]
 
 ### REAL STUFF
 def do_order(trajfile, TimeRange, trajskip, XYZ , number_of_lipids, lipid_type, GROMACS_LOC_prefixPath):

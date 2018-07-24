@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-
 import csv		#Module to read csv files
 import os
 import re
@@ -13,7 +12,7 @@ import argparse
 import glob
 
 import Utility as ut
-import Prepare
+import Job
 
 LipidsList = ['DSPC','DPPC','DLPC']
 
@@ -799,11 +798,11 @@ def main(argv=sys.argv):
 				#============================================================
 				if current_job['PROTOCOL'][md_step]['stepType'].startswith('INIT'):
 					if current_job['TYPE'] in ['BILAYER','TRILAYER','MONOLAYER']:
-						Sample = Prepare.Membrane(current_job, Softwares, path_to_default)
+						Sample = Job.Membrane(current_job, Softwares, path_to_default)
 						
 						
 					if current_job['TYPE'] in ['SOLVENT']:
-						Sample = Prepare.Solvent(current_job, Softwares, path_to_default)
+						Sample = Job.Solvent(current_job, Softwares, path_to_default)
 						
 					
 					Sample.make()
@@ -823,14 +822,14 @@ def main(argv=sys.argv):
 						If a defo is in the file you are copying you need to specify the version using:
 						DEFO, Version, version_number, ...
 						You can also change the bonds parameter and Mass if wanted.
-						the protocol will be define in the same way as INPUT
+						the protocol will be define in the same way as INIT
 					"""
 					
 					if current_job['TYPE'] in ['BILAYER','TRILAYER','MONOLAYER']:
-						Sample = Prepare.Membrane(current_job, Softwares, path_to_default)
+						Sample = Job.Membrane(current_job, Softwares, path_to_default)
 						
 					if current_job['TYPE'] in ['SOLVENT']:
-						Sample = Prepare.Solvent(current_job, Softwares, path_to_default)
+						Sample = Job.Solvent(current_job, Softwares, path_to_default)
 					
 					previous_cmd_files = {'SYSTEM': None, 'OUTPUT': None, 'INDEX': None}
 					previous_cmd_files['SYSTEM'], previous_cmd_files['OUTPUT'], previous_cmd_files['INDEX'] = Sample.from_input(current_job['PROTOCOL'][md_step])
@@ -846,7 +845,7 @@ def main(argv=sys.argv):
 					"""
 					CopyFrom = Jobs[ Jobs[job_number]['PROTOCOL'][step]['samplenumber'] ]['JOBID'] 
 					try:
-						CopiedJob = Prepare.CopySample(Jobs, current_job, md_step, path_to_default)
+						CopiedJob = Job.CopySample(Jobs, current_job, md_step, path_to_default)
 						if CopiedJob == -1:
 							raise ValueError("Please Check your "+parameter_file)
 					except ValueError as error:
@@ -862,55 +861,55 @@ def main(argv=sys.argv):
 				#					STEP IS TRANSLATE
 				#============================================================
 				elif current_job['PROTOCOL'][md_step]['stepType'].startswith('TRANSLATE'):
-					TX = 0.1*current_job['PROTOCOL'][md_step]['X']
-					TY = 0.1*current_job['PROTOCOL'][md_step]['Y']
-					TZ = 0.1*current_job['PROTOCOL'][md_step]['Z']
+					#TX = 0.1*current_job['PROTOCOL'][md_step]['X']
+					#TY = 0.1*current_job['PROTOCOL'][md_step]['Y']
+					#TZ = 0.1*current_job['PROTOCOL'][md_step]['Z']
 					
-					output_file = previous_cmd_files['OUTPUT'].replace('.gro','_TRANSX{0}Y{1}Z{2}.gro'.format(TX, TY, TZ) )
+					#output_file = previous_cmd_files['OUTPUT'].replace('.gro','_TRANSX{0}Y{1}Z{2}.gro'.format(TX, TY, TZ) )
 					
-					prefix_gromacs_grompp = None
-					prefix_gromacs_mdrun = None
+					#prefix_gromacs_grompp = None
+					#prefix_gromacs_mdrun = None
 					
-					if 'RUNTYPE' in current_job:
-						if current_job['RUNTYPE'][int(md_step)] == 'CREATE':
-							prefix_gromacs_grompp = prefix_gromacs_grompp_create
-							prefix_gromacs_mdrun = prefix_gromacs_mdrun_create
+					#if 'RUNTYPE' in current_job:
+						#if current_job['RUNTYPE'][int(md_step)] == 'CREATE':
+							#prefix_gromacs_grompp = prefix_gromacs_grompp_create
+							#prefix_gromacs_mdrun = prefix_gromacs_mdrun_create
 							
-						elif current_job['RUNTYPE'][int(md_step)] == 'PROD':
-							prefix_gromacs_grompp = prefix_gromacs_grompp_prod
-							prefix_gromacs_mdrun = prefix_gromacs_mdrun_prod
-					else:
-						prefix_gromacs_grompp = prefix_gromacs_grompp_prod
-						prefix_gromacs_mdrun = prefix_gromacs_mdrun_prod
+						#elif current_job['RUNTYPE'][int(md_step)] == 'PROD':
+							#prefix_gromacs_grompp = prefix_gromacs_grompp_prod
+							#prefix_gromacs_mdrun = prefix_gromacs_mdrun_prod
+					#else:
+						#prefix_gromacs_grompp = prefix_gromacs_grompp_prod
+						#prefix_gromacs_mdrun = prefix_gromacs_mdrun_prod
 						
-					assert(prefix_gromacs_grompp is not None or prefix_gromacs_mdrun is not None), str("There was a problem in translating the "
-																								"sample (prefix for gromacs)")
+					#assert(prefix_gromacs_grompp is not None or prefix_gromacs_mdrun is not None), str("There was a problem in translating the "
+																								#"sample (prefix for gromacs)")
 						
-					cmd = "    printf {0} | {1} trjconv -f {2} -s {2} -o {3} -trans {4} {5} {6} -pbc atom\n\n".format(repr("System\n"), 
-																													prefix_gromacs_grompp,
-																													previous_cmd_files['OUTPUT'],
-																													output_file,
-																													TX, TY, TZ)
+					#cmd = "    printf {0} | {1} trjconv -f {2} -s {2} -o {3} -trans {4} {5} {6} -pbc atom\n\n".format(repr("System\n"), 
+																													#prefix_gromacs_grompp,
+																													#previous_cmd_files['OUTPUT'],
+																													#output_file,
+																													#TX, TY, TZ)
 					
-					sofar_cmd = "echo 'Translating the sample done' >> {0}_SoFar.txt\n\n\n".format(name)
+					#sofar_cmd = "echo 'Translating the sample done' >> {0}_SoFar.txt\n\n\n".format(name)
 					
-					if 'RUNTYPE' in current_job:
-						if current_job['RUNTYPE'][int(md_step)] == 'CREATE':
-							script_file_create.write(cmd)
-							script_file_create.write(sofar_cmd)
+					#if 'RUNTYPE' in current_job:
+						#if current_job['RUNTYPE'][int(md_step)] == 'CREATE':
+							#script_file_create.write(cmd)
+							#script_file_create.write(sofar_cmd)
 							
-						elif current_job['RUNTYPE'][int(md_step)] == 'PROD':
-							script_file_prod.write(cmd)
-							script_file_prod.write(sofar_cmd)
-					else:
-						script_file_prod.write(cmd)
-						script_file_prod.write(sofar_cmd)
+						#elif current_job['RUNTYPE'][int(md_step)] == 'PROD':
+							#script_file_prod.write(cmd)
+							#script_file_prod.write(sofar_cmd)
+					#else:
+						#script_file_prod.write(cmd)
+						#script_file_prod.write(sofar_cmd)
 					
-					if 'SEQUENTIAL' in current_job:
-						script_file_run.write(cmd)
-						script_file_run.close()
+					#if 'SEQUENTIAL' in current_job:
+						#script_file_run.write(cmd)
+						#script_file_run.close()
 						
-					previous_cmd_files['OUTPUT'] = output_file
+					#previous_cmd_files['OUTPUT'] = output_file
 					
 					continue
 				

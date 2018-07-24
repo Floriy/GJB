@@ -1,54 +1,51 @@
-# GJB
-###################################################
-# USAGE for creating an input serie of gromacs simulations 
-# - MARTINI lipidic bilayers or trilayers (DSPC, DPPC, DLPC) + solvent
-# - one or two solvants only (W, )
-# - eventually with vaccum
-# - eventually with default pores, or support, or wall
-# (once the Parameters.csv  and PbsInfo.csv have been created) 
-###################################################
-TO DO INPUTS FOR LYNX
-> Script.py --PBS 
+# Gromacs Job Production/Analysis
 
-TO DO INPUTS LOCALLY
-> Script.py --missing
+This code aims at providing tools to easily generate gromacs simulation protocol and analyse results with parts based on already existing codes.
 
-###################################################
-# FORMAT for Parameters.cvs
-################################
-Basic format Rules : 
-- comment with # 
-- separator with | 
+## Getting Started
 
+The following instructions will get you a copy of the project up and running on your local machine.
 
+### Prerequisites
 
-=> DEFO 
+The whole code is written in Python3 so you will need python3 package on your machine.
 
-Some problem with the fact that the parameters_defo.cvs has the priority of Parameters.cvs, 
-the variables are added to T323K_v1.0 instead of replaced by..
+In addition to Python3 standard library, the following packages are needed for Production.py:
 
-Some problem with the format of PROTOCOL for the defo, the , are interpretated as field separator when importing with libreoffice. TODO  change these to '+' for example
+```
+numpy
 
-I have changed the number of defo beads per line, no +1 is automatically added, and if the number chosen is 1, 
-then there is no crown around it.
+```
+And for Analysis.py:
 
+```
+numpy
+pandas
+matplotlib
+scipy
+mdanalysis
+fatslim
+```
 
+which you can install using [pip3](https://pip.pypa.io/en/latest/):
 
+#### On Debian
 
-=> SUPPORT 
+```
+sudo (or su -c) apt-get install python3-pip
+```
 
+And then for any system having pip3:
 
-=> WALL
+```
+pip3 install --upgrade numpy pandas matplotlib scipy mdanalysis fatslim
+```
 
+### Installing
 
-=> TRILAYER
+To get the code on your machine simply use the following command:
 
-
-
-# TOOLS for ANALYSIS
-##########################
-
-Results.py =>  Analysis each simulation of a serie, depending on the type of simulation, and create a Summary over all simulations of this serie.
-
-USAGE 
+```
+git clone https://github.com/fben94/GJB
+```
 
