@@ -93,7 +93,7 @@ def tail(filef, n):
 		Function returning the n last lines of a file
 	"""
 	tail_cmd	= "tail -n{0} {1}".format(n, file_name)
-	output		= sub.Popen(, stdout=sub.PIPE, stdout=sub.PIPE, stderr=sub.PIPE, shell=True)
+	output		= sub.Popen(tail_cmd, stdout=sub.PIPE, stderr=sub.PIPE, shell=True)
 	text = output.stdout.readlines()
 	
 	return text
@@ -142,12 +142,12 @@ def read_gro(file, atoms):
 	first, second = [], []
 	for line in open(file):
 		if line_counter == 1:
-		number_of_particles = int(line)
+			number_of_particles = int(line)
 		elif line_counter > 1 and line_counter < number_of_particles + 2:
-		if line[10:15].strip() == atoms[0]:
-			first.append([float(line[20:28]), float(line[28:36]), float(line[36:44])])
-		elif line[10:15].strip() == atoms[1]:
-			second.append([float(line[20:28]), float(line[28:36]), float(line[36:44])])
+			if line[10:15].strip() == atoms[0]:
+				first.append([float(line[20:28]), float(line[28:36]), float(line[36:44])])
+			elif line[10:15].strip() == atoms[1]:
+				second.append([float(line[20:28]), float(line[28:36]), float(line[36:44])])
 		line_counter += 1
 	return [first, second]
 
