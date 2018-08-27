@@ -237,10 +237,12 @@ class BaseProject(object):
 								# Packmol seed was set using {0}
 								seed {1:d}
 								tolerance 5.0
+								nloop0   1000
 								filetype pdb\n""".format(sample['SEED'], self.packmol_seed)
 		else:
 			self.packmol_input	= """
 								# Packmol seed was set using default
+								nloop0   1000
 								tolerance 3.0
 								filetype pdb\n"""
 								
