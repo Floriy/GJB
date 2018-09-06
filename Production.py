@@ -503,8 +503,7 @@ def main(argv=sys.argv):
 
 	print('Gromacs local :', Softwares['GROMACS_LOC'])
 
-	software_version = re.sub("[^0-9]","",Softwares['GROMACS_LOC'].split('/')[-2])
-
+	software_version = re.sub("[^0-9]","",Softwares['GROMACS_LOC'].split('/')[-3])
 	if not software_version:
 		software_version = input('No version detected in path. Please select the version you want between 4, 5 or 2016: ')
 
@@ -526,9 +525,14 @@ def main(argv=sys.argv):
 	if(not os.path.isdir(project_name)):
 		os.makedirs(project_name, exist_ok=True)
 	else:
-		shutil.rmtree(project_name)
-		os.makedirs(project_name, exist_ok=True)
-
+		delete_directory = input('===================================\n WARNING ! The PROJECT directory already exists ! \n Please confirm that you want to delete it by typing yes \n => ')
+		if(delete_directory == 'yes'):
+			shutil.rmtree(project_name)
+			os.makedirs(project_name, exist_ok=True)
+		else:
+			print("===================================\n JOB ABORTED ! \n To change the PROJECT name, please correct your Parameters.csv file ")
+			exit()
+	
 	#Dictionnary to perform sample copy
 	Init_for_copy={}
 
