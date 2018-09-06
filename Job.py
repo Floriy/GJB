@@ -150,11 +150,52 @@ class BaseProject(object):
 			self.lz_vaccum			= None
 			if 'LzVac' in sample['GEOMETRY']:
 				self.lz_vaccum	= float(sample['GEOMETRY']['LzVac'])
-						   
+			
 			self.fillmode			= None
 			if 'FILLMODE' in sample['GEOMETRY']:
-				self.fillmode	= sample['GEOMETRY']['FILLMODE']
-			
+				
+				self.fillmode = sample['GEOMETRY']['FILLMODE']
+				
+				if self.fillmode == 'PARTIAL-X':
+					assert(False),"PARTIAL-X not implemented yet"
+					
+					if 'MIN' in sample['GEOMETRY']:
+						
+						self.minsolvent	= sample['GEOMETRY']['MIN']
+					else:
+						self.minsolvent	= 0.0
+						
+					if 'MAX' in sample['GEOMETRY']:
+						self.maxsolvent	= sample['GEOMETRY']['MAX']
+					else:
+						self.maxsolvent	= self.dimensions['LX']
+						
+				if self.fillmode == 'PARTIAL-Y':
+					assert(False),"PARTIAL-Y not implemented yet"
+					if 'MIN' in sample['GEOMETRY']:
+						self.minsolvent	= sample['GEOMETRY']['MIN']
+					else:
+						self.minsolvent	= 0.0
+						
+					if 'MAX' in sample['GEOMETRY']:
+						self.maxsolvent	= sample['GEOMETRY']['MAX']
+					else:
+						self.maxsolvent	= self.dimensions['LY']
+						
+				if self.fillmode == 'PARTIAL-Z':
+					print("PARTIAL-Z not tested with LIPIDS/DEFO/SU systems ! check bottom_z contraints before use ")
+					
+					if 'MIN' in sample['GEOMETRY']:
+						self.minsolvent	= sample['GEOMETRY']['MIN']
+					else:
+						self.minsolvent	= 0.0
+						
+					if 'MAX' in sample['GEOMETRY']:
+						self.maxsolvent	= sample['GEOMETRY']['MAX']
+					else:
+						self.maxsolvent	= self.dimensions['LZ']
+					
+					
 			self.radius				= None
 			if 'Radius' in sample['GEOMETRY']:
 				self.radius		= sample['GEOMETRY']['Radius']
@@ -3381,6 +3422,7 @@ class Solvent(BaseProject):
 				
 			elif self.fillmode == 'BOX':
 				self.LX = self.LY = self.LZ = self.dimensions['LX']
+				
 			elif self.fillmode == 'SPHERE':
 				self.center = (self.dimensions['LX']/2., self.dimensions['LY']/2., self.dimensions['LZ']/2.) 
 				
@@ -3398,6 +3440,18 @@ class Solvent(BaseProject):
 				self.LX = self.dimensions['LX']
 				self.LY = self.dimensions['LY']
 				self.LZ = self.dimensions['LZ']/2.0
+			
+			elif self.fillmode == 'PARTIAL-Z':
+				self.LX = self.dimensions['LX']
+				self.LY = self.dimensions['LY']
+				self.bottom_z= self.minsolvent
+				self.LZ = self.maxsolvent
+				
+			elif self.fillmode == 'PARTIAL-X':
+				assert(False),"PARTIAL-X not implemented yet"
+				
+			elif self.fillmode == 'PARTIAL-Y':
+				assert(False),"PARTIAL-Y not implemented yet"	
 				
 			else:
 				self.LX = self.dimensions['LX']
