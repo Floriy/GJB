@@ -88,7 +88,7 @@ def deleteContent(pfile):
     pfile.truncate()
 
 
-def tail(filef, n):
+def tail(file_name, n):
 	"""
 		Function returning the n last lines of a file
 	"""

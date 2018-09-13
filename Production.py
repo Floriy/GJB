@@ -504,6 +504,9 @@ def main(argv=sys.argv):
 	print('Gromacs local :', Softwares['GROMACS_LOC'])
 
 	software_version = re.sub("[^0-9]","",Softwares['GROMACS_LOC'].split('/')[-3])
+	
+	if not software_version:
+		software_version = re.sub("[^0-9]","",Softwares['GROMACS_LOC'].split('/')[-2])
 	if not software_version:
 		software_version = input('No version detected in path. Please select the version you want between 4, 5 or 2016: ')
 

@@ -161,41 +161,43 @@ class BaseProject(object):
 					
 					if 'MIN' in sample['GEOMETRY']:
 						
-						self.minsolvent	= sample['GEOMETRY']['MIN']
+						self.minsolvent = float(sample['GEOMETRY']['MIN'])
 					else:
-						self.minsolvent	= 0.0
+						self.minsolvent = 0.0
 						
 					if 'MAX' in sample['GEOMETRY']:
-						self.maxsolvent	= sample['GEOMETRY']['MAX']
+						self.maxsolvent = float(sample['GEOMETRY']['MAX'])
 					else:
-						self.maxsolvent	= self.dimensions['LX']
+						self.maxsolvent = float(self.dimensions['LX'])
 						
 				if self.fillmode == 'PARTIAL-Y':
 					assert(False),"PARTIAL-Y not implemented yet"
 					if 'MIN' in sample['GEOMETRY']:
-						self.minsolvent	= sample['GEOMETRY']['MIN']
+						self.minsolvent = float(sample['GEOMETRY']['MIN'])
 					else:
-						self.minsolvent	= 0.0
+						self.minsolvent = 0.0
 						
 					if 'MAX' in sample['GEOMETRY']:
-						self.maxsolvent	= sample['GEOMETRY']['MAX']
+						self.maxsolvent = float(sample['GEOMETRY']['MAX'])
 					else:
-						self.maxsolvent	= self.dimensions['LY']
+						self.maxsolvent = float(self.dimensions['LY'])
 						
 				if self.fillmode == 'PARTIAL-Z':
 					print("PARTIAL-Z not tested with LIPIDS/DEFO/SU systems ! check bottom_z contraints before use ")
 					
 					if 'MIN' in sample['GEOMETRY']:
-						self.minsolvent	= sample['GEOMETRY']['MIN']
+						self.minsolvent = float(sample['GEOMETRY']['MIN'])
 					else:
-						self.minsolvent	= 0.0
+						self.minsolvent = 0.0
 						
 					if 'MAX' in sample['GEOMETRY']:
-						self.maxsolvent	= sample['GEOMETRY']['MAX']
+						self.maxsolvent = float(sample['GEOMETRY']['MAX'])
 					else:
-						self.maxsolvent	= self.dimensions['LZ']
-					
-					
+						self.maxsolvent = float(self.dimensions['LZ'])
+						
+					if self.type.startswith('SOLVENT'):
+						self.bottom_z = self.minsolvent          
+						
 			self.radius				= None
 			if 'Radius' in sample['GEOMETRY']:
 				self.radius		= sample['GEOMETRY']['Radius']
@@ -241,6 +243,7 @@ class BaseProject(object):
 			
 			if 'WALL' in sample:
 				self.wall		= sample['WALL']
+				
 				
 				if self.su is None:
 					self.bottom_z	= 3.0
@@ -388,6 +391,9 @@ class BaseProject(object):
 		translate = None
 		
 		# Get the dimensions of the box from the input gro file
+		
+		
+		
 		dimensions = str(ut.tail(file_found[0], 1)[0], 'utf-8').replace(repr('\n'),'')
 		dimensions = dimensions.split()
 		dimensions = [float(D) for D in dimensions]
@@ -875,7 +881,7 @@ class BaseProject(object):
 									inside box 0. 0. {3}  {4} {5} {6}
 								end structure
 								""".format(system, pdb_file_list['SU']['name'],
-											self.nb_su, self.bottom_z,
+											self.nb_su, self.bottom_z + shell,
 											dimensions[0]*10 - shell, dimensions[1]*10 - shell, thickness - shell)
 			
 			su_pdb_content = pdb_file_list['SU']['content'].replace("TEMP", su_type)
@@ -2892,15 +2898,17 @@ class Membrane(BaseProject):
 			# for DEF
 			self.nb_index += 1
 						
+
 		if self.su is not None:
+			shell_su = 0.25
 			self.packmol_input += """
 								# Substrate
 								structure {0}
 									chain S
 									number {1:g}
-									inside box 0. 0. 0.  {2} {3} {4}
+									inside box 0. 0. {5}  {2} {3} {4}
 								end structure
-							""".format(pdb_file_list['SU']['name'], self.nb_su, self.dimensions['LX'], self.dimensions['LY'], self.su['Thickness'])
+							""".format(pdb_file_list['SU']['name'], self.nb_su, self.dimensions['LX'], self.dimensions['LY'], self.su['Thickness'],shell_su)
 			
 			# for SU
 			self.nb_index += 1
@@ -3256,14 +3264,15 @@ class Membrane(BaseProject):
 			self.nb_index += 1
 						
 		if self.su is not None:
+			shell_su = 0.25
 			self.packmol_input += """
 								# Substrate
 								structure {0}
 									chain S
 									number {1:g}
-									inside box 0. 0. 0.  {2} {3} {4}
+									inside box 0. 0. {5}  {2} {3} {4}
 								end structure
-							""".format(pdb_file_list['SU']['name'], self.nb_su, self.dimensions['LX'], self.dimensions['LY'], self.su['Thickness'])
+							""".format(pdb_file_list['SU']['name'], self.nb_su, self.dimensions['LX'], self.dimensions['LY'], self.su['Thickness'],shell_su)
 			
 			# for SU
 			self.nb_index += 1
@@ -3444,7 +3453,7 @@ class Solvent(BaseProject):
 			elif self.fillmode == 'PARTIAL-Z':
 				self.LX = self.dimensions['LX']
 				self.LY = self.dimensions['LY']
-				self.bottom_z= self.minsolvent
+				#self.bottom_z= self.minsolvent
 				self.LZ = self.maxsolvent
 				
 			elif self.fillmode == 'PARTIAL-X':
@@ -3588,15 +3597,16 @@ class Solvent(BaseProject):
 				self.nb_index += 1
 		
 		if self.su is not None:
+			shell_su = 0.25            
 			self.packmol_input += """
 							# Substrate
 							structure {0}
 								chain S
 								number {1:g}
-								inside box 0. 0. 0.  {2} {3} {4}
+								inside box 0. 0. {5}  {2} {3} {4}
 							end structure
 							""".format(pdb_file_list['SU']['name'], self.nb_su, self.dimensions['LX'],
-										self.dimensions['LY'], self.su['Thickness'])
+										self.dimensions['LY'], self.su['Thickness'],shell_su)
 			
 			# for SU
 			self.nb_index += 1

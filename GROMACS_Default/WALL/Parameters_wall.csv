@@ -5,13 +5,13 @@ NONE,
 # Bottom wall,density 0.00001,Vapor for top wall,
 
 Ndadem5-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
-,2,WUN P4,9-3,0.00001 0.01
+,2,WUN P4,9-3,0.00001 0.1
 P4dem5-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
-,2,WUP P4,9-3,0.00001  0.01
+,2,WUP P4,9-3,0.00001  0.1
 Nadem5-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
-,2,Wna P4,9-3,0.00001  0.01
+,2,Wna P4,9-3,0.00001  0.1
 N0dem5-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
-,2,Wn0 P4,9-3,0.00001  0.01
+,2,Wn0 P4,9-3,0.00001  0.1
 
 # Bottom wall,density 8,
 
