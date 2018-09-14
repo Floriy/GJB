@@ -976,6 +976,11 @@ class BaseProject(object):
 								
 								output {0}.pdb
 								
+								# Input structure
+								structure {1}.pdb
+									fixed 0. 0. 0. 0.0 0.0 0.0
+								end structure
+								
 								# Monolayer added
 								structure {2}
 									chain C
@@ -986,12 +991,6 @@ class BaseProject(object):
 									constrain_rotation y 180 10
 									{8}
 								end structure
-								
-								# Input structure
-								structure {1}.pdb
-									fixed 0. 0. 0. 0.0 0.0 0.0
-								end structure
-								
 								
 								""".format(system, self.system, pdb_file_list[self.lipid_type]['name'],
 				   							self.nb_lipid_monolayer, monolayer_z*10,
@@ -1016,15 +1015,24 @@ class BaseProject(object):
 																				dimensions[0], dimensions[1], dimensions[2])
 			sub.call(pdbtogro_cmd, shell=True)
 			
-			group_index = [str(i) for i in range(0, self.nb_index-1, 1)]
+			group_index = [str(i) for i in range(0, self.nb_index-2, 1)]
 			
-			make_ndx_input = """ "r {0}\\nname mono{1} su\\ndel 0\\ndel 0\\n{2}\\nname {3} System\\nq\\n" """.format(self.lipid_type,
+			print("group_index =", group_index)
+			
+			make_ndx_input = """ " \\n r {0} \\n name {3} {0} \\n \\n chain C \\nname {4} monolayer \\n \\ndel 1\\ndel 1 \\n \\n q\\n" """.format(self.lipid_type,
 																									self.nb_index,
 																									" | ".join(group_index),
-																									int(group_index[-1])+1)
+																									int(group_index[-1])+1,
+																									int(group_index[-1])+2
+																									)
 			
-			add_su_ndx_cmd = """printf {3} | {0} make_ndx -f {1}.gro -n {2} -o {1}.ndx""".format(self.softwares['GROMACS_LOC'], system,
+			
+			
+			add_su_ndx_cmd = """printf {3} | {0} make_ndx -f {1}.pdb -n {2} -o {1}.ndx""".format(self.softwares['GROMACS_LOC'], system,
 																				self.system, make_ndx_input)
+			
+			
+			print(" add_su_ndx_cmd=",add_su_ndx_cmd)
 			
 			sub.call(add_su_ndx_cmd, shell=True)
 		
@@ -1927,10 +1935,6 @@ class BaseProject(object):
 				for lipid in self.lipid_types:
 					print(self.sample_molecules)
 					lipid_number = self.sample_molecules[lipid]
-					
-					if self.mono is not None:
-						lipid_number += float(self.mono['NBLIPIDS'])
-						
 					topo_file.write( "{0} {1}\n".format(lipid, lipid_number) )
 				
 			
@@ -1950,6 +1954,12 @@ class BaseProject(object):
 						if su in self.sample_molecules:
 							topo_file.write("{0} {1}\n".format(su, self.sample_molecules[su]))
 	
+			if self.mono is not None:
+				for lipid in self.lipid_types:
+					print("WARNING : monolayer adding only possible with a single lipid type ! \n CHECK final .top file")
+					topo_file.write( "{0} {1}\n".format(lipid, int(self.mono['NBLIPIDS']) )
+				
+				
 	
 	def pass_outputs(self):
 		return self.system, self.output_file, self.index_file
