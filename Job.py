@@ -921,7 +921,11 @@ class BaseProject(object):
 			
 			print("self.dimension=",self.dimensions)
 			
-			if 'THRESHOLD-Z' in inputs:
+			if 'LzM' in self.mono:
+				monolayer_z	= float(self.mono['LzM'])/10.
+				print("LzM = ",self.mono['LzM'])
+				print("monolayer_z = ",monolayer_z)
+			elif 'THRESHOLD-Z' in inputs:
 				monolayer_z = thresholds
 				print("thresholds = ",thresholds)
 				print("monolayer_z = ",monolayer_z)
@@ -929,18 +933,19 @@ class BaseProject(object):
 				monolayer_z = dimensions[2]*10
 				print("monolayer_z = ",monolayer_z)
 				
-			
+
+				
 			grotopdb_cmd = "{0} editconf -f {1}.gro -o {1}.pdb -c no".format(self.softwares['GROMACS_LOC'], self.system)
 			sub.call(grotopdb_cmd, shell=True)
 			
 			if 'APL' in self.mono:
-				self.nb_lipid_monolayer = int( dimensions[0] * dimensions[1] / 100 / float(self.mono['APL']) )
+				self.nb_lipid_monolayer = int( dimensions[0] * dimensions[1] / float(self.mono['APL']) )
 			
 			elif 'NBLIPIDS' in self.mono:
 				self.nb_lipid_monolayer = int(self.mono['NBLIPIDS'])
 			
 			else:
-				assert(False), "Your forgot to set the area per lipid (APL) or number of lipids in the monolayer to add"
+				assert(False), "Your forgot to set the area per lipid (APL, in nm^2) or number of lipids in the monolayer to add (NBLIPIDS)"
 			
 			self.tmt = None
 			self.dz = None
@@ -971,11 +976,6 @@ class BaseProject(object):
 								
 								output {0}.pdb
 								
-								# Input structure
-								structure {1}.pdb
-									fixed 0. 0. 0. 0.0 0.0 0.0
-								end structure
-								
 								# Monolayer added
 								structure {2}
 									chain C
@@ -987,9 +987,15 @@ class BaseProject(object):
 									{8}
 								end structure
 								
+								# Input structure
+								structure {1}.pdb
+									fixed 0. 0. 0. 0.0 0.0 0.0
+								end structure
+								
+								
 								""".format(system, self.system, pdb_file_list[self.lipid_type]['name'],
 				   							self.nb_lipid_monolayer, monolayer_z*10,
-				   							dimensions[0]*10,dimensions[1]*10, self.tmt + monolayer_z*10 + 3.0 ,defo_mono_packmol_input)
+				   							dimensions[0]*10.,dimensions[1]*10., self.tmt + monolayer_z*10. ,defo_mono_packmol_input)
 								
 			
 			#if 
@@ -1923,7 +1929,7 @@ class BaseProject(object):
 					lipid_number = self.sample_molecules[lipid]
 					
 					if self.mono is not None:
-						lipid_number += float(self.mono['NbLipidsM'])
+						lipid_number += float(self.mono['NBLIPIDS'])
 						
 					topo_file.write( "{0} {1}\n".format(lipid, lipid_number) )
 				
