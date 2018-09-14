@@ -1015,15 +1015,16 @@ class BaseProject(object):
 																				dimensions[0], dimensions[1], dimensions[2])
 			sub.call(pdbtogro_cmd, shell=True)
 			
-			group_index = [str(i) for i in range(0, self.nb_index-2, 1)]
+			group_index = [str(i) for i in range(0, self.nb_index, 1)]
 			
 			print("group_index =", group_index)
 			
-			make_ndx_input = """ " \\n r {0} \\n name {3} {0} \\n \\n chain C \\nname {4} monolayer \\n \\ndel 1\\ndel 1 \\n \\n q\\n" """.format(self.lipid_type,
+			make_ndx_input = """ " \\n r {0} \\n name {3} {0} \\n \\n chain C \\nname {4} monolayer \\n {2} \\n name {5} System \\ndel 0\\ndel 0 \\ndel 0 \\n \\n q\\n" """.format(self.lipid_type,
 																									self.nb_index,
 																									" | ".join(group_index),
-																									int(group_index[-1])+1,
-																									int(group_index[-1])+2
+																									int(group_index[-1])-1,
+																									int(group_index[-1]),
+																									int(group_index[-1])+1
 																									)
 			
 			
@@ -1953,26 +1954,16 @@ class BaseProject(object):
 					for su in self.substrate_list:
 						if su in self.sample_molecules:
 							topo_file.write("{0} {1}\n".format(su, self.sample_molecules[su]))
-	
+							
 			if self.mono is not None:
 				for lipid in self.lipid_types:
 					print("WARNING : monolayer adding only possible with a single lipid type ! \n CHECK final .top file")
-					topo_file.write( "{0} {1}\n".format(lipid, int(self.mono['NBLIPIDS']) )
+					topo_file.write( "{0} {1}\n".format(lipid, int(self.mono['NBLIPIDS']) ))
 				
 				
 	
 	def pass_outputs(self):
 		return self.system, self.output_file, self.index_file
-
-
-
-
-
-
-
-
-
-
 
 
 class Membrane(BaseProject):
