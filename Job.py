@@ -379,7 +379,8 @@ class BaseProject(object):
 					generate_su		= True
 				elif os.path.isfile(su_posres):
 					sub.call( "cp {0}/su_posres_gen.itp .".format(path), shell=True)
-				else:
+				else:ls -tlr
+				
 					create_su	= True
 			
 			if self.mono:
@@ -928,7 +929,7 @@ class BaseProject(object):
 				self.nb_lipid_monolayer = int( dimensions[0] * dimensions[1] / 100 / float(self.mono['APL']) )
 			
 			elif 'NBLIPIDS' in self.mono:
-				self.nb_lipid_monolayer = int(self.mono['APL'])
+				self.nb_lipid_monolayer = int(self.mono['NBLIPIDS'])
 			
 			else:
 				assert(False), "Your forgot to set the area per lipid (APL) or number of lipids in the monolayer to add"
