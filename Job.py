@@ -955,7 +955,7 @@ class BaseProject(object):
 			if dimensions[2] < self.tmt + monolayer_z:
 				dimensions[2] += self.tmt
 			
-			system += "_MONO{0}{1}".format(self.lipid_type, self.nb_lipid_monolayer)
+			system += "_MONO_{0}{1}".format(self.lipid_type, self.nb_lipid_monolayer)
 			self.packmol_input += """
 								avoid_overlap yes
 								
