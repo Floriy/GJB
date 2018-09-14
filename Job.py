@@ -954,6 +954,7 @@ class BaseProject(object):
 								
 			if dimensions[2] < self.tmt + monolayer_z:
 				dimensions[2] += self.tmt
+
 			
 			system += "_MONO_{1}{0}".format(self.lipid_type, self.nb_lipid_monolayer)
 			self.packmol_input += """
@@ -979,7 +980,7 @@ class BaseProject(object):
 								
 								""".format(system, self.system, pdb_file_list[self.lipid_type]['name'],
 				   							self.nb_lipid_monolayer, monolayer_z,
-				   							dimensions[0],dimensions[1],dimensions[2],defo_mono_packmol_input)
+				   							dimensions[0]*10,dimensions[1]*10, self.tmt + monolayer_z,defo_mono_packmol_input)
 								
 			
 			#if 
