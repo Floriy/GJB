@@ -916,10 +916,19 @@ class BaseProject(object):
 		if add_monolayer:
 			monolayer_z	= None
 			
+			
+			print("dimension=",dimensions)
+			
+			print("self.dimension=",self.dimensions)
+			
 			if 'THRESHOLD-Z' in inputs:
 				monolayer_z = thresholds
+				print("thresholds = ",thresholds)
+				print("monolayer_z = ",monolayer_z)
 			else:
-				monolayer_z = dimensions[2]
+				monolayer_z = dimensions[2]*10
+				print("monolayer_z = ",monolayer_z)
+				
 			
 			grotopdb_cmd = "{0} editconf -f {1}.gro -o {1}.pdb -c no".format(self.softwares['GROMACS_LOC'], self.system)
 			sub.call(grotopdb_cmd, shell=True)
@@ -952,8 +961,8 @@ class BaseProject(object):
 								""".format(self.dimensions[0]/2., self.dimensions[1]/2.,
 										self.defo['Radius'], self.dimensions[2])
 								
-			if dimensions[2] < self.tmt + monolayer_z:
-				dimensions[2] += self.tmt
+			if dimensions[2] < (self.tmt + monolayer_z*10)/10:
+				dimensions[2] += self.tmt/10
 
 			
 			system += "_MONO_{1}{0}".format(self.lipid_type, self.nb_lipid_monolayer)
@@ -979,8 +988,8 @@ class BaseProject(object):
 								end structure
 								
 								""".format(system, self.system, pdb_file_list[self.lipid_type]['name'],
-				   							self.nb_lipid_monolayer, monolayer_z,
-				   							dimensions[0]*10,dimensions[1]*10, self.tmt + monolayer_z,defo_mono_packmol_input)
+				   							self.nb_lipid_monolayer, monolayer_z*10,
+				   							dimensions[0]*10,dimensions[1]*10, self.tmt + monolayer_z*10 + 3.0 ,defo_mono_packmol_input)
 								
 			
 			#if 
