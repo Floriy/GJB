@@ -379,8 +379,7 @@ class BaseProject(object):
 					generate_su		= True
 				elif os.path.isfile(su_posres):
 					sub.call( "cp {0}/su_posres_gen.itp .".format(path), shell=True)
-				else:ls -tlr
-				
+				else:
 					create_su	= True
 			
 			if self.mono:
