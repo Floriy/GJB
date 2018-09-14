@@ -946,7 +946,7 @@ class BaseProject(object):
 			shell = 3.0
 			defo_mono_packmol_input = ""
 			if self.defo is not None:
-				if self.defo['Height'] in ["follow", "box", "mono"]:
+				if self.defo['Height'] in ["followM", "box", "mono"]:
 					defo_mono_packmol_input = """
 								outside cylinder  {0} {1}  0. 0.  0.  1.  {2}  {3}
 								""".format(self.dimensions[0]/2., self.dimensions[1]/2.,
@@ -979,7 +979,7 @@ class BaseProject(object):
 								
 								""".format(system, self.system, pdb_file_list[self.lipid_type]['name'],
 				   							self.nb_lipid_monolayer, monolayer_z,
-				   							dimensions[0],dimensions[1],dimensions[2])
+				   							dimensions[0],dimensions[1],dimensions[2],defo_mono_packmol_input)
 								
 			
 			#if 
