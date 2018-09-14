@@ -955,7 +955,7 @@ class BaseProject(object):
 			if dimensions[2] < self.tmt + monolayer_z:
 				dimensions[2] += self.tmt
 			
-			system += "_MONO_{0}{1}".format(self.lipid_type, self.nb_lipid_monolayer)
+			system += "_MONO_{1}{0}".format(self.lipid_type, self.nb_lipid_monolayer)
 			self.packmol_input += """
 								avoid_overlap yes
 								
@@ -984,11 +984,14 @@ class BaseProject(object):
 			
 			#if 
 								
-			with open("packmol_{0}.input".format(self.system), 'w') as packmol_file:
+			with open("packmol_{0}.input".format(system), 'w') as packmol_file:
 				packmol_file.write(ut.RemoveUnwantedIndent(self.packmol_input))
+				
+			with open(pdb_file_list[self.lipid_type]['name'],'w') as lipid_pdb:
+				lipid_pdb.write( ut.RemoveUnwantedIndent(pdb_file_list[self.lipid_type]['content']) )
 								
 			packmol_cmd = str("{0} < packmol_{1}.input > packmol_{1}.output "
-					).format(self.softwares['PACKMOL'], self.system)
+					).format(self.softwares['PACKMOL'], system)
 			
 			sub.call(packmol_cmd, shell=True)
 			
