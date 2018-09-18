@@ -1687,7 +1687,7 @@ reflectometryOpt.add_argument('-sl', dest='sl_file',
 
 reflectometryOpt.add_argument('-ref', dest='reflectivity',
 					type=str, default=None,
-					help='Set the quantity name to compute reflectivity')
+					help='Set the quantity name to compute reflectivity (see xvg density legend, for install "total")')
 
 reflectometryOpt.add_argument('-f', '--file', dest='xvg_file',
 					type=str, required=True,
@@ -1699,7 +1699,7 @@ reflectometryOpt.add_argument('-m','--molecules', dest='molecules',
 
 reflectometryOpt.add_argument('--limits', dest='limits',
 					type=float, nargs=2, default=None,
-					help='Set the limits for the sld')
+					help='Set the limits for the sld (zmin, zmax, in nm)')
 
 reflectometryOpt.add_argument('-sub','--sublayers', dest='sublayers',
 					type=str, nargs='*', default=None,
@@ -1711,14 +1711,14 @@ reflectometryOpt.add_argument('-sup','--superlayers', dest='superlayers',
 
 reflectometryOpt.add_argument('-q', dest='qrange',
 					type=float, nargs=3, default=None,
-                    help='Set the Qmin, Qmax and Qgrid size to compute reflectometry curve')
+                    help='Set the Qmin, Qmax and Qgrid size to compute reflectometry curve \n (Qmin and Qmax in nm^-1, Qgrid is the number of calculated Q points, typically 100)')
 
 reflectometryOpt.add_argument('--check', action='store_true',
                     help='Show the sld curve before computing reflectometry')
 
 reflectometryOpt.add_argument('-res', dest='resolution',
 					type=int, default=None,
-                    help='Set the number of points for gaussian convolution')
+                    help='Set the number of points for gaussian convolution \n (typically, 1 or 2, but it depends on your resolution in Q !)')
 
 reflectometryOpt.add_argument('-exp', dest='experimental',
 					type=str, default=None,
@@ -3755,7 +3755,7 @@ elif 'mda' in sys.argv:
 						# FAIRE LA MOYENNE AVEC PANDA SUR CHAQUE BIN ! plus incertitude !!!!
 						header = """
 								@    title ""
-								@    xaxis  label "z-coordinate (nm)"
+								@    xaxis  label "z-coordinate (Ang ? , FB had written nm)"
 								@    yaxis  label ""
 								@TYPE xy
 								@ view 0.15, 0.15, 0.75, 0.85
@@ -3952,8 +3952,7 @@ elif 'reflectometry' in sys.argv:
 	if LIMITS is not None:
 		lower_limit = density_data['z'] >= LIMITS[0]
 		upper_limit = density_data['z'] <= LIMITS[1]
-	
-	density_data = density_data[lower_limit & upper_limit]
+		density_data = density_data[lower_limit & upper_limit]
 	
 	dz = None
 	if SUBLAYERS is not None or SUPLAYERS is not None:
@@ -4239,7 +4238,7 @@ elif 'reflectometry' in sys.argv:
 	
 	if SUPLAYERS is not None:
 		adding_to_header = """
-			#SLD fittotal was made using the following parameters for sub layers:
+			#SLD fittotal was made using the following parameters for sup layers:
 			# {0}
 			#""".format(str(SUPLAYERS))
 		
@@ -4247,7 +4246,7 @@ elif 'reflectometry' in sys.argv:
 	
 	if SUBLAYERS is not None:
 		adding_to_header = """
-			#SLD fittotal was made using the following parameters for super layers:
+			#SLD fittotal was made using the following parameters for sub layers:
 			# {0}
 			#""".format(str(SUBLAYERS))
 		
