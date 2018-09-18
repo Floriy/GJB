@@ -11,7 +11,7 @@ import subprocess as sub
 import traceback
 import math, cmath
 from collections import OrderedDict
-import gc #garbage collector
+#import gc #garbage collector
 import time
 import Utility as ut
 from io import StringIO
@@ -1544,6 +1544,14 @@ gmxOpt.add_argument('--radius', dest='radius',
 					type=float, default=8.0,
                     help='Set the radius outside which the membrane will be analysed')
 
+gmxOpt.add_argument('--ZmaxGaz', dest='ZmaxGaz',
+					type=float, default=0.0,
+                    help='Set the Zmax (nm) for the box in which the gaz density will be analysed')
+
+gmxOpt.add_argument('--ZminGaz', dest='ZminGaz',
+					type=float, default=0.0,
+                    help='Set the Zmin (nm) for the box in which the gaz density will be analysed')
+
 gmxOpt.add_argument('--density', action='store_true',
                     help='Compute density using gmx density')
 
@@ -1556,9 +1564,8 @@ gmxOpt.add_argument('--loctemp', action='store_true',
 gmxOpt.add_argument('--locpres', action='store_true',
                     help='Compute local pressure in the box')
 
-
 gmxOpt.add_argument('--select', action='store_true',
-                    help='Compute solvent per lipid')
+                    help='Compute solvent per lipid  and other quantities using dynamical gromacs select')
 
 gmxOpt.add_argument('--order', action='store_true',
                     help='Compute order parameter [2011.11.27, Helgi I. Ingolfsson]')
@@ -2801,6 +2808,9 @@ elif 'gromacs' in sys.argv:
 	END_FRAME	=	cmdParam.end_frame
 	DT			=	cmdParam.dt
 	RADIUS		=	cmdParam.radius
+	ZMINGAZ		=	cmdParam.ZminGaz
+	ZMAXGAZ		=	cmdParam.ZmaxGaz
+	
 	
 	#Options to compute
 	DENSITY		=	cmdParam.density
@@ -3003,7 +3013,7 @@ elif 'gromacs' in sys.argv:
 						
 						# To output all quantities
 						variables_for_output = "echo "
-						for i in range(1, 1000):
+						for i in range(1, 100):
 							variables_for_output += repr('{0}\n'.format(i))
 						variables_for_output += repr('\n\n')
 						
@@ -3053,8 +3063,10 @@ elif 'gromacs' in sys.argv:
 						flipflop_xvg_file = job_name + '-' + xtc_file.split('-')[-1].replace('.'+EXTENSION, '_FLIPFLOP.xvg')
 						spl_xvg_file = job_name + '-' + xtc_file.split('-')[-1].replace('.'+EXTENSION, '_SOLPERLEAF.xvg')
 						
+						
+						
 						if 'defo' in  read_index_out:
-							remove_pertubed_membrane = "and (not within {0} of (name DEF))".format(RADIUS)
+							remove_pertubed_membrane = "and (  (x - (x of com of (name DEF)))^2 +(y- (y of com of (name DEF) ))^2 > {0}^2 ) ".format(RADIUS)
 						if 'su' in read_index_out:
 							above_su = " and (z > z of com of group su)"
 						if 'PW' in read_index_out:
@@ -3062,8 +3074,10 @@ elif 'gromacs' in sys.argv:
 							
 						mono = ""
 						if 'mono' in read_index_out:
-							mono = str("and (z < z of com of (resname {2} and (z > z of com of group bilayer)))"
-										"").format(remove_pertubed_membrane, solvent)
+							mono = str("and (z < z of com of (resname {1} and (z > z of com of group bilayer)))"
+									"").format(remove_pertubed_membrane, solvent)
+#mono = str("and (z < z of com of group monolayer))"
+#										"").format(solvent)
 							
 						lower_leaflet_hg_bil = "(name PO4 {0}) and (z < z of com of group bilayer)".format(remove_pertubed_membrane)
 						upper_leaflet_hg_bil = "(name PO4 {0}) and (z > z of com of group bilayer) {2}".format(remove_pertubed_membrane, solvent, mono)
@@ -3072,8 +3086,8 @@ elif 'gromacs' in sys.argv:
 						upper_leaflet_solvent_bil = "(resname {0} {1}) and (z > z of com of group bilayer) {2}".format(solvent, mono, remove_pertubed_membrane)
 						
 						leaflet_hg_mono = "name PO4 {0} and (z > z of com of (resname {1} and (z > z of com of group bilayer)))".format(remove_pertubed_membrane, solvent)
-						leaflet_solvent_mono = str("resname {1} {0} and (z > z of com of group bilayer)"
-													" and (z > z of com of (resname {1} and (z > z of com of group bilayer)))").format(remove_pertubed_membrane, solvent)
+						leaflet_solvent_mono = str("resname {1} {0} and  (z > z of com of group monolayer)").format(remove_pertubed_membrane, solvent, ZMINGAZ,ZMAXGAZ)
+						gaz_solvent = str("resname {0} and (z > {1}) and (z < {2}) ").format(solvent, ZMINGAZ,ZMAXGAZ)
 						
 						## Call gmx select
 						try:
@@ -3100,14 +3114,17 @@ elif 'gromacs' in sys.argv:
 							if 'mono' in read_index_out:
 								select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end_dt, xtc_file, tpr_file,
 																											ndx_file,
-																											job_select_dir+'/'+ 'leaflet_hg_mono.dat',
+																											job_select_dir+'/'+ 'hg_in_monolayer.dat',
 																											leaflet_hg_mono)
 								
 								select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end_dt, xtc_file, tpr_file,
 																											ndx_file,
-																											job_select_dir+'/'+ 'leaflet_solvent_mono.dat',
+																											job_select_dir+'/'+ 'solvent_above_monolayer.dat',
 																											leaflet_solvent_mono)
-							
+								select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end_dt, xtc_file, tpr_file,
+																											ndx_file,
+																											job_select_dir+'/'+ 'solvent_gaz_' + str(ZMINGAZ) + '_' + str(ZMAXGAZ) + '.dat',
+																											gaz_solvent)							
 							
 							print(select_cmd)
 							sub.call(select_cmd, shell=True)
@@ -3122,9 +3139,13 @@ elif 'gromacs' in sys.argv:
 						llsb_file = open(job_select_dir+'/'+ 'lower_leaflet_solvent_bil.dat','r')
 						ulsb_file = open(job_select_dir+'/'+ 'upper_leaflet_solvent_bil.dat','r')
 						
+						
+						
 						if 'mono' in read_index_out:
-							lhm_file = open(job_select_dir+'/'+ 'leaflet_hg_mono.dat','r') 
-							lsm_file = open(job_select_dir+'/'+ 'leaflet_solvent_mono.dat','r')
+							lhm_file = open(job_select_dir+'/'+ 'hg_in_monolayer.dat','r') 
+							lsm_file = open(job_select_dir+'/'+ 'solvent_above_monolayer.dat','r')
+							sg_file = open(job_select_dir+'/'+ 'solvent_gaz_' + str(ZMINGAZ) + '_' + str(ZMAXGAZ) + '.dat','r')
+
 						
 						#arrays for data
 						time_arr = []
@@ -3133,6 +3154,12 @@ elif 'gromacs' in sys.argv:
 						llsb_nb = []
 						ulsb_nb = []
 						
+						
+						if 'mono' in read_index_out:
+							lhm_nb = []
+							lsm_nb = []
+							sg_nb = []
+						
 						for line in llhb_file:
 							timestep = float(line.strip().split()[0])
 							number = float(line.strip().split()[1])
@@ -3140,10 +3167,20 @@ elif 'gromacs' in sys.argv:
 							time_arr.append(timestep)
 							llhb_nb.append(number)
 							
-						file_dict = {'ulhb': {'file': ulhb_file, 'array': ulhb_nb},
-										'llsb': {'file': llsb_file, 'array': llsb_nb},
-										'ulsb': {'file': ulsb_file, 'array': ulsb_nb},
-										}
+
+						if 'mono' in read_index_out:
+    							file_dict = {'ulhb': {'file': ulhb_file, 'array': ulhb_nb},
+											'llsb': {'file': llsb_file, 'array': llsb_nb},
+											'ulsb': {'file': ulsb_file, 'array': ulsb_nb},
+											'lhm': {'file': lhm_file, 'array': lhm_nb},
+											'lsm': {'file': lsm_file, 'array': lsm_nb},
+											'sg': {'file': sg_file, 'array': sg_nb},
+											}                        
+						else:
+   							file_dict = {'ulhb': {'file': ulhb_file, 'array': ulhb_nb},
+											'llsb': {'file': llsb_file, 'array': llsb_nb},
+											'ulsb': {'file': ulsb_file, 'array': ulsb_nb},
+											}    
 						
 						for key in file_dict:
 							dat_file = file_dict[key]['file']
@@ -3155,6 +3192,12 @@ elif 'gromacs' in sys.argv:
 						ulhb_nb = file_dict['ulhb']['array']
 						llsb_nb = file_dict['llsb']['array']
 						ulsb_nb = file_dict['ulsb']['array']
+						
+						if 'mono' in read_index_out:
+							lhm_nb =file_dict['lhm']['array']
+							lsm_nb =file_dict['lsm']['array']
+							sg_nb =file_dict['sg']['array']
+							
 						
 						with open(job_select_dir+'/{0}'.format(spl_xvg_file),'a+') as xvg_out:
 							header = """
@@ -3179,15 +3222,26 @@ elif 'gromacs' in sys.argv:
 							if 'mono' in read_index_out:
 								header += """
 									@ s6 legend "mono_hg"
-									@ s7 legend "mono_sol"
-									@ s8 legend "sol_per_mono_hg"
+									@ s7 legend "sol_above_mono"
+									@ s8 legend "sol_in_zmin_zmax"
 									"""
+								xvg_out.write(ut.RemoveUnwantedIndent(header)+"\n")
+								for T, llhb, ulhb, llsb, ulsb, hm, sm, sg in zip(time_arr, llhb_nb, ulhb_nb, llsb_nb, ulsb_nb,lhm_nb,lsm_nb,sg_nb):
+									row = "    {0}    {1}    {2}    {3}    {4}    {5}    {6}    {7}    {8}     {9}\n".format(T, llhb, ulhb, llsb, ulsb, llsb/llhb, ulsb/ulhb, hm, sm, sg)
+									xvg_out.write(row)
+							else:
+								xvg_out.write(ut.RemoveUnwantedIndent(header)+"\n")
+								for T, llhb, ulhb, llsb, ulsb in zip(time_arr, llhb_nb, ulhb_nb, llsb_nb, ulsb_nb):
+									row = "    {0}    {1}    {2}    {3}    {4}    {5}    {6}\n".format(T, llhb, ulhb, llsb, ulsb, llsb/llhb, ulsb/ulhb)
+									xvg_out.write(row)
+									
 							
-							xvg_out.write(ut.RemoveUnwantedIndent(header)+"\n")
-							
-							for T, llhb, ulhb, llsb, ulsb in zip(time_arr, llhb_nb, ulhb_nb, llsb_nb, ulsb_nb):
-								row = "    {0}    {1}    {2}    {3}    {4}    {5}    {6}\n".format(T, llhb, ulhb, llsb, ulsb, llsb/llhb, ulsb/ulhb)
-								xvg_out.write(row)
+								
+								
+								
+								
+								
+								
 						
 						flip_time = []
 						llhb_flip = []
@@ -3621,7 +3675,7 @@ elif 'mda' in sys.argv:
 								atom_names.append(atom_type)
 								selection = None
 								if RADIUS is not None and atom_type != 'DEF':
-									selection	= coord.select_atoms("name {0} and not (cyzone {1} {2} -{2} (name DEF))".format(atom_type, RADIUS, box_zz), update=True)
+									selection	= coord.select_atoms("name {0} and not (cyzone {1} {2} -{2} (name DEF))".format(atom_type, RADIUS, (box_zz-1.0)/2.0), update=True)
 									#(box_zz-0.5)/2.0, (box_zz)/2.0))
 									
 								else:
