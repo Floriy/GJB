@@ -1,3 +1,14 @@
+
+#
+#
+# exemple of Claire's usage of reflectometry calculation
+# A VERIFIER !!
+#
+#> python3 /data2/cloison/Calculations/GROMACS/MARTINI/GJB/Analysis.py reflectometry -sl  ./MARTINI_DPPC.sl -ref fittotal -f TEST_ADSORBED_TRIILAYER_DPPC_FROM_FB_ADSORBED_BILAYERS/MD_Analysis/MD_DENSITY/W_SSUPd8t05WUPd12Vap_THRESH80_MONO413_OUTPUT-NVT2_MDADENS.xvg  -m W DPPC  -q 0.001 0.25 100   -conv 2 --limits 0.3 50 --output TEST_ADSORBED_TRIILAYER_DPPC_FROM_FB_ADSORBED_BILAYERS/MD_Analysis/MD_DENSITY svg -sub SiO2 1.5 0.5 Si 100.0 0.5
+#
+#
+
+
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
@@ -49,7 +60,7 @@ def padding_grid(grid_x, grid_y, box_x, box_y, pad_x, pad_y):
 	grid_x_el_len = len(grid_x)
 	grid_x = np.insert(grid_x, [grid_x_el_len], padx_end, axis=0)
 	
-	# padd the y axis
+	## padd the y axis
 	grid_y = np.insert(grid_y,[0], pady_begin, axis=1)
 	grid_y_el_len = grid_y[0].size
 	grid_y = np.insert(grid_y, [grid_y_el_len], pady_end, axis=1)
@@ -1687,7 +1698,7 @@ reflectometryOpt.add_argument('-sl', dest='sl_file',
 
 reflectometryOpt.add_argument('-ref', dest='reflectivity',
 					type=str, default=None,
-					help='Set the quantity name to compute reflectivity (see xvg density legend, for install "total")')
+					help='Set the quantity name to compute reflectivity (see xvg density legend, probably "fittotal")')
 
 reflectometryOpt.add_argument('-f', '--file', dest='xvg_file',
 					type=str, required=True,
@@ -1699,7 +1710,7 @@ reflectometryOpt.add_argument('-m','--molecules', dest='molecules',
 
 reflectometryOpt.add_argument('--limits', dest='limits',
 					type=float, nargs=2, default=None,
-					help='Set the limits for the sld (zmin, zmax, in nm)')
+					help='Set the limits for the sld (zmin, zmax, in nm [VERIFY THE UNIT !])')
 
 reflectometryOpt.add_argument('-sub','--sublayers', dest='sublayers',
 					type=str, nargs='*', default=None,
@@ -1711,7 +1722,7 @@ reflectometryOpt.add_argument('-sup','--superlayers', dest='superlayers',
 
 reflectometryOpt.add_argument('-q', dest='qrange',
 					type=float, nargs=3, default=None,
-                    help='Set the Qmin, Qmax and Qgrid size to compute reflectometry curve \n (Qmin and Qmax in nm^-1, Qgrid is the number of calculated Q points, typically 100)')
+                    help='Set the Qmin, Qmax and Qgrid size to compute reflectometry curve \n [VERIFY THE UNIT !] \n (Qmin and Qmax in Ang^-1, Qgrid is the number of calculated Q points, typically 100)')
 
 reflectometryOpt.add_argument('--check', action='store_true',
                     help='Show the sld curve before computing reflectometry')
@@ -1731,6 +1742,9 @@ reflectometryOpt.add_argument('-conv', dest='convolve',
 reflectometryOpt.add_argument('--output', dest='output',
 					type=str, nargs=2, default=None,
                     help='1st param: destination folder \n 2nd param: output plots with selected format [svg, svgz, ps, eps, pdf, png, rgba, raw, emf]')
+
+reflectometryOpt.add_argument('--invbeamdir', action='store_true',
+                    help='Inverse Direction of the arriving Neutron Beam on the sample. \n  DEFAULT : from -Z towards +Z \n with --invbeamdir :  the opposite direction')
 
 #dlambda/lambda = 0.1 for Koutsioubas
 
@@ -3844,7 +3858,7 @@ elif 'reflectometry' in sys.argv:
 	RESOLUTION		= cmdParam.resolution
 	CONVOLVE		= cmdParam.convolve
 	OUTPUT			= cmdParam.output
-	
+	INVBEAMDIR		= cmdParam.invbeamdir
 	CHECK			= cmdParam.check
 	sl_data = {}
 	
@@ -4207,21 +4221,37 @@ elif 'reflectometry' in sys.argv:
 		
 		density_data = density_data.assign(fittotal=new_total.fittotal, z=new_total.z).drop(0,1)
 	
+	
 	with pd.option_context('display.max_rows', None):
 		print(density_data)
-	#print(density_data)
-	#density_data.plot(x='z', y='fittotal')
-	#density_data.plot(x='z', y='total')
-	#plt.show()
-	
+		#print(density_data)
+		#density_data.plot(x='z', y='fittotal')
+		#density_data.plot(x='z', y='total')
+		#plt.show()
+		
 	# get a list of columns
 	cols = list(density_data)
+
 	# move the column to head of list using index, pop and insert
 	cols.insert(0, cols.pop(cols.index('z')))
+	
 	# use ix to reorder
 	density_data = density_data.ix[:, cols]
 	
-	
+	if INVBEAMDIR:
+		print('====================>> Inverting the z direction !')
+		density_data['z'] = -1.0 * density_data['z'] + max(density_data['z'])
+		
+		for col in cols:
+			#print(' col = ' + str(col))
+			#print(density_data[col])
+			#print(' reversed col = ' + str(col))
+			density_data[col]=list(reversed(density_data[col]))
+			#print(density_data[col])
+		
+	with pd.option_context('display.max_rows', None):
+		print(density_data)
+		
 	#density_data.fillna(0.0, inplace=True)
 	header = """
 			@    title ""
