@@ -1514,7 +1514,7 @@ def main(argv=sys.argv):
 						
 						echo "===================== BEGIN JOB $SLURM_JOBID =============================== "
 						
-						JOBINFO="${{SLURM_SUBMIT_DIR}}/${{SLURM_JOB_NAME}}-${{SLURM_JOBID}}.jobinfo"
+						export JOBINFO="${{SLURM_SUBMIT_DIR}}/${{SLURM_JOB_NAME}}-${{SLURM_JOBID}}.jobinfo"
 						printf "Time =  `date`\\n" > ${{JOBINFO}}
 						printf "SLURM submit directory = ${{SLURM_SUBMIT_DIR}}\\n" >> ${{JOBINFO}}
 						printf "TGCC queue = {2}, user {4}, max time = {5} seconds \\n" >> ${{JOBINFO}}
