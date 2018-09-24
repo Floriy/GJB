@@ -1,14 +1,3 @@
-
-#
-#
-# exemple of Claire's usage of reflectometry calculation
-# A VERIFIER !!
-#
-#> python3 /data2/cloison/Calculations/GROMACS/MARTINI/GJB/Analysis.py reflectometry -sl  ./MARTINI_DPPC.sl -ref fittotal -f TEST_ADSORBED_TRIILAYER_DPPC_FROM_FB_ADSORBED_BILAYERS/MD_Analysis/MD_DENSITY/W_SSUPd8t05WUPd12Vap_THRESH80_MONO413_OUTPUT-NVT2_MDADENS.xvg  -m W DPPC  -q 0.001 0.25 100   -conv 2 --limits 0.3 50 --output TEST_ADSORBED_TRIILAYER_DPPC_FROM_FB_ADSORBED_BILAYERS/MD_Analysis/MD_DENSITY svg -sub SiO2 1.5 0.5 Si 100.0 0.5
-#
-#
-
-
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
@@ -26,6 +15,8 @@ from collections import OrderedDict
 import time
 import Utility as ut
 from io import StringIO
+#import threading
+#import multiprocessing
 
 #global variables
 extensions = ['ndx','gro','xtc']
@@ -1286,9 +1277,10 @@ def hist_cmd(data):
 
 
 
-
-
-
+###
+### for parallelization using multiprocessors, needs to add the main,
+### in order to use pools of workers
+### each launching a processus
 
 
 
@@ -1745,6 +1737,11 @@ reflectometryOpt.add_argument('--output', dest='output',
 
 reflectometryOpt.add_argument('--invbeamdir', action='store_true',
                     help='Inverse Direction of the arriving Neutron Beam on the sample. \n  DEFAULT : from -Z towards +Z \n with --invbeamdir :  the opposite direction')
+
+reflectometryOpt.add_argument('-wcont', dest='watercontent',
+					type=float, default=0.0,
+                    help='add water to the SLD in the lipidic part with the given proportion')
+
 
 #dlambda/lambda = 0.1 for Koutsioubas
 
@@ -3640,6 +3637,13 @@ elif 'mda' in sys.argv:
 					if DENSITY is not None:
 						dens_start_time = time.time()
 						
+
+# I want to parallelize this part !
+# example.. I have to write a function to parallelize first !
+# 
+# then use a pool of workers, as in multipleprocessing 
+						
+						
 						frame_density		= []
 						grid_x_array		= []
 						grid_y_array		= []
@@ -3769,8 +3773,8 @@ elif 'mda' in sys.argv:
 						# FAIRE LA MOYENNE AVEC PANDA SUR CHAQUE BIN ! plus incertitude !!!!
 						header = """
 								@    title ""
-								@    xaxis  label "z-coordinate (Ang ? , FB had written nm)"
-								@    yaxis  label ""
+								@    xaxis  label "z-coordinate (nm)"
+								@    yaxis  label "Density (particle/nm^3)"
 								@TYPE xy
 								@ view 0.15, 0.15, 0.75, 0.85
 								@ legend on
@@ -3859,6 +3863,7 @@ elif 'reflectometry' in sys.argv:
 	CONVOLVE		= cmdParam.convolve
 	OUTPUT			= cmdParam.output
 	INVBEAMDIR		= cmdParam.invbeamdir
+	WATERCONTENT	= cmdParam.watercontent
 	CHECK			= cmdParam.check
 	sl_data = {}
 	
@@ -3917,10 +3922,14 @@ elif 'reflectometry' in sys.argv:
 	
 	density_data = pd.DataFrame(density_data)
 	
+	print("sl_data['W']['W'] = "  + str(sl_data['W']['W']))
+	print('WATERCONTENT = ' + str(WATERCONTENT) )
+	
 	for mol in MOLECULES:
 		for atom_name in  sl_data[mol]:
 			# converting to (10^-6 A^-2) with 1e-8
-			density_data[atom_name] = density_data[atom_name]* sl_data[mol][atom_name]*1e-8 
+			density_data[atom_name] = density_data[atom_name]* (sl_data[mol][atom_name]*(1.0-WATERCONTENT)+ (sl_data['W']['W'])*WATERCONTENT)*1e-8 
+			
 	
 	all_atoms = []
 	for mol in MOLECULES:
@@ -3936,7 +3945,7 @@ elif 'reflectometry' in sys.argv:
 	# use ix to reorder
 	density_data = density_data.ix[:, cols]
 
-	if CONVOLVE is not None:
+	if (CONVOLVE is not None) and (CONVOLVE > 0):
 		# Formula from DOI: 10.1021/acs.jpcb.6b05433#
 		p = CONVOLVE
 		
@@ -4239,14 +4248,14 @@ elif 'reflectometry' in sys.argv:
 	density_data = density_data.ix[:, cols]
 	
 	if INVBEAMDIR:
-		print('====================>> Inverting the z direction !')
+		print('====================>> Inverting the neutron beam direction !')
 		density_data['z'] = -1.0 * density_data['z'] + max(density_data['z'])
 		
 		for col in cols:
 			#print(' col = ' + str(col))
 			#print(density_data[col])
 			#print(' reversed col = ' + str(col))
-			density_data[col]=list(reversed(density_data[col]))
+			density_data[col] = list(reversed(density_data[col]))
 			#print(density_data[col])
 		
 	with pd.option_context('display.max_rows', None):
@@ -4472,7 +4481,7 @@ elif 'reflectometry' in sys.argv:
 			Chi			= np.sqrt(Chi_sqrd)
 			
 		
-		if RESOLUTION is not None:
+		if RESOLUTION is not None :
 			# Formula from DOI: 10.1021/acs.jpcb.6b05433#
 			p = RESOLUTION
 			
