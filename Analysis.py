@@ -1780,7 +1780,7 @@ if 'compute' in sys.argv:
 		If you want only a peculiar file set it using -c and not -r and -f
 		"""
 		if FOLDER[-1] == '/': FOLDER = FOLDER[:-1]
-		#print(FOLDER)
+		print("FOLDER = " + FOLDER)
 		
 		for Run in MD_RUN_INPUT:
 			for path in glob.glob(FOLDER +'/**/*'+ Run +'*gro', recursive=True):
@@ -1825,6 +1825,11 @@ if 'compute' in sys.argv:
 					else:
 						filesFound[project_name][job_name].append(filename)
 						
+						
+						
+		print("filesFound = " + str(filesFound))
+						
+						
 		if TRAJECTORY is not None:
 			for Traj in TRAJECTORY:
 				for path in glob.glob(FOLDER +'/**/*'+ Traj +'*xtc', recursive=True):
@@ -1858,14 +1863,16 @@ if 'compute' in sys.argv:
 						else:
 							filesFound[project_name][job_name].append(filename)
 		
-		#print(filesFound)
 		#Get the depth of the dictionnary
 		DEPTH = depth(filesFound)
-		print(filesFound)
-		
+		print("filesFound = " + str(filesFound))
+		print ("DEPTH = " + str(DEPTH))
+
 		#Creates the base directory
 		analysisFolder = FOLDER+'/fatslimAnalysis'
-		#print(analysisFolder)
+		print("analysisFolder =  " + str(analysisFolder))
+		
+		
 		if not os.path.isdir(analysisFolder):
 			os.makedirs(analysisFolder, exist_ok=True)
 		else:
@@ -1934,7 +1941,7 @@ if 'compute' in sys.argv:
 					print(file_names)
 					for file_name in file_names:
 						name = file_name.split('/')[-1]
-						print(name)
+						print("Try to analyse file : " + name)
 						
 						#Copying the files
 						destination = analysisFolder+'/'+job_name+'/'+name
@@ -1956,11 +1963,29 @@ if 'compute' in sys.argv:
 							csv_thickness_name = csv_thickness_dir +'/'+ name.replace('.gro','_THICKNESS.csv')
 							
 						else:
+							print("Analyse trajectory associated to file " + str(name))                           
 							if 'gro' in name:
 								gro_file = file_name
 								
 								#File name for fatslim index
 								hg_membrane_ndx = ndx_dir +'/'+ name.replace('.gro','_HG.ndx')
+								
+								#added by Claire========================
+								xtc_file = gro_file.replace('.gro','.xtc')
+								
+								ndx_file = destination.replace('.gro','.ndx')
+								#put a temp name for plot file name
+								plotname = destination.replace('.gro','tmp')
+								#put a temp name for csv file name
+								csvname = destination.replace('.gro','tmp')
+								#put a temp name for plot file name
+								plotname = xvg_dir +'/'+ name.replace('.gro','tmp')
+								#put a temp name for csv file name
+								csv_apl_name = csv_apl_dir +'/'+ name.replace('.gro','_APL.csv')
+								csv_order_name = csv_order_dir +'/'+ name.replace('.gro','_ORDER.csv')
+								csv_thickness_name = csv_thickness_dir +'/'+ name.replace('.gro','_THICKNESS.csv')
+								#added by Claire========================
+								
 								
 							if 'xtc' in name: 
 								##Copying the .edr file for box dimensions
@@ -1968,6 +1993,10 @@ if 'compute' in sys.argv:
 								#shutil.copyfile(edr_file, destination.replace('.xtc', '.edr'))
 								
 								xtc_file = file_name
+								
+								#added by Claire========================
+								gro_file = xtc_file.replace('.xtc','.gro')
+								#added by Claire========================
 								
 								ndx_file = destination.replace('.xtc','.ndx')
 								#put a temp name for plot file name
@@ -1981,7 +2010,7 @@ if 'compute' in sys.argv:
 								csv_apl_name = csv_apl_dir +'/'+ name.replace('.xtc','_APL.csv')
 								csv_order_name = csv_order_dir +'/'+ name.replace('.xtc','_ORDER.csv')
 								csv_thickness_name = csv_thickness_dir +'/'+ name.replace('.xtc','_THICKNESS.csv')
-								
+						
 					
 					#Making the index
 					makeIndexCmd = "{0} make_ndx -f {1} -o {2} << {3}".format(GMX, gro_file, ndx_file,
@@ -2070,35 +2099,43 @@ if 'compute' in sys.argv:
 							fatslim_order_cmd += "--main-axis {0} {1} {2} ".format(MAIN_AXIS[0], MAIN_AXIS[1], MAIN_AXIS[2])
 						
 						
+						
 					for command in [fatslim_memb_cmd, fatslim_apl_cmd, fatslim_thick_cmd, fatslim_order_cmd]:
 						if command != "":
 							print(command)
 							if TRAJECTORY is not None: 
-								command += "-t {0} ".format(xtc_file)
+								print("Add information on trajectory analysis using : " + str(xtc_file) )
+								command +=  "-t {0} ".format(xtc_file)
 								
 								if BEGIN_FRAME is not None: 
-									command += "--begin-frame {0} ".format(BEGIN_FRAME)
+									command +=  "--begin-frame {0} ".format(BEGIN_FRAME)
 								
 								if END_FRAME is not None: 
 									command += "--end-frame {0} ".format(END_FRAME)
+							print(command)
 								
 							
 							#Add interacting group for def found previously
 							if interacting_group is not None:
 								command += "--interacting-group {0} ".format(interacting_group)
 							
+					print(fatslim_memb_cmd)
+					print(fatslim_apl_cmd)
+					print(fatslim_thick_cmd)
+					print(fatslim_order_cmd)
+					
+					
 						
 					
 					# Adding plot for properties
 					if fatslim_apl_cmd != "":
-						fatslim_apl_cmd	+= "--plot-apl {0} --plot-area {1} ".format(plotname.replace('tmp','_APL.xvg'),
-																				plotname.replace('tmp','_AREA.xvg'))
-						fatslim_apl_cmd	+= "--export-apl-raw {0} ".format(csv_apl_name)
+						fatslim_apl_cmd += "--plot-apl {0} --plot-area {1} ".format(plotname.replace('tmp','_APL.xvg'), plotname.replace('tmp','_AREA.xvg'))
+						fatslim_apl_cmd += "--export-apl-raw {0} ".format(csv_apl_name)
 						
 					
 					if fatslim_thick_cmd != "":
-						fatslim_thick_cmd	+= "--plot-thickness {0} ".format(plotname.replace('tmp','_THICKNESS.xvg'))
-						fatslim_thick_cmd	+= "--export-thickness-raw {0} ".format(csv_thickness_name)
+						fatslim_thick_cmd += "--plot-thickness {0} ".format(plotname.replace('tmp','_THICKNESS.xvg'))
+						fatslim_thick_cmd += "--export-thickness-raw {0} ".format(csv_thickness_name)
 						
 					if fatslim_thick_cmd != "":
 						fatslim_order_cmd += "--plot-order {0} ".format(plotname.replace('tmp','_ORDER.xvg'))
@@ -2389,7 +2426,7 @@ elif 'analyse' in sys.argv:
 		for prop in csv_found[job_name]:
 			frames = [pd.read_csv(csv) for csv in csv_found[job_name][prop][BEGIN:END:STRIDE]]
 			data[job_name][prop] = frames
-	print( "--- gathering data done in {1:f} seconds ---".format(job_name ,time.time() - start_time) )
+		print( "--- gathering data done in {1:f} seconds ---".format(job_name ,time.time() - start_time) )
 	
 	if SCATTER_SWITCH:
 		try:
