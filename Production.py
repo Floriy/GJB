@@ -14,7 +14,7 @@ import glob
 import Utility as ut
 import Job
 
-LipidsList = ['DSPC','DPPC','DLPC']
+LipidsList = ['DSPC','DPPC','DLPC', 'S1PC']
 
 SolventsList = ['W','OCO','PW']
 
@@ -749,6 +749,7 @@ def main(argv=sys.argv):
 							
 							
 							./run_{8}.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_{8}.out
+							du -hs ./*
 							ccc_msub {9}.ccc_msub
 							
 							echo "===================== END  JOB $SLURM_JOBID =============================== "
@@ -784,6 +785,7 @@ def main(argv=sys.argv):
 							
 							./run_{8}.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_{8}.out
 							
+							du -hs ./*
 							rsync -r ./* ${{OUTPUTDIR}}/.
 							rm -rf ${{MYTMPDIR}}
 							cd ${{INITIALDIR}}
@@ -1303,7 +1305,7 @@ def main(argv=sys.argv):
 				end_of_run = """
 							echo "End of run for {1}"
 							cp -r /scratch/{2}/gromacs/{0}/{1} ${{LOCALDIR}}/{1}_OUTPUT
-							rm -r /scratch/{2}/gromacs/{0}
+							rm -r /scratch/{2}/gromacs/{0}/{1}
 							""".format(project_name, name, PBS['username'])
 				pbs_name = "{0}_{1}_{2}".format(software_version, project_name, name)
 				pbs_file_content = """
@@ -1384,9 +1386,11 @@ def main(argv=sys.argv):
 							mkdir -p ${{MYTMPDIR}}
 							mkdir -p ${{OUTPUTDIR}}
 							
+							du -hs ./*
 							rsync ${{SLURM_SUBMIT_DIR}}/* ${{MYTMPDIR}} 
 							cd ${{MYTMPDIR}} 
 							./run.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}.out
+							du -hs ./*
 							rsync -r ./* ${{OUTPUTDIR}}/.
 							cd ${{SLURM_SUBMIT_DIR}}
 							rm -rf ${{MYTMPDIR}}
@@ -1427,6 +1431,7 @@ def main(argv=sys.argv):
 						mkdir -p ${{MYTMPDIR}}
 						mkdir -p ${{OUTPUTDIR}}
 						
+						du -hs ./*
 						rsync ${{SLURM_SUBMIT_DIR}}/* ${{MYTMPDIR}} 
 						cd ${{MYTMPDIR}} 
 						ccc_msub  {8}.ccc_msub
@@ -1529,6 +1534,7 @@ def main(argv=sys.argv):
 						
 						mkdir -p ${{MYTMPDIR}}
 						
+						du -hs ./*
 						rsync ${{SLURM_SUBMIT_DIR}}/* ${{MYTMPDIR}} 
 						cd ${{MYTMPDIR}} 
 						./create.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_create.out

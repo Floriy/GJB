@@ -55,6 +55,25 @@ DSPC_PDB = """
 		ATOM     14  C5B DSPCX   2     108.540  89.120  51.500  0.00  0.00
 		END
 		"""
+		
+S1PC_PDB = """
+		CRYST1  125.000  125.000  100.000  90.00  90.00  90.00 P 1           1
+		ATOM      1  NC3 S1PCX   2     105.980  90.400  72.500  0.00  0.00
+		ATOM      2  PO4 S1PCX   2     105.630  90.710  69.500  0.00  0.00
+		ATOM      3  GL1 S1PCX   2     105.780  90.260  66.500  0.00  0.00
+		ATOM      4  GL2 S1PCX   2     107.160  90.030  66.500  0.00  0.00
+		ATOM      5  C1A S1PCX   2     106.230  90.050  63.500  0.00  0.00
+		ATOM      6  C2A S1PCX   2     105.920  90.250  60.500  0.00  0.00
+		ATOM      7  C3A S1PCX   2     106.390  90.500  57.500  0.00  0.00
+		ATOM      8  C4A S1PCX   2     106.320  90.710  54.500  0.00  0.00
+		ATOM      9  C5A S1PCX   2     106.050  90.770  51.500  0.00  0.00
+		ATOM     10  C1B S1PCX   2     108.660  89.710  63.500  0.00  0.00
+		ATOM     11  C2B S1PCX   2     108.450  89.500  60.500  0.00  0.00
+		ATOM     12  C3B S1PCX   2     108.130  88.940  57.500  0.00  0.00
+		ATOM     13  C4B S1PCX   2     108.740  88.990  54.500  0.00  0.00
+		ATOM     14  C5B S1PCX   2     108.540  89.120  51.500  0.00  0.00
+		END
+		"""
 
 DPPC_PDB = """
 		TITLE     DPPC sim
@@ -104,6 +123,7 @@ pdb_file_list = {'W':{'name':'water_single.pdb','content': W_PDB},
 			   'OCO':{'name':'octanol_single.pdb','content': OCO_PDB},
 			   'PW':{'name':'polwater_single.pdb','content': PW_PDB},
 			   'DSPC':{ 'name':'dspc_single.pdb', 'content':DSPC_PDB},
+			   'S1PC':{ 'name':'s1pc_single.pdb', 'content':S1PC_PDB},
 			   'DPPC':{ 'name':'dppc_single.pdb', 'content':DPPC_PDB},
 			   'DLPC':{ 'name':'dlpc_single.pdb', 'content':DPPC_PDB},
 			   'SU':{ 'name':'su_single.pdb', 'content':SU_PDB}}
@@ -259,7 +279,7 @@ class BaseProject(object):
 		except RuntimeError as e:
 			print(e)
 			
-		self.lipid_list				= ['DSPC','DPPC','DLPC']
+		self.lipid_list				= ['DSPC','DPPC','DLPC','S1PC']
 		self.solvent_list			= ['W','OCO','PW']
 		self.substrate_list			= ['SSUP','SSUN','SSna','SSn0']
 		
@@ -950,7 +970,7 @@ class BaseProject(object):
 			self.tmt = None
 			self.dz = None
 			
-			if self.lipid_type == 'DSPC':
+			if self.lipid_type in ('DSPC','S1PC'):
 				self.tmt = 30.0
 				self.dz = 7.0
 			elif self.lipid_type in ('DPPC','DLPC'):
@@ -1999,7 +2019,7 @@ class Membrane(BaseProject):
 		self.tmt = None
 		self.dz = None
 		
-		if self.lipid_type == 'DSPC':
+		if self.lipid_type in ('DSPC','S1PC'):
 			self.tmt = 30.0
 			self.dz = 10.0
 		elif self.lipid_type in ('DPPC','DLPC'):
