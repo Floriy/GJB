@@ -799,8 +799,11 @@ class BaseProject(object):
 							continue
 						
 						#Look at the z below the thickness
+						x = float(line.split()[-6])
+						y = float(line.split()[-5])
 						z = float(line.split()[-4])
-						if z < (float(self.su['Thickness']) / 10.):
+						
+						if (z < (float(self.su['Thickness']) / 10.) ) and (x < dimensions[0]) and (y < dimensions[0]) :
 							su_atoms += line
 							self.nb_su += 1
 				
@@ -1981,15 +1984,15 @@ class BaseProject(object):
 							2 3 	1 	0.47 	1250
 							3 4 	1 	0.37 	1250
 							3 5 	1 	0.47 	1250
-							5 6 	1 	0.43 	1250
-							6 7 	1 	0.43 	1250
-							7 8 	1 	0.43 	1250
-							8 9 	1 	0.43 	1250
+							5 6 	1 	0.436 	1250
+							6 7 	1 	0.436 	1250
+							7 8 	1 	0.436 	1250
+							8 9 	1 	0.436 	1250
 							4 10 	1 	0.47 	1250
-							10 11 1 	0.43 	1250
-							11 12 1 	0.43 	1250
-							12 13 1 	0.43 	1250
-							13 14 1 	0.43 	1250
+							10 11 1 	0.436 	1250
+							11 12 1 	0.436 	1250
+							12 13 1 	0.436 	1250
+							13 14 1 	0.436 	1250
 							
 							[angles]
 							; i j k 	funct 	angle 	force.c.
