@@ -103,7 +103,7 @@ def main(argv=sys.argv):
 				#Step of the run : EM, NVE, NVT, NPT ...
 				stepNumber = 0
 				Jobs.update( {jobNumber: {row[0].strip(' '): row[1].strip(' '), row[2].strip(' '): int(row[3]), row[4].strip(' '):row[5].strip(' ')} } )
-				continue
+				#continue
 			
 			# Before reading information on each job the program stores the path to the Softwares and gromacs default files from Parameters.csv
 			if jobNumber < 1 : 
@@ -602,9 +602,10 @@ def main(argv=sys.argv):
 						# OR AT LEAST VERIFY THAT THE TWO VERSION INFORMATION
 						# IN {4} and TGCCinfo.csv ARE CONSISTENT  ?
 						
+						module switch dfldatadir/{2}
 						module load {3}
 						
-						""".format(project_name, name, TGCC['username'], TGCC['GMXversion'], parameter_file)
+						""".format(project_name, name, TGCC['group'], TGCC['GMXversion'], parameter_file)
 						
 			prefix_gromacs_grompp_prod = "gmx_mpi "
 			prefix_gromacs_mdrun_prod = "ccc_mprun gmx_mpi "
@@ -641,9 +642,11 @@ def main(argv=sys.argv):
 						# OR AT LEAST VERIFY THAT THE TWO VERSION INFORMATION
 						# IN {4} and TGCCinfo.csv ARE CONSISTENT  ?
 						
+						module switch dfldatadir/{2}
+						
 						module load {3}
 						
-						""".format(project_name, name, TGCC['username'], TGCC['GMXversion'], parameter_file)
+						""".format(project_name, name, TGCC['group'], TGCC['GMXversion'], parameter_file)
 						
 			prefix_gromacs_grompp_create = "gmx_mpi "
 			prefix_gromacs_mdrun_create = "ccc_mprun gmx_mpi "
@@ -739,6 +742,8 @@ def main(argv=sys.argv):
 							
 							echo "===================== BEGIN JOB $SLURM_JOBID =============================== "
 							
+							module switch dfldatadir/{4}
+							
 							printf "Time =  `date`\\n" >> ${{JOBINFO}}
 							printf "SLURM submit directory = ${{SLURM_SUBMIT_DIR}}\\n" >> ${{JOBINFO}}
 							printf "TGCC queue = {2}, user {4}, max time = {5} seconds \\n" >> ${{JOBINFO}}
@@ -746,7 +751,6 @@ def main(argv=sys.argv):
 							printf "SLURM job name = ${{SLURM_JOB_NAME}} \\n" >> ${{JOBINFO}}
 							printf "This job will run on {3} processors\\n" >> ${{JOBINFO}}
 							printf "List of nodes : ${{SLURM_NODEID}} \\n\\n" >> ${{JOBINFO}}
-							
 							
 							./run_{8}.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_{8}.out
 							du -hs ./*
@@ -781,6 +785,8 @@ def main(argv=sys.argv):
 							printf "SLURM job name = ${{SLURM_JOB_NAME}} \\n" >> ${{JOBINFO}}
 							printf "This job will run on {3} processors\\n" >> ${{JOBINFO}}
 							printf "List of nodes : ${{SLURM_NODEID}} \\n\\n" >> ${{JOBINFO}}
+							
+							module switch dfldatadir/{4}
 							
 							
 							./run_{8}.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_{8}.out
@@ -1380,7 +1386,10 @@ def main(argv=sys.argv):
 							printf "List of nodes : ${{SLURM_NODEID}} \\n\\n" >> ${{JOBINFO}}
 							
 							
-							export MYTMPDIR="${{SCRATCHDIR}}/JOB_${{SLURM_JOBID}}"
+							module switch dfldatadir/{4}
+							
+							
+							export MYTMPDIR="${{CCCSCRATCHDIR}}/JOB_${{SLURM_JOBID}}"
 							export OUTPUTDIR="${{SLURM_SUBMIT_DIR}}/JOB_${{SLURM_JOBID}}_OUTPUT"
 							
 							mkdir -p ${{MYTMPDIR}}
@@ -1423,8 +1432,9 @@ def main(argv=sys.argv):
 						printf "This job will run on {3} processors\\n" >> ${{JOBINFO}}
 						printf "List of nodes : ${{SLURM_NODEID}} \\n\\n" >> ${{JOBINFO}}
 						
+						module switch dfldatadir/{4}
 						
-						export MYTMPDIR="${{SCRATCHDIR}}/JOB_${{SLURM_JOBID}}"
+						export MYTMPDIR="${{CCCSCRATCHDIR}}/JOB_${{SLURM_JOBID}}"
 						export OUTPUTDIR="${{SLURM_SUBMIT_DIR}}/JOB_${{SLURM_JOBID}}_OUTPUT"
 						export INITIALDIR="${{SLURM_SUBMIT_DIR}}"
 						
@@ -1528,6 +1538,7 @@ def main(argv=sys.argv):
 						printf "This job will run on {3} processors\\n" >> ${{JOBINFO}}
 						printf "List of nodes : ${{SLURM_NODEID}} \\n\\n" >> ${{JOBINFO}}
 						
+						module switch dfldatadir/{4}
 						
 						export MYTMPDIR="${{SCRATCHDIR}}/JOB_${{SLURM_JOBID}}"
 						export OUTPUTDIR="${{SLURM_SUBMIT_DIR}}"
