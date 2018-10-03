@@ -11,7 +11,7 @@ import subprocess as sub
 import traceback
 import math, cmath
 from collections import OrderedDict
-#import gc #garbage collector
+import gc #garbage collector
 import time
 import Utility as ut
 from io import StringIO
@@ -309,7 +309,7 @@ def plot_grid(grid, prop, name, bdim):
 	plt.savefig(name)
 	plt.close()
 	
-def plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_time, ending_time):
+def plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_time, ending_time,gel):
 	grid_x = mean_list[0]
 	grid_y = mean_list[1]
 	grid_dict = mean_list[2]
@@ -331,13 +331,21 @@ def plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_t
 		colormap = mcm.viridis
 	if prop == 'APL':
 		plot_title = r"$\mathsf{\frac{Area}{lipid} for "
-		bounds = np.linspace(0.60, 0.70, 5)
-		levels = np.linspace(0.60, 0.70, 10)
+		if ( gel ):
+			bounds = np.linspace(0.40, 0.50, 5)
+			levels = np.linspace(0.40, 0.50, 10)
+		else:           
+			bounds = np.linspace(0.60, 0.70, 5)
+			levels = np.linspace(0.60, 0.70, 10)
 		colormap = mcm.plasma
 	if prop == 'THICKNESS':
 		plot_title = r"$\mathsf{Thickness for "
-		bounds = np.linspace(3.0, 5.0, 6)
-		levels = np.linspace(3.0, 5.0, 20)
+		if ( gel ):                       
+			bounds = np.linspace(4.0, 6.0, 10)
+			levels = np.linspace(4.0, 6.0, 20)
+		else:           
+			bounds = np.linspace(3.0, 5.0, 10)
+			levels = np.linspace(3.0, 5.0, 20)
 		colormap = mcm.BuPu_r
 	#figure for plots
 	fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(15,4.9), dpi=96, gridspec_kw = {'width_ratios':[5,5,5,1]})
@@ -429,7 +437,7 @@ def plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_t
 	plt.close()
 
 def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_name, file_name,
-									   beginning_time, ending_time, pad_x, pad_y):
+									   beginning_time, ending_time, pad_x, pad_y,gel):
 	
 	
 	
@@ -680,15 +688,24 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 	if prop == "ORDER":
 		y_name = r"$\mathsf{P_2}$"
 		ax.set_ylabel(y_name,rotation=0)
-		ax.set_yticks([-0.5, 0.25, 0.0, 0.5,0.75, 1.0])
+		if (gel):
+			ax.set_yticks([-0.5, 0.25, 0.0, 0.5,0.75, 1.0])
+		else:           
+			ax.set_yticks([-0.5, 0.25, 0.0, 0.5,0.75, 1.0])
 	elif prop == "APL":
 		y_name = r"$\mathsf{ A_L\ (\SI{}{\nano\metre^2}) } $"
 		ax.set_ylabel(y_name)
-		ax.set_yticks([0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68])
+		if (gel):
+			ax.set_yticks([0.45, 0.46, 0.47, 0.48, 0.49, 0.50, 0.51, 0.52, 0.53, 0.54, 0.55, 0.56, 0.57, 0.58, 0.59, 0.60])
+		else:           
+			ax.set_yticks([0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68])
 	elif prop == "THICKNESS":
 		y_name = r"$\mathsf{T_L (\SI{}{\nano\meter})}$"
 		ax.set_ylabel(y_name)
-		ax.set_yticks([3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5])
+		if (gel):
+			ax.set_yticks([3.75, 4.00, 4.25, 4.50, 4.75, 5.00, 5.25, 5.50, 5.75])
+		else:           
+			ax.set_yticks([3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5])
 		
 	ax.grid('on')
 	#ax.legend()
@@ -1060,6 +1077,16 @@ def map_cmd(data):
 		
 		for prop in data[job_name]:
 			
+			gel = None
+			if ( ('295K' in job_name) or ('280K' in job_name)):
+				gel = True
+				print("====> 295K/280K found in job_name (= " + job_name  + ") : ASSUME GEL PHASE ! \n") 
+				print("gel = " + str(gel))
+			else:
+				gel = False
+				print("====> 295K/280K NOT found in job_name (= " + job_name  + ") : ASSUME LIQUID PHASE ! \n") 
+				print("gel = " + str(gel))               
+                
 			#list containing grid data
 			grid_list = []
 			grid_folder = "{0}/{1}/GRID_data/{2}".format(analysis_folder, job_name, prop)
@@ -1175,13 +1202,13 @@ def map_cmd(data):
 						'upper leaflet': {'grid':grid_upper_leaflet_std, 'plot':1}}
 						, grid_bilayer_std]
 			"""
-			plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_time, ending_time)
+			plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_time, ending_time,gel)
 			
 			if RADIAL is not None:
 				graph_name = "{0}/{1}_radial.png".format(grid_graph_folder, prop)
 				file_name = "{0}/{1}.rad".format(grid_folder, prop)
 				compute_mean_radial_distribution2d(mean_list, RADIAL, prop, graph_name, file_name,
-													beginning_time, ending_time, pad_x, pad_y)
+													beginning_time, ending_time, pad_x, pad_y, gel)
 				
 		print( "--- Maps for {0} done in {1:f} seconds ---".format(job_name ,time.time() - start_time) )
 		gc.collect()
@@ -1218,8 +1245,8 @@ def hist_cmd(data):
 		
 		box_dim = box_dim[BEGIN:END+1:STRIDE]
 		
-		beginning_time = int(box_dim[0][0])
-		ending_time = int(box_dim[-1][0])
+		beginning_time = int(float(box_dim[0][0]))
+		ending_time = int(float(box_dim[-1][0]))
 		
 		for prop in data[job_name]:
 			#list containing grid data
@@ -3726,7 +3753,7 @@ elif 'mda' in sys.argv:
 								atom_names.append(atom_type)
 								selection = None
 								if RADIUS is not None and atom_type != 'DEF':
-									selection	= coord.select_atoms("name {0} and not (cyzone {1} {2} -{2} (name DEF))".format(atom_type, RADIUS, (box_zz-1.0)/2.0), update=True)
+									selection	= coord.select_atoms("name {0} and not (cyzone {1} {2} -{2} (name DEF))".format(atom_type, RADIUS, (box_zz-0.)/2.0), update=True)
 									#(box_zz-0.5)/2.0, (box_zz)/2.0))
 									
 								else:
