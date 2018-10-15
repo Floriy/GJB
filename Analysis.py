@@ -3738,8 +3738,22 @@ elif 'mda' in sys.argv:
 							points = np.empty(shape=(1,3))
 							values = []
 							
-							if RADIUS is not None:
-								slice_volume = (box_xx * box_yy - math.pi*RADIUS**2) * DZ
+							if ((RADIUS is not None) and (RADIUS > 0.0)):
+								if  box_xx == box_yy :
+									lo2 = box_xx/2.0
+									los2 = box_xx/math.sqrt(2.0)
+									
+									if(RADIUS < lo2):
+										slice_volume = (box_xx * box_yy - math.pi*RADIUS**2) * DZ
+									else:
+										if (RADIUS < los2):
+											slice_volume = (lo2*(lo2 - math.sqrt(RADIUS**2-lo2**2)) - ((RADIUS**2)/2.0)*( math.pi/2.0-2.0*math.acos(lo2/RADIUS))) * DZ * 4.0
+											#print("Volume to analyse is =" + str(slice_volume) )
+										else:
+											raise ValueError("'RADIUS' can only be smaller than Lxx/sqrt(2) = " + str(los2)  + ", to have a volume to analyze ")
+								else :
+									print("ERROR: RADIUS option not implemented if Lxx != Lyy") 
+									raise ValueError("RADIUS option not implemented if Lxx != Lyy")
 								#DEF = coord.select_atoms("name DEF")
 								#DEF_COG = DEF.center_of_geometry()
 								#z_DEF = DEF_COG[2]

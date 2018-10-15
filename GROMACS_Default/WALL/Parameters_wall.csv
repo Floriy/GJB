@@ -1,9 +1,36 @@
-NONE,
-,
-
-
-# Bottom wall,density 0.00001,Vapor for top wall,
-
+NONE,,,,
+,,,,
+#Top WALL N0 d1,,,,
+,,,,
+P4d50-N0d1_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUP N0,9-3,50 1
+P4d16-N0d1_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUP N0,9-3,16 1
+P4d14-N0d1_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUP N0,9-3,14 1
+P4d12-N0d1_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUP N0,9-3,12 1
+P4d10-N0d1_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUP N0,9-3,10 1
+P4d8-N0d1_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUP N0,9-3,8 1
+,,,,
+#Top WALL C4 d1,,,,
+,,,,
+P4d16-C4d1_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUP C4,9-3,16 1
+P4d14-C4d1_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUP C4,9-3,14 1
+P4d12-C4d1_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUP C4,9-3,12 1
+P4d10-C4d1_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUP C4,9-3,10 1
+P4d8-C4d1_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUP C4,9-3,8 1
+,,,,
+,,,,
+# Bottom wall,density 0.00001,Vapor for top wall,,
+,,,,
 Ndadem5-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,WUN P4,9-3,0.00001 0.1
 P4dem5-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
@@ -12,9 +39,9 @@ Nadem5-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wna P4,9-3,0.00001  0.1
 N0dem5-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wn0 P4,9-3,0.00001  0.1
-
-# Bottom wall,density 8,
-
+,,,,
+# Bottom wall,density 8,,,
+,,,,
 Nda-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,WUN P4,9-3,8 8
 P4-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
@@ -23,20 +50,34 @@ Na-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wna P4,9-3,8 8
 N0-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wn0 P4,9-3,8 8
-
-#Vapor for top wall,
-
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+,,,,
+#Vapor for top wall and density 8 for top wall,,,,
+,,,,
 Nda-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
-,2,WUN P4,9-3,8 0.01
+,2,WUN P4,9-3,8 0.1
 P4-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,WUP P4,9-3,8 0.1
 Na-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
-,2,Wna P4,9-3,8 0.01
+,2,Wna P4,9-3,8 0.1
 N0-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wn0 P4,9-3,8 0.1
-
-# Bottom wall, density 16,
-
+,,,,
+# Bottom wall, density 16,,,
+,,,,
 Ndad16-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,WUN P4,9-3,16 8
 P4d16-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
@@ -45,9 +86,9 @@ Nad16-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wna P4,9-3,16 8
 N0d16-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wn0 P4,9-3,16 8
-
-# Bottom wall, density 50,
-
+,,,,
+# Bottom wall, density 50,,,
+,,,,
 Ndad50-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,WUN P4,9-3,50 8
 P4d50-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
@@ -56,20 +97,31 @@ Nad50-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wna P4,9-3,50 8
 N0d50-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wn0 P4,9-3,50 8
-
-# Bottom wall, density 25,
-
+,,,,
+# Bottom wall, density 32,,,
+,,,,
 Ndad32-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
-,2,WUN P4,9-3,25 8
+,2,WUN P4,9-3,32 8
 P4d32-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
-,2,WUP P4,9-3,25 8
+,2,WUP P4,9-3,32 8
 Nad32-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
-,2,Wna P4,9-3,25 8
+,2,Wna P4,9-3,32 8
 N0d32-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
-,2,Wn0 P4,9-3,25 8
-
-# Bottom wall, density 10,
-
+,2,Wn0 P4,9-3,32 8
+,,,,
+# Bottom wall, density 20,,,
+,,,,
+Ndad20-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUN P4,9-3,20 8
+P4d20-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUP P4,9-3,20 8
+Nad20-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,Wna P4,9-3,20 8
+N0d20-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,Wn0 P4,9-3,20 8
+,,,,
+# Bottom wall, density 10,,,
+,,,,
 Ndad10-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,WUN P4,9-3,10 8
 P4d10-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
@@ -78,9 +130,9 @@ Nad10-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wna P4,9-3,10 8
 N0d10-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wn0 P4,9-3,10 8
-
-# Bottom wall, density 12,
-
+,,,,
+# Bottom wall, density 12,,,
+,,,,
 Ndad12-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,WUN P4,9-3,12 8
 P4d12-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
@@ -89,11 +141,23 @@ Nad12-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wna P4,9-3,12 8
 N0d12-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wn0 P4,9-3,12 8
-
+,,,,
+,,,,
+#Vapor for top wall and density 12 for top wall,,,,
+,,,,
+Ndad12-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUN P4,9-3,12 0.01
 P4d12-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
-,2,WUP P4,9-3,12 0.1
-# Bottom wall, density 14,
-
+,2,WUP P4,9-3,12 0.01
+Nad12-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,Wna P4,9-3,12 0.01
+N0d12-Vap_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,Wn0 P4,9-3,12 0.01
+,,,,
+,,,,
+,,,,
+# Bottom wall, density 14,,,
+,,,,
 Ndad14-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,WUN P4,9-3,14 8
 P4d14-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
@@ -102,9 +166,9 @@ Nad14-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wna P4,9-3,14 8
 N0d14-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wn0 P4,9-3,14 8
-
-# Bottom wall,density 9,
-
+,,,,
+# Bottom wall,density 9,,,
+,,,,
 Ndad9-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,WUN P4,9-3,9 8
 P4d9-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
@@ -113,7 +177,41 @@ Nad9-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wna P4,9-3,9 8
 N0d9-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,Wn0 P4,9-3,9 8
-
+,,,,
+# Bottom wall,density 8,,,
+,,,,
+Ndad8-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUN P4,9-3,8 8
+P4d8-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUP P4,9-3,8 8
+Nad8-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,Wna P4,9-3,8 8
+N0d8-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,Wn0 P4,9-3,8 8
+,,,,
+,,,,
+# Bottom wall,density 1,,,
+,,,,
+Ndad1-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUN P4,9-3,1 8
+P4d1-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUP P4,9-3,1 8
+Nad1-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,Wna P4,9-3,1 8
+N0d1-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,Wn0 P4,9-3,1 8
+,,,,
+# Bottom wall,density 5,,,
+,,,,
+Ndad5-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUN P4,9-3,5 8
+P4d5-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,WUP P4,9-3,5 8
+Nad5-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,Wna P4,9-3,5 8
+N0d5-P4_WALL,nwall,wall-atomtype,wall-type,wall-density
+,2,Wn0 P4,9-3,5 8
+,,,,
+,,,,
 P4d12-C1d8_WALL,nwall,wall-atomtype,wall-type,wall-density
 ,2,WUP C1,9-3,12 8
-
