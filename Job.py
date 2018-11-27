@@ -2530,7 +2530,7 @@ class Membrane(BaseProject):
 			
 		elif self.defo['Height'] == 'follow':
 			#Set the Defo height from the bottom of the bilayer to its top
-			length_defo_bi = 2*self.tmt + 2.0*self.dz
+			length_defo_bi = 2*self.tmt + 4.0*self.dz
 			
 		
 		defo_per_layer = int(self.defo['DpL']) + 1
