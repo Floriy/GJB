@@ -74,7 +74,44 @@ S1PC_PDB = """
 		ATOM     14  C5B S1PCX   2     108.540  89.120  51.500  0.00  0.00
 		END
 		"""
-
+		
+S2PC_PDB = """
+		CRYST1  125.000  125.000  100.000  90.00  90.00  90.00 P 1           1
+		ATOM      1  NC3 S2PCX   2     105.980  90.400  72.500  0.00  0.00
+		ATOM      2  PO4 S2PCX   2     105.630  90.710  69.500  0.00  0.00
+		ATOM      3  GL1 S2PCX   2     105.780  90.260  66.500  0.00  0.00
+		ATOM      4  GL2 S2PCX   2     107.160  90.030  66.500  0.00  0.00
+		ATOM      5  C1A S2PCX   2     106.230  90.050  63.500  0.00  0.00
+		ATOM      6  C2A S2PCX   2     105.920  90.250  60.500  0.00  0.00
+		ATOM      7  C3A S2PCX   2     106.390  90.500  57.500  0.00  0.00
+		ATOM      8  C4A S2PCX   2     106.320  90.710  54.500  0.00  0.00
+		ATOM      9  C5A S2PCX   2     106.050  90.770  51.500  0.00  0.00
+		ATOM     10  C1B S2PCX   2     108.660  89.710  63.500  0.00  0.00
+		ATOM     11  C2B S2PCX   2     108.450  89.500  60.500  0.00  0.00
+		ATOM     12  C3B S2PCX   2     108.130  88.940  57.500  0.00  0.00
+		ATOM     13  C4B S2PCX   2     108.740  88.990  54.500  0.00  0.00
+		ATOM     14  C5B S2PCX   2     108.540  89.120  51.500  0.00  0.00
+		END
+		"""
+		
+D1PC_PDB = """
+		CRYST1  125.000  125.000  100.000  90.00  90.00  90.00 P 1           1
+		ATOM      1  NC3 D1PCX   2     105.980  90.400  72.500  0.00  0.00
+		ATOM      2  PO4 D1PCX   2     105.630  90.710  69.500  0.00  0.00
+		ATOM      3  GL1 D1PCX   2     105.780  90.260  66.500  0.00  0.00
+		ATOM      4  GL2 D1PCX   2     107.160  90.030  66.500  0.00  0.00
+		ATOM      5  C1A D1PCX   2     106.230  90.050  63.500  0.00  0.00
+		ATOM      6  C2A D1PCX   2     105.920  90.250  60.500  0.00  0.00
+		ATOM      7  C3A D1PCX   2     106.390  90.500  57.500  0.00  0.00
+		ATOM      8  C4A D1PCX   2     106.320  90.710  54.500  0.00  0.00
+		ATOM      9  C5A D1PCX   2     106.050  90.770  52.500  0.00  0.00
+		ATOM     10  C1B D1PCX   2     108.660  89.710  63.500  0.00  0.00
+		ATOM     11  C2B D1PCX   2     108.450  89.500  60.500  0.00  0.00
+		ATOM     12  C3B D1PCX   2     108.130  88.940  57.500  0.00  0.00
+		ATOM     13  C4B D1PCX   2     108.740  88.990  54.500  0.00  0.00
+		ATOM     14  C5B D1PCX   2     108.540  89.120  52.500  0.00  0.00
+		END
+		"""
 DPPC_PDB = """
 		TITLE     DPPC sim
 		REMARK    THIS IS A SIMULATION BOX
@@ -124,6 +161,8 @@ pdb_file_list = {'W':{'name':'water_single.pdb','content': W_PDB},
 			   'PW':{'name':'polwater_single.pdb','content': PW_PDB},
 			   'DSPC':{ 'name':'dspc_single.pdb', 'content':DSPC_PDB},
 			   'S1PC':{ 'name':'s1pc_single.pdb', 'content':S1PC_PDB},
+			   'S2PC':{ 'name':'s2pc_single.pdb', 'content':S2PC_PDB},   
+			   'D1PC':{ 'name':'d1pc_single.pdb', 'content':D1PC_PDB},
 			   'DPPC':{ 'name':'dppc_single.pdb', 'content':DPPC_PDB},
 			   'DLPC':{ 'name':'dlpc_single.pdb', 'content':DPPC_PDB},
 			   'SU':{ 'name':'su_single.pdb', 'content':SU_PDB}}
@@ -279,7 +318,7 @@ class BaseProject(object):
 		except RuntimeError as e:
 			print(e)
 			
-		self.lipid_list				= ['DSPC','DPPC','DLPC','S1PC']
+		self.lipid_list				= ['DSPC','DPPC','DLPC','S1PC','S2PC','D1PC']
 		self.solvent_list			= ['W','OCO','PW']
 		self.substrate_list			= ['SSUP','SSUN','SSna','SSn0']
 		
@@ -973,7 +1012,7 @@ class BaseProject(object):
 			self.tmt = None
 			self.dz = None
 			
-			if self.lipid_type in ('DSPC','S1PC'):
+			if self.lipid_type in ('DSPC','S1PC','S2PC','D1PC'):
 				self.tmt = 30.0
 				self.dz = 7.0
 			elif self.lipid_type in ('DPPC','DLPC'):
@@ -1943,6 +1982,73 @@ class BaseProject(object):
 		
 		if self.lipid_types:
 			for lipid in self.lipid_types:
+				if lipid == 'D1PC':
+					topology += ut.RemoveUnwantedIndent("""
+						
+						#include "D1PC.itp"
+						
+						""")
+						
+					with open('D1PC.itp','a') as d1pc_itp_file:
+						d1pc_itp = ut.RemoveUnwantedIndent("""
+							;;;;;; DISTEAROYL PHOSPHATIDYLCHOLINE MODIFIED IN TAIL INTERACTIONS
+							;;;;;; the last bead of each tail is changed to SC1 (small C1)
+							;
+							; in general models PCs with saturated tail lengths C18-21
+							
+							[moleculetype]
+							; molname 	nrexcl
+							 D1PC 		1
+							
+							[atoms]
+							; id 	type 	resnr 	residu 	atom 	cgnr 	charge
+							1 	Q0  	1 	D1PC 	NC3 	1 	1.0 
+							2 	Qa  	1 	D1PC  	PO4 	2 	-1.0 
+							3 	Na  	1 	D1PC 	GL1 	3 	0 
+							4 	Na  	1 	D1PC 	GL2 	4 	0 
+							5 	C1  	1 	D1PC 	C1A 	5 	0 
+							6 	C1  	1 	D1PC 	C2A 	6 	0 
+							7 	C1   	1 	D1PC 	C3A 	7 	0 
+							8 	C1   	1 	D1PC 	C4A 	8 	0 
+							9 	SC1  	1 	D1PC 	C5A 	9 	0 
+							10 	C1    	1 	D1PC 	C1B 	10 	0 
+							11 	C1   	1 	D1PC 	C2B 	11 	0 
+							12 	C1   	1 	D1PC 	C3B 	12 	0	 
+							13 	C1   	1 	D1PC 	C4B 	13 	0 
+							14 	SC1  	1 	D1PC 	C5B 	14 	0 
+							
+							[bonds]
+							; i j 	funct 	length 	force.c.
+							1 2 	1 	0.47 	1250
+							2 3 	1 	0.47 	1250
+							3 4 	1 	0.37 	1250
+							3 5 	1 	0.47 	1250
+							5 6 	1 	0.47 	1250
+							6 7 	1 	0.47 	1250
+							7 8 	1 	0.47 	1250
+							8 9 	1 	0.25 	1250
+							4 10 	1 	0.47 	1250
+							10 11 1 	0.47 	1250
+							11 12 1 	0.47 	1250
+							12 13 1 	0.47 	1250
+							13 14 1 	0.25 	1250
+							
+							[angles]
+							; i j k 	funct 	angle 	force.c.
+							2 3 4 	2 	120.0 	25.0 
+							2 3 5 	2 	180.0 	25.0 
+							3 5 6 	2 	180.0 	25.0 
+							5 6 7 	2 	180.0 	25.0 
+							6 7 8 	2 	180.0 	25.0 
+							7 8 9 	2 	180.0 	25.0 
+							4 10 11 	2 	180.0 	25.0 
+							10 11 12 	2 	180.0 	25.0 
+							11 12 13 	2 	180.0 	25.0 
+							12 13 14 	2 	180.0 	25.0 
+							
+								""")                        
+						d1pc_itp_file.write(d1pc_itp)        
+						
 				if lipid == 'S1PC':
 					topology += ut.RemoveUnwantedIndent("""
 						
@@ -1953,7 +2059,7 @@ class BaseProject(object):
 					with open('S1PC.itp','a') as s1pc_itp_file:
 						s1pc_itp = ut.RemoveUnwantedIndent("""
 							;;;;;; DISTEAROYL PHOSPHATIDYLCHOLINE MODIFIED IN TAIL INTERACTIONS
-							;;;;;; the C1 beads are changed to type C11 (only C1-C1 interactions reduced with sigma reduced by 10%)
+							;;;;;; the C1 beads are changed to type C11 (only C1-C1 interactions reduced with sigma^3 reduced by 20%)
 							;
 							; in general models PCs with saturated tail lengths C18-21
 							
@@ -1969,7 +2075,7 @@ class BaseProject(object):
 							4 	Na  	1 	S1PC 	GL2 	4 	0 
 							5 	C11  	1 	S1PC 	C1A 	5 	0 
 							6 	C11 	1 	S1PC 	C2A 	6 	0 
-							7 	C11 	1 	S1C 	C3A 	7 	0 
+							7 	C11 	1 	S1PC 	C3A 	7 	0 
 							8 	C11 	1 	S1PC 	C4A 	8 	0 
 							9 	C11 	1 	S1PC 	C5A 	9 	0 
 							10 	C11  	1 	S1PC 	C1B 	10 	0 
@@ -2009,6 +2115,73 @@ class BaseProject(object):
 							
 								""")                        
 						s1pc_itp_file.write(s1pc_itp)                  
+				if lipid == 'S2PC':
+					topology += ut.RemoveUnwantedIndent("""
+						
+						#include "S2PC.itp"
+						
+						""")
+						
+					with open('S2PC.itp','a') as s2pc_itp_file:
+						s2pc_itp = ut.RemoveUnwantedIndent("""
+							;;;;;; DISTEAROYL PHOSPHATIDYLCHOLINE MODIFIED IN TAIL INTERACTIONS
+							;;;;;; the C1 beads are changed to type C12 (only C1-C1 interactions reduced with sigma^3 reduced by 20% and epsilon reduced by 20%)
+							;
+							; in general models PCs with saturated tail lengths C18-21
+							
+							[moleculetype]
+							; molname 	nrexcl
+							 S2PC 		1
+							
+							[atoms]
+							; id 	type 	resnr 	residu 	atom 	cgnr 	charge
+							1 	Q0  	1 	S2PC 	NC3 	1 	1.0 
+							2 	Qa  	1 	S2PC  	PO4 	2 	-1.0 
+							3 	Na  	1 	S2PC 	GL1 	3 	0 
+							4 	Na  	1 	S2PC 	GL2 	4 	0 
+							5 	C11  	1 	S2PC 	C1A 	5 	0 
+							6 	C11 	1 	S2PC 	C2A 	6 	0 
+							7 	C11 	1 	S2PC 	C3A 	7 	0 
+							8 	C11 	1 	S2PC 	C4A 	8 	0 
+							9 	C11 	1 	S2PC 	C5A 	9 	0 
+							10 	C11  	1 	S2PC 	C1B 	10 	0 
+							11 	C11 	1 	S2PC 	C2B 	11 	0 
+							12 	C11 	1 	S2PC 	C3B 	12 	0	 
+							13 	C11 	1 	S2PC 	C4B 	13 	0 
+							14 	C11 	1 	S2PC 	C5B 	14 	0 
+							
+							[bonds]
+							; i j 	funct 	length 	force.c.
+							1 2 	1 	0.47 	1250
+							2 3 	1 	0.47 	1250
+							3 4 	1 	0.37 	1250
+							3 5 	1 	0.47 	1250
+							5 6 	1 	0.40 	1250
+							6 7 	1 	0.40 	1250
+							7 8 	1 	0.40 	1250
+							8 9 	1 	0.40 	1250
+							4 10 	1 	0.47 	1250
+							10 11 1 	0.40 	1250
+							11 12 1 	0.40 	1250
+							12 13 1 	0.40 	1250
+							13 14 1 	0.40 	1250
+							
+							[angles]
+							; i j k 	funct 	angle 	force.c.
+							2 3 4 	2 	120.0 	25.0 
+							2 3 5 	2 	180.0 	25.0 
+							3 5 6 	2 	180.0 	25.0 
+							5 6 7 	2 	180.0 	25.0 
+							6 7 8 	2 	180.0 	25.0 
+							7 8 9 	2 	180.0 	25.0 
+							4 10 11 	2 	180.0 	25.0 
+							10 11 12 	2 	180.0 	25.0 
+							11 12 13 	2 	180.0 	25.0 
+							12 13 14 	2 	180.0 	25.0 
+							
+								""")                        
+						s2pc_itp_file.write(s2pc_itp)                  
+		
 		
 		#Copy the topology files for martini forcefield
 		
@@ -2091,7 +2264,7 @@ class Membrane(BaseProject):
 		self.tmt = None
 		self.dz = None
 		
-		if self.lipid_type in ('DSPC','S1PC'):
+		if self.lipid_type in ('DSPC','S1PC','S2PC','D1PC'):
 			self.tmt = 30.0
 			self.dz = 10.0
 		elif self.lipid_type in ('DPPC','DLPC'):
@@ -2349,15 +2522,15 @@ class Membrane(BaseProject):
 			
 		elif self.defo['Height'] == 'bilayer':
 			#Set the Defo height from the substrate to the top of the bilayer
-			length_defo_bi = self.height + self.tmt + self.dz/4.0
+			length_defo_bi = self.height + self.tmt + self.dz
 			
 		elif self.defo['Height'] == 'mono':
 			#Set the Defo height from the substrate to the top of the monolayer
-			length_defo_bi = self.dimensions['LZ'] + self.tmt + self.dz/4.0
+			length_defo_bi = self.dimensions['LZ'] + self.tmt + self.dz
 			
 		elif self.defo['Height'] == 'follow':
 			#Set the Defo height from the bottom of the bilayer to its top
-			length_defo_bi = 2*self.tmt + self.dz/2.0
+			length_defo_bi = 2*self.tmt + 2.0*self.dz
 			
 		
 		defo_per_layer = int(self.defo['DpL']) + 1
@@ -2375,7 +2548,7 @@ class Membrane(BaseProject):
 										'defo inside': [], 'defo total': [], 'xyz file':'defo_mono.xyz',
 										'format defo':"format_DEFM.vmd",'chain':'Y', 'topo':'defo_monolayer_topo.itp'}
 			
-			L_defoMono = self.tmt + self.dz/4.0
+			L_defoMono = self.tmt + self.dz
 			nb_layers_mono = int(L_defoMono/float(self.defo['DzDefo']))
 			defo_dict['DEFM']['length'] = L_defoMono
 			defo_dict['DEFM']['nb layers'] = int(nb_layers_bi/2)
