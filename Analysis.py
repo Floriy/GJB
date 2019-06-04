@@ -762,21 +762,21 @@ def histogram(dataframe, prop, csv_name, svg_name, index, last_histo, time, axs)
 														facecolor='blue')
 	lower_histo.set_title(prop+' for '+'lower leaflet')
 	lower_histo.set_xlabel(prop)
-	lower_histo.set_xlabel('# lipids')
+	lower_histo.set_xlabel('Number of  lipids')
 	lower_histo.grid('on')
 	
 	hist_prop_upp, upp_bins, patches = upper_histo.hist(upp_prop, bins='auto', range=hist_range,
 														facecolor='red')
 	upper_histo.set_title(prop+' for '+'upper leaflet')
 	upper_histo.set_xlabel(prop)
-	upper_histo.set_xlabel('# lipids')
+	upper_histo.set_xlabel('Number of  lipids')
 	upper_histo.grid('on')
 	
 	hist_prop_bil, bil_bins, patches = bilayer_histo.hist(bil_prop, bins='auto', 
 														range=hist_range, facecolor='purple')
 	bilayer_histo.set_title(prop+' in bilayer')
 	bilayer_histo.set_xlabel(prop)
-	bilayer_histo.set_ylabel('# lipids')
+	bilayer_histo.set_ylabel('Number of  lipids')
 	bilayer_histo.grid('on')
 	
 	title = "Histogram of {0} \n at t= {1:d} ps".format(prop, time)
@@ -812,19 +812,19 @@ def histogram(dataframe, prop, csv_name, svg_name, index, last_histo, time, axs)
 def plotting_histo_trace(fig, axs, name, beginning_time, ending_time):
 	axs[0].set_title(prop+' for '+'lower leaflet')
 	axs[0].set_xlabel(prop)
-	axs[0].set_xlabel('# lipids')
+	axs[0].set_xlabel('Number of  lipids')
 	axs[0].grid('on')
 	axs[0].autoscale(axis='x', tight=True)
 	
 	axs[1].set_title(prop+' for '+'upper leaflet')
 	axs[1].set_xlabel(prop)
-	axs[1].set_xlabel('# lipids')
+	axs[1].set_xlabel('Number of  lipids')
 	axs[1].grid('on')
 	axs[1].autoscale(axis='x', tight=True)
 	
 	axs[2].set_title(prop+' in bilayer')
 	axs[2].set_xlabel(prop)
-	axs[2].set_ylabel('# lipids')
+	axs[2].set_ylabel('Number of  lipids')
 	axs[2].grid('on')
 	axs[2].autoscale(axis='x', tight=True)
 	
@@ -1597,6 +1597,9 @@ gmxOpt.add_argument('--locpres', action='store_true',
 gmxOpt.add_argument('--select', action='store_true',
                     help='Compute solvent per lipid  and other quantities using dynamical gromacs select')
 
+gmxOpt.add_argument('--deleteSelectDat', action='store_true',
+                    help='Delete the files with indexes of the  dynamically selected particles at each timestep')
+
 gmxOpt.add_argument('--order', action='store_true',
                     help='Compute order parameter [2011.11.27, Helgi I. Ingolfsson]')
 
@@ -1611,6 +1614,8 @@ gmxOpt.add_argument('--linkgroup', dest='linkgroup',
 gmxOpt.add_argument('--tailgroup', dest='tailgroup',
 					type=str, nargs='*', default=None,
                     help='Set the name of tailgroup')
+
+
 
 
 # Adding parser options to MDAanalysis##############################################################
@@ -2887,6 +2892,7 @@ elif 'gromacs' in sys.argv:
 	DENSITY		=	cmdParam.density
 	ENERGY		=	cmdParam.energy
 	SELECT		=	cmdParam.select
+	DELETEDAT	=	cmdParam.deleteSelectDat
 	ORDER		=	cmdParam.order
 	LOCAL_TEMP	=	cmdParam.loctemp
 	LOCAL_PRESS	=	cmdParam.locpres
@@ -2946,7 +2952,7 @@ elif 'gromacs' in sys.argv:
 		print(filesFound)
 		
 		#Creates the base directory
-		analysisFolder = FOLDER+'/GMX_Analysis'
+		analysisFolder = FOLDER+'/GMX_Analysis'+str(os.getpid())
 		#print(analysisFolder)
 		if not os.path.isdir(analysisFolder):
 			os.makedirs(analysisFolder, exist_ok=True)
@@ -3198,6 +3204,8 @@ elif 'gromacs' in sys.argv:
 																											gaz_solvent)							
 							
 							print(select_cmd)
+							with open(job_select_dir+'/select_cmd.sh','a+') as select_cmd_out: 
+								select_cmd_out.write(ut.RemoveUnwantedIndent(select_cmd)+"\n")
 							sub.call(select_cmd, shell=True)
 						
 						except OSError as e:
@@ -3373,6 +3381,18 @@ elif 'gromacs' in sys.argv:
 						ulhb_file.close()
 						llsb_file.close()
 						ulsb_file.close()
+						
+						if DELETEDAT:
+							os.remove(job_select_dir+'/'+ 'lower_leaflet_hg_bil.dat')
+							os.remove(job_select_dir+'/'+ 'upper_leaflet_hg_bil.dat')
+							os.remove(job_select_dir+'/'+ 'lower_leaflet_solvent_bil.dat')
+							os.remove(job_select_dir+'/'+ 'upper_leaflet_solvent_bil.dat')
+							
+							if 'mono' in read_index_out:
+								os.remove(job_select_dir+'/'+ 'hg_in_monolayer.dat')
+								os.remove(job_select_dir+'/'+ 'solvent_above_monolayer.dat')
+								os.remove(job_select_dir+'/'+ 'solvent_gaz_' + str(ZMINGAZ) + '_' + str(ZMAXGAZ) + '.dat')
+								
 					
 					
 					#if ORDER is not None:
@@ -3747,10 +3767,10 @@ elif 'mda' in sys.argv:
 										slice_volume = (box_xx * box_yy - math.pi*RADIUS**2) * DZ
 									else:
 										if (RADIUS < los2):
-											slice_volume = (lo2*(lo2 - math.sqrt(RADIUS**2-lo2**2)) - ((RADIUS**2)/2.0)*( math.pi/2.0-2.0*math.acos(lo2/RADIUS))) * DZ * 4.0
-											#print("Volume to analyse is =" + str(slice_volume) )
+											slice_volume = (lo2*(lo2 - math.sqrt(RADIUS**2-lo2**2)) - ((RADIUS**2)/2.0)*(math.pi/2.0-2.0*math.acos(lo2/RADIUS))) * DZ * 4.0
+											#print("Volume to analyse is =" + str(slice_volume) + "nm^3" )
 										else:
-											raise ValueError("'RADIUS' can only be smaller than Lxx/sqrt(2) = " + str(los2)  + ", to have a volume to analyze ")
+											raise ValueError("'RADIUS' (" + str(RADIUS) + " nm) should  be smaller than Lxx/sqrt(2) (" + str(los2)  + " nm) to have a volume to analyze ")
 								else :
 									print("ERROR: RADIUS option not implemented if Lxx != Lyy") 
 									raise ValueError("RADIUS option not implemented if Lxx != Lyy")
