@@ -1,0 +1,11 @@
+;;;;;;POSRES FOR DEFO_DEFB
+[position_restraints]
+;ai   funct   fcx     fcy     fcz
+ 1    1     FCX   FCY   FCZ
+ 2    1     FCX   FCY   FCZ
+ 3    1     FCX   FCY   FCZ
+ 4    1     FCX   FCY   FCZ
+ 5    1     FCX   FCY   FCZ
+ 6    1     FCX   FCY   FCZ
+ 7    1     FCX   FCY   FCZ
+ 8    1     FCX   FCY   FCZ

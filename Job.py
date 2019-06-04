@@ -2530,7 +2530,7 @@ class Membrane(BaseProject):
 			
 		elif self.defo['Height'] == 'follow':
 			#Set the Defo height from the bottom of the bilayer to its top
-			length_defo_bi = 2*self.tmt + 4.0*self.dz
+			length_defo_bi = 2*self.tmt + 2.0*self.dz
 			
 		
 		defo_per_layer = int(self.defo['DpL']) + 1
@@ -3126,11 +3126,13 @@ class Membrane(BaseProject):
 									chain D
 									number {1:g}
 									inside box 0. 0. {2}  {3} {4} {5}
+								{7}
+									
 								{6}
 						""".format(pdb_file_list[self.solvent_type]['name'], self.sample_molecules[self.solvent_type] ,
 									self.m1_head_max,
 									self.dimensions['LX'] - shell, self.dimensions['LY'] - shell,
-									self.m2_head_min, packmol_instruction_W_mol)
+									self.m2_head_min, packmol_instruction_W_mol, defo_packmol_input)
 			
 		# A chain for solvent
 		self.nb_index += 1
@@ -3457,12 +3459,13 @@ class Membrane(BaseProject):
 									chain D
 									number {1:g}
 									inside box 0. 0. {2}  {3} {4} {5}
+									{7}
 									{6}
 								end structure
 							""".format(pdb_file_list[self.solvent_type]['name'], self.nb_sol_bottom,
 										self.bottom_z,
 										self.dimensions['LX'], self.dimensions['LY'],
-										self.m1_head_min, packmol_instruction_W_mol)
+										self.m1_head_min, packmol_instruction_W_mol,defo_packmol_input)
 			
 			
 		if self.nb_sol_top:
@@ -3472,12 +3475,13 @@ class Membrane(BaseProject):
 									chain E
 									number {1:g}
 									inside box 0. 0. {2}  {3} {4} {5}
+									{7}
 									{6}
 								end structure
 							""".format(pdb_file_list[self.solvent_type]['name'], self.nb_sol_top,
 										self.m2_head_max,
 										self.dimensions['LX'], self.dimensions['LY'],
-										self.dimensions['LZ'], packmol_instruction_W_mol)
+										self.dimensions['LZ'], packmol_instruction_W_mol,defo_packmol_input)
 			
 
 		
