@@ -2493,12 +2493,10 @@ class Membrane(BaseProject):
 		self.m2_head_max += thickness
 		self.m2_tail_min += thickness
 		self.m2_tail_max += thickness
-		
-		self.mono['LzM'] += thickness
-		
 		self.bottom_z += thickness
 		
 		if self.mono is not None:
+			self.mono['LzM'] += thickness
 			self.m3_head_min += thickness 
 			self.m3_head_max += thickness
 			self.m3_tail_min += thickness

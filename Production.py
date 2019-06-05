@@ -14,7 +14,7 @@ import glob
 import Utility as ut
 import Job
 
-LipidsList = ['DSPC','DPPC','DLPC', 'S1PC']
+LipidsList = ['DSPC','DPPC','DLPC', 'S1PC', 'S2PC', 'D1PC']
 
 SolventsList = ['W','OCO','PW']
 
@@ -508,7 +508,7 @@ def main(argv=sys.argv):
 	if not software_version:
 		software_version = re.sub("[^0-9]","",Softwares['GROMACS_LOC'].split('/')[-2])
 	if not software_version:
-		software_version = input('No version detected in path. Please select the version you want between 4, 5 or 2016: ')
+		software_version = input('No version detected in path. Please select the version you want between 4, 5, 2016, 2018: ')
 
 	print('Gromacs version :', software_version)
 
@@ -603,6 +603,10 @@ def main(argv=sys.argv):
 						# IN {4} and TGCCinfo.csv ARE CONSISTENT  ?
 						
 						module switch dfldatadir/{2}
+						module unload gromacs
+						module load extenv/own
+						module av
+						
 						module load {3}
 						
 						""".format(project_name, name, TGCC['group'], TGCC['GMXversion'], parameter_file)
@@ -643,7 +647,9 @@ def main(argv=sys.argv):
 						# IN {4} and TGCCinfo.csv ARE CONSISTENT  ?
 						
 						module switch dfldatadir/{2}
-						
+						module unload gromacs
+						module load extenv/own
+						module av
 						module load {3}
 						
 						""".format(project_name, name, TGCC['group'], TGCC['GMXversion'], parameter_file)
@@ -715,7 +721,8 @@ def main(argv=sys.argv):
 				if 'SEQUENTIAL' in current_job and md_step not in ['INPUT','INIT','COPY']:
 					script_file_run = open('run_{0}.sh'.format(current_job['PROTOCOL'][md_step]['stepType']),'a+')
 					sub.call("""chmod a+x run_{0}.sh""".format(current_job['PROTOCOL'][md_step]['stepType']), shell=True)
-					module_load = "#!/bin/bash +x\n\nmodule load {0}\n\n".format(TGCC['GMXversion'])
+					module_load = "#!/bin/bash +x\n module load extenv/own\nmodule av \nmodule load {0}\n\n".format(TGCC['GMXversion'])
+					
 					script_file_run.write(module_load)
 					
 					if int(md_step) == 1:
@@ -729,8 +736,8 @@ def main(argv=sys.argv):
 						tgcc_file_run = """
 							#! /bin/sh -x
 							#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
-							#MSUB -n {3}      # total number of cores, 16 cores per nodes (32 logical cores ) (in Parameters.cvs, key "ppn")
-							#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s")
+							#MSUB -n {3}      # total number of cores, 48 cores per nodes (2 x 24 CPU each) (in Parameters.cvs, key "ppn")
+							#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s"), default=2h
 							#MSUB -r {0}	  # job name (automatically generated)
 							#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
 							#MSUB -V          # transfer the variable of ENVIRONNEMENT
@@ -754,19 +761,20 @@ def main(argv=sys.argv):
 							
 							./run_{8}.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_{8}.out
 							du -hs ./*
-							ccc_msub {9}.ccc_msub
+							ccc_msub -m work,scratch -q {10}  {9}.ccc_msub
 							
 							echo "===================== END  JOB $SLURM_JOBID =============================== "
 							""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'],
 										TGCC['time_s'], parameter_file, TGCC['mail'],
 										current_job['PROTOCOL'][md_step]['stepType'],
-										current_job['PROTOCOL'][next_step]['stepType'])
+										current_job['PROTOCOL'][next_step]['stepType'],
+										TGCC['partition'])
 					else:
 						tgcc_file_run = """
 							#! /bin/sh -x
 							#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
-							#MSUB -n {3}      # total number of cores, 16 cores per nodes (32 logical cores ) (in Parameters.cvs, key "ppn")
-							#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s")
+							#MSUB -n {3}      # total number of cores, 48 cores per nodes (in Parameters.cvs, key "ppn")
+							#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s"), default=2h
 							#MSUB -r {0}	  # job name (automatically generated)
 							#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
 							#MSUB -V          # transfer the variable of ENVIRONNEMENT
@@ -1141,7 +1149,7 @@ def main(argv=sys.argv):
 																				previous_cmd_files['OUTPUT'],previous_cmd_files['SYSTEM'],
 																				current_job['JOBNUM'])
 					
-					cmd += str("{0}grompp -f {1}.mdp -po {2}-{1}.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} "
+					cmd += str("{0}grompp -f {1}.mdp -po {2}-{1}.mdp -c {3} -r {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} "
 								"|& tee {6}/grompp_{5}_{1}.output\n\n""").format(prefix_gromacs_grompp,
 																						current_job['PROTOCOL'][md_step]['stepType'], 
 																						previous_cmd_files['SYSTEM'], previous_cmd_files['OUTPUT'], previous_cmd_files['INDEX'],
@@ -1255,7 +1263,7 @@ def main(argv=sys.argv):
 																	previous_cmd_files['SYSTEM'],
 																	current_job['JOBNUM'])
 
-					cmd += str("{0}grompp -f {1}.mdp -po {2}-{1}.mdp -c {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} "
+					cmd += str("{0}grompp -f {1}.mdp -po {2}-{1}.mdp -c {3} -r {3} -p {2}.top -maxwarn 10 -o {2}_{5}-{1}.tpr -n {4} "
 								"|& tee {6}/grompp_{5}_{1}.output\n\n""").format(prefix_gromacs_grompp,
 																						current_job['PROTOCOL'][md_step]['stepType'], 
 																						previous_cmd_files['SYSTEM'], previous_cmd_files['OUTPUT'], previous_cmd_files['INDEX'],
@@ -1363,8 +1371,8 @@ def main(argv=sys.argv):
 					tgcc_file_content = """
 							#! /bin/sh -x
 							#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
-							#MSUB -n {3}      # total number of cores, 16 cores per nodes (32 logical cores ) (in Parameters.cvs, key "ppn")
-							#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s")
+							#MSUB -n {3}      # total number of cores, 48 cores per nodes (in Parameters.cvs, key "ppn")
+							#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s"), default=2h
 							#MSUB -r {0}	  # job name (automatically generated)
 							#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
 							#MSUB -V          # transfer the variable of ENVIRONNEMENT
@@ -1410,7 +1418,7 @@ def main(argv=sys.argv):
 					tgcc_file_content = """
 						#! /bin/sh -x
 						#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
-						#MSUB -n {3}      # total number of cores, 16 cores per nodes (32 logical cores ) (in Parameters.cvs, key "ppn")
+						#MSUB -n {3}      # total number of cores, 48 cores per nodes (in Parameters.cvs, key "ppn")
 						#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s")
 						#MSUB -r {0}	  # job name (automatically generated)
 						#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
@@ -1444,12 +1452,13 @@ def main(argv=sys.argv):
 						du -hs ./*
 						rsync ${{SLURM_SUBMIT_DIR}}/* ${{MYTMPDIR}} 
 						cd ${{MYTMPDIR}} 
-						ccc_msub  {8}.ccc_msub
+						ccc_msub -m work,scratch -q {9}  {8}.ccc_msub
 						
 						echo "===================== END  JOB $SLURM_JOBID =============================== "
 						""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'],
 										TGCC['time_s'], parameter_file, TGCC['mail'],
-										current_job['PROTOCOL']['1']['stepType'])
+										current_job['PROTOCOL']['1']['stepType'],
+										TGCC['partition'])
 				
 				with open(name+'.ccc_msub','w') as tgcc_file:
 					tgcc_file.write( ut.RemoveUnwantedIndent(tgcc_file_content) )
@@ -1516,8 +1525,8 @@ def main(argv=sys.argv):
 				tgcc_file_content = """
 						#! /bin/sh -x
 						#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
-						#MSUB -n {3}      # total number of cores, 16 cores per nodes (32 logical cores ) (in Parameters.cvs, key "ppn")
-						#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s")
+						#MSUB -n {3}      # total number of cores, 48 cores per nodes (in Parameters.cvs, key "ppn")
+						#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s"), default=2h
 						#MSUB -r {0}_created	  # job name (automatically generated)
 						#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
 						#MSUB -V          # transfer the variable of ENVIRONNEMENT
@@ -1540,7 +1549,7 @@ def main(argv=sys.argv):
 						
 						module switch dfldatadir/{4}
 						
-						export MYTMPDIR="${{SCRATCHDIR}}/JOB_${{SLURM_JOBID}}"
+						export MYTMPDIR="${{CCCSCRATCHDIR}}/JOB_${{SLURM_JOBID}}"
 						export OUTPUTDIR="${{SLURM_SUBMIT_DIR}}"
 						
 						mkdir -p ${{MYTMPDIR}}
@@ -1552,10 +1561,10 @@ def main(argv=sys.argv):
 						rsync -r ./* ${{OUTPUTDIR}}/.
 						cd ${{SLURM_SUBMIT_DIR}}
 						rm -rf ${{MYTMPDIR}}
-						ccc_msub {0}.ccc_msub
+						ccc_msub -m work,scratch -q {8} {0}.ccc_msub
 						
 						echo "===================== END  JOB $SLURM_JOBID =============================== "
-						""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'], TGCC['time_s'], parameter_file, TGCC['mail'])
+						""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'], TGCC['time_s'], parameter_file, TGCC['mail'],TGCC['partition'])
 				
 				with open(name+'.create_ccc_msub','w') as tgcc_file:
 					tgcc_file.write( ut.RemoveUnwantedIndent(tgcc_file_content) )
@@ -1609,7 +1618,7 @@ def main(argv=sys.argv):
 				send_cmd = "cd {0} \n qsub {0}.pbs \n cd .. \n".format(name)
 				
 			elif cmd_param.send == 'tgcc':
-				send_cmd = "cd {0} \n ccc_msub {0}.ccc_msub \n cd .. \n".format(name)
+				send_cmd = "cd {0} \n module switch dfldatadir/{1} \n ccc_msub -m work,scratch -q {2}  {0}.ccc_msub \n cd .. \n".format(name,TGCC['group'],TGCC['partition'])
 			
 			if cmd_param.create == 'local':
 				create_cmd = "cd {0} \n ./create.sh \ncd .. \n".format(name)
@@ -1618,7 +1627,7 @@ def main(argv=sys.argv):
 				create_cmd = "cd {0} \n qsub {0}.create_pbs \n cd .. \n".format(name)
 				
 			elif cmd_param.create == 'tgcc':
-				create_cmd = "cd {0} \n ccc_msub {0}.create_ccc_msub \n cd .. \n".format(name)
+				create_cmd = "cd {0} \n  module switch dfldatadir/{1} \n ccc_msub -m work,scratch -q {2} {0}.create_ccc_msub \n cd .. \n".format(name,TGCC['group'],TGCC['partition'])
 				
 			script_to_send.write(send_cmd)
 			script_to_create.write(create_cmd)
