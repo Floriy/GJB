@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/home/cloison/Softwares/ANACONDA/anaconda3/bin/python3
 # -*- coding: utf-8 -*-
 
 import csv		#Module to read csv files
@@ -139,7 +139,7 @@ def main(argv=sys.argv):
 				#Step of the run : EM, NVE, NVT, NPT ...
 				stepNumber = 0
 				Jobs.update( {jobNumber: {row[0].strip(' '): row[1].strip(' '), row[2].strip(' '): int(row[3]), row[4].strip(' '):row[5].strip(' ')} } )
-				#continue
+				continue
 			
 			# Before reading information on each job the program stores the path to the Softwares and gromacs default files from Parameters.csv
 			if jobNumber < 1 : 
@@ -811,6 +811,7 @@ def main(argv=sys.argv):
 				md_step = str(md_step)
 				
 				if 'SEQUENTIAL' in current_job and md_step not in ['INPUT','INIT','COPY']:
+
 					script_file_run = open('run_{0}.sh'.format(current_job['PROTOCOL'][md_step]['stepType']),'a+')
 					sub.call("""chmod a+x run_{0}.sh""".format(current_job['PROTOCOL'][md_step]['stepType']), shell=True)
 					if cmd_param.create == 'tgcc' or cmd_param.send == 'tgcc' :
@@ -826,7 +827,7 @@ def main(argv=sys.argv):
 						script_file_run.write('mkdir -p mdrun_out\n\n')
 						script_file_run.write('mkdir -p grompp_out\n\n')
 						
-					if cmd_param.create == 'ada':                      
+					if cmd_param.create == 'ada' or cmd_param.send == 'ada':                      
 						ada_file_run = ""
 						if int(md_step) != (len(current_job['PROTOCOL']) - 1):
 							next_step = str(int(md_step)+1)
@@ -919,7 +920,10 @@ def main(argv=sys.argv):
 						with open('{0}.llsubmit'.format(current_job['PROTOCOL'][md_step]['stepType']),'w') as ada_file:
 							ada_file.write( ut.RemoveUnwantedIndent(ada_file_run) )
 						
-					elif cmd_param.create == 'tgcc':
+					elif cmd_param.create == 'tgcc' or cmd_param.send == 'tgcc'  :
+
+						print(f"=== > prepare the file for ccc_msub")
+
 						tgcc_file_run = ""
 						if int(md_step) != (len(current_job['PROTOCOL']) - 1):
 							next_step = str(int(md_step)+1)
