@@ -1,6 +1,7 @@
-#!/usr/bin/python3
-# -*- coding: utf-8 -*-
+#!/home/cloison/Softwares/ANACONDA/anaconda3/bin/python3
+###  /usr/bin/python3
 
+# -*- coding: utf-8 -*-
 
 import argparse #Argument parser module !
 import sys
@@ -1384,6 +1385,10 @@ fatslimOpt.add_argument('-n', '--index', dest='index',
 					type=str, default='index.ndx',
                     help='Set the name of MD run to analyse')
 
+#option for interacting group
+fatslimOpt.add_argument('-ni', '--noninteracting', action='store_true', 
+                    help='disable the option of interacting group in the fatslim calculation')
+
 # cutoff options
 fatslimOpt.add_argument('--cutoff', dest='cutoff',
 					type=float, default=6.0,
@@ -1795,7 +1800,8 @@ if 'compute' in sys.argv:
 	TRAJECTORY		= cmdParam.trajectory
 	BEGIN_FRAME		= cmdParam.begin_frame
 	END_FRAME		= cmdParam.end_frame
-	
+	NON_INTERACTING = cmdParam.noninteracting
+
 	INDEX			= cmdParam.index
 	IDFREQ			= cmdParam.idfreq
 	CUTOFF			= cmdParam.cutoff
@@ -1816,6 +1822,7 @@ if 'compute' in sys.argv:
 		
 		for Run in MD_RUN_INPUT:
 			for path in glob.glob(FOLDER +'/**/*'+ Run +'*gro', recursive=True):
+				print(f"try to find project name and filesfor gro file {path}\n")	
 				if 'fatslimAnalysis' in path: continue
 			
 				path_test = path.replace(FOLDER,'').split('/')
@@ -2091,7 +2098,7 @@ if 'compute' in sys.argv:
 					interacting_group = None
 					with open(ndx_file,'r') as index:
 						indexStr = index.read()
-						if 'DEF' in indexStr:
+						if 'DEF' in indexStr and NON_INTERACTING is False :
 							interacting_group = 'DEF'
 									
 					
@@ -3145,7 +3152,8 @@ elif 'gromacs' in sys.argv:
 						if 'defo' in  read_index_out:
 							remove_pertubed_membrane = "and (  (x - (x of com of (name DEF)))^2 +(y- (y of com of (name DEF) ))^2 > {0}^2 ) ".format(RADIUS)
 						if 'su' in read_index_out:
-							above_su = " and (z > z of com of group su)"
+#							above_su = " and (z > z of com of group su)"
+							above_su = " "
 						if 'PW' in read_index_out:
 							solvent = "PW"
 							
@@ -4078,7 +4086,7 @@ elif 'reflectometry' in sys.argv:
 	sub_layers_dict = {}
 	sup_layers_dict = {}
 	
-	print(density_data)
+	#print(density_data)
 	
 
 	
@@ -4189,7 +4197,7 @@ elif 'reflectometry' in sys.argv:
 		#Create a new total with the added layers
 		extract_total = density_data[['z','total']]
 		new_total = pd.DataFrame({'z': total_new_z_bin, 'total': total_new_sld})
-		new_total = pd.concat([new_total, extract_total], ignore_index=True)
+		new_total = pd.concat([new_total, extract_total], ignore_index=True,sort=True)
 		new_total = new_total.rename(columns={'total' : 'fittotal'})
 		
 		val_to_add = new_total.shape[0] - density_data.shape[0]
@@ -4197,7 +4205,7 @@ elif 'reflectometry' in sys.argv:
 		density_data = density_data.shift(periods=val_to_add)
 		density_data = density_data.assign(fittotal=new_total.fittotal, z=new_total.z)
 	
-	print(density_data)
+	#print(density_data)
 	#density_data.plot(x='z', y='fittotal')
 	#plt.show()
 	
@@ -4307,7 +4315,7 @@ elif 'reflectometry' in sys.argv:
 		if SUBLAYERS is not None:
 			extract_total	= density_data[['z','fittotal']]
 			new_total		= pd.DataFrame({'z': total_new_z_bin, 'fittotal': total_new_sld})
-			new_total		= pd.concat([extract_total, new_total], ignore_index=True)
+			new_total		= pd.concat([extract_total, new_total], ignore_index=True,sort=True)
 			
 			val_to_add = new_total.shape[0] - density_data.shape[0]
 			density_data = density_data.append(pd.DataFrame([0.0]*val_to_add), ignore_index=True)
@@ -4325,8 +4333,8 @@ elif 'reflectometry' in sys.argv:
 		density_data = density_data.assign(fittotal=new_total.fittotal, z=new_total.z).drop(0,1)
 	
 	
-	with pd.option_context('display.max_rows', None):
-		print(density_data)
+	#with pd.option_context('display.max_rows', None):
+	#	print(density_data)
 		#print(density_data)
 		#density_data.plot(x='z', y='fittotal')
 		#density_data.plot(x='z', y='total')
@@ -4352,8 +4360,8 @@ elif 'reflectometry' in sys.argv:
 			density_data[col] = list(reversed(density_data[col]))
 			#print(density_data[col])
 		
-	with pd.option_context('display.max_rows', None):
-		print(density_data)
+	#with pd.option_context('display.max_rows', None):
+	#	print(density_data)
 		
 	#density_data.fillna(0.0, inplace=True)
 	header = """
@@ -4636,8 +4644,8 @@ elif 'reflectometry' in sys.argv:
 			
 		
 		if CHECK:
-			with pd.option_context('display.max_rows', None):
-				print(reflectivity_data)
+			#with pd.option_context('display.max_rows', None):
+			#	print(reflectivity_data)
 			
 			if EXPERIMENTAL is not None:
 				
@@ -4671,7 +4679,7 @@ elif 'reflectometry' in sys.argv:
 			plt.tight_layout()
 			
 			if OUTPUT is not None:
-				name = None
+				name    = None
 				name	= None
 				dest	= OUTPUT[0]
 				ext		= OUTPUT[1]
@@ -4728,7 +4736,13 @@ elif 'reflectometry' in sys.argv:
 			
 			header = adding_to_header + header
 			
-		
+		if EXPERIMENTAL is not None:
+			adding_to_header = """
+				# Exp/Simul chi is {0}
+				#""".format(str(round(Chi,2)))
+			print("{1} => Exp/Simul chi {0}".format(str(round(Chi,2)),XVG_FILE))	
+			header = adding_to_header + header
+			
 		header = ut.RemoveUnwantedIndent(header)
 		
 		xvg_out = None

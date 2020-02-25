@@ -10,7 +10,6 @@ import copy
 import shutil
 import argparse
 import glob
-
 import Utility as ut
 import Job
 
@@ -30,23 +29,30 @@ path_to_default = ''
 Softwares = {}
 # Dictionnary holding all information for each job
 Jobs = {}
-#Dictionnary holding the data for PBS
+#Dictionnary holding the data for LYNX (ilm)
+LYNX = {}
+#Dictionnary holding the data for PBS (ilm, OLD BATCH)
 PBS = {}
 #Dictionnary holding the data for TGCC
 TGCC = {}
+#Dictionnary holding the data for ADA (idris)
+ADA = {}
+#Dictionnary holding the data for JeanZay (idris)
+JZ = {}
 
 def main(argv=sys.argv):
 	parser = argparse.ArgumentParser()
 	parser.add_argument('-s','--send', dest='send', type=str, required=True,
-						help='Set the type for sending jobs: local, pbs, tgcc')
+						help='Set the type for sending jobs: local, pbs, lynx, tgcc, ada, jz')
 	
 	parser.add_argument('-c','--create', dest='create', type=str, default='local',
-						help='Set the type for creating the samples : local, pbs, tgcc')
+						help='Set the type for creating the samples : local, pbs, lynx, tgcc, ada, jz')
 	
 	parser.add_argument('-p','--param', dest='parameter', type=str, default="Parameters.csv",
 						help='Set the parameter file to use for jobs')
 
 	cmd_param = parser.parse_args(sys.argv[1:])
+	
 	#**********************************************#
 	#**********************************************#
 	#**********************************************#
@@ -62,12 +68,42 @@ def main(argv=sys.argv):
 	
 	if cmd_param.send == 'pbs':
 		with open('PBSinfo.csv') as pbs_info:
+			print(' WARNING ! \n THE PBS OPTION IS DEPRECATED \n')
+			print(' Please chose among other options : local, lynx, tgcc, ada, jz \n')
+			sys.exit(1)
 			reader = csv.reader(pbs_info, delimiter=',', skipinitialspace=True)
 			for row in reader:
 				info = row[0].strip()
 				value = row[1].strip()
 				PBS[info] = value
 				
+	if cmd_param.send == 'lynx':
+		with open('LYNXinfo.csv') as pbs_info:
+			reader = csv.reader(pbs_info, delimiter=',', skipinitialspace=True)
+			for row in reader:
+				info = row[0].strip()
+				value = row[1].strip()
+				LYNX[info] = value
+				
+	elif cmd_param.send == 'ada':
+		with open('ADAinfo.csv') as pbs_info:
+			reader = csv.reader(pbs_info, delimiter=',', skipinitialspace=True)
+			for row in reader:
+				info = row[0].strip()
+				value = row[1].strip()
+				ADA[info] = value
+	
+	elif cmd_param.send == 'jz':
+		with open('JZinfo.csv') as pbs_info:
+			reader = csv.reader(pbs_info, delimiter=',', skipinitialspace=True)
+			print(' WARNING ! \n THE JZ OPTION IS NOT YET PROGRAMMED  \n')
+			print(' Please chose among other options : local, lynx, tgcc, ada \n')
+			sys.exit(1)
+			for row in reader:
+				info = row[0].strip()
+				value = row[1].strip()
+				JZ[info] = value
+	
 	elif cmd_param.send == 'tgcc':
 		with open('TGCCinfo.csv') as pbs_info:
 			reader = csv.reader(pbs_info, delimiter=',', skipinitialspace=True)
@@ -277,6 +313,8 @@ def main(argv=sys.argv):
 								
 							else:
 								for param, paramValue in Jobs[jobNumber][name]['presets'][preset_name].items():
+									
+									print("param = {0}, paramvalue = {1}, row = {2} ".format(param, paramValue, row[int(paramValue)+1]))
 									
 									paramValue = row[paramValue+1]
 									
@@ -528,7 +566,7 @@ def main(argv=sys.argv):
 	if(not os.path.isdir(project_name)):
 		os.makedirs(project_name, exist_ok=True)
 	else:
-		delete_directory = input('===================================\n WARNING ! The PROJECT directory already exists ! \n Please confirm that you want to delete it by typing yes \n => ')
+		delete_directory = input('===================================\n WARNING ! The PROJECT ' + project_name + ' directory already exists ! \n Please confirm that you want to delete it by typing yes \n => ')
 		if(delete_directory == 'yes'):
 			shutil.rmtree(project_name)
 			os.makedirs(project_name, exist_ok=True)
@@ -588,12 +626,39 @@ def main(argv=sys.argv):
 						LOCALDIR="$(pwd)"
 						cp -r {1} /scratch/{2}/gromacs/{0}
 						cd /scratch/{2}/gromacs/{0}/{1}
-
+						
 						""".format(project_name, name, PBS['username'] )
 			
 			prefix_gromacs_grompp_prod = Softwares['GROMACS_REM']
 			prefix_gromacs_mdrun_prod = Softwares['GROMACS_REM']
 			
+		elif cmd_param.send == 'lynx':
+			copy_to = """
+						#!/bin/bash +x
+						mkdir -p /scratch/{2}/gromacs/{0}
+						cd ..
+						LOCALDIR="$(pwd)"
+						cp -r {1} /scratch/{2}/gromacs/{0}
+						cd /scratch/{2}/gromacs/{0}/{1}
+						
+						""".format(project_name, name, LYNX['username'] )
+			
+			prefix_gromacs_grompp_prod = Softwares['GROMACS_REM']
+			prefix_gromacs_mdrun_prod = Softwares['GROMACS_REM']
+			
+			
+		elif cmd_param.send == 'ada':
+			copy_to = """
+						#!/bin/bash +x
+						
+						module unload gromacs
+						module load {0}
+						
+						""".format(ADA['GMXversion'])
+						
+			prefix_gromacs_grompp_prod = "gmx "
+			prefix_gromacs_mdrun_prod = "mpirun -n {0} mdrun_mpi ".format(ADA['PPN'])
+		
 		elif cmd_param.send == 'tgcc':
 			copy_to = """
 						#!/bin/bash +x
@@ -632,8 +697,35 @@ def main(argv=sys.argv):
 						LOCALDIR="$(pwd)"
 						cp -r {1} /scratch/{2}/gromacs/{0}
 						cd /scratch/{2}/gromacs/{0}/{1}
-
 						""".format(project_name, name, PBS['username'] )
+			
+			prefix_gromacs_grompp_create = Softwares['GROMACS_REM']
+			prefix_gromacs_mdrun_create = Softwares['GROMACS_REM']
+			
+		elif cmd_param.create == 'ada':
+			create_to = """
+						#!/bin/bash +x
+						
+						mkdir -p $TMPDIR/{0}
+						rsync ./* $TMPDIR/{0}
+						cd $TMPDIR/{0}
+						
+						""".format(project_name)
+			
+			prefix_gromacs_grompp_create = "gmx "
+			prefix_gromacs_mdrun_create =  "mpirun -n {0} mdrun_mpi ".format(ADA['PPN'])
+			
+
+		elif cmd_param.create == 'lynx':
+			create_to = """
+						#!/bin/bash +x
+						mkdir -p /scratch/{2}/gromacs/{0}
+						cd ..
+						LOCALDIR="$(pwd)"
+						cp -r {1} /scratch/{2}/gromacs/{0}
+						cd /scratch/{2}/gromacs/{0}/{1}
+						
+						""".format(project_name, name, LYNX['username'] )
 			
 			prefix_gromacs_grompp_create = Softwares['GROMACS_REM']
 			prefix_gromacs_mdrun_create = Softwares['GROMACS_REM']
@@ -704,12 +796,12 @@ def main(argv=sys.argv):
 		with ut.cd(project_name+'/'+name):
 			output_filename=''
 			script_file_prod = open('run.sh','a+')
-			script_file_prod.write('mkdir -p mdrun_out\n')
-			script_file_prod.write('mkdir -p grompp_out\n')
+			script_file_prod.write('mkdir -p mdrun_out\n\n')
+			script_file_prod.write('mkdir -p grompp_out\n\n')
 			
 			script_file_create = open('create.sh','a+')
-			script_file_create.write('mkdir -p create_mdrun_out\n')
-			script_file_create.write('mkdir -p create_grompp_out\n')
+			script_file_create.write('mkdir -p create_mdrun_out\n\n')
+			script_file_create.write('mkdir -p create_grompp_out\n\n')
 			
 			so_far_file = """{0}_SoFar.txt""".format(name)
 			so_far_file = open(so_far_file, 'w')
@@ -721,99 +813,197 @@ def main(argv=sys.argv):
 				if 'SEQUENTIAL' in current_job and md_step not in ['INPUT','INIT','COPY']:
 					script_file_run = open('run_{0}.sh'.format(current_job['PROTOCOL'][md_step]['stepType']),'a+')
 					sub.call("""chmod a+x run_{0}.sh""".format(current_job['PROTOCOL'][md_step]['stepType']), shell=True)
-					module_load = "#!/bin/bash +x\n module load extenv/own\nmodule av \nmodule load {0}\n\n".format(TGCC['GMXversion'])
+					if cmd_param.create == 'tgcc' or cmd_param.send == 'tgcc' :
+						module_load = "#!/bin/bash +x\n module load extenv/own\nmodule av \nmodule load {0}\n\n".format(TGCC['GMXversion'])
+						script_file_run.write(module_load)
+					elif cmd_param.create == 'ada' or cmd_param.send == 'ada' :
+						module_load = "#!/bin/bash +x\nmodule load {0}\n\n".format(ADA['GMXversion'])
+						script_file_run.write(module_load)
 					
-					script_file_run.write(module_load)
+					#script_file_run.write(module_load)
 					
 					if int(md_step) == 1:
-						script_file_run.write('mkdir -p mdrun_out\n')
+						script_file_run.write('mkdir -p mdrun_out\n\n')
 						script_file_run.write('mkdir -p grompp_out\n\n')
 						
-					
-					tgcc_file_run = ""
-					if int(md_step) != (len(current_job['PROTOCOL']) - 1):
-						next_step = str(int(md_step)+1)
-						tgcc_file_run = """
-							#! /bin/sh -x
-							#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
-							#MSUB -n {3}      # total number of cores, 48 cores per nodes (2 x 24 CPU each) (in Parameters.cvs, key "ppn")
-							#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s"), default=2h
-							#MSUB -r {0}	  # job name (automatically generated)
-							#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
-							#MSUB -V          # transfer the variable of ENVIRONNEMENT
-							#MSUB -@ {7}:begin,end
-							#MSUB -oe %I.eo   # input and output of JOB
-							
-							# the number of nodes is deduced automatically from the number of cores (fixed nb core/node = 16 on curie noeud fin)
-							# ccc_mprun gives this information to gmx_mpi (seems to work !?)
-							
-							echo "===================== BEGIN JOB $SLURM_JOBID =============================== "
-							
-							module switch dfldatadir/{4}
-							
-							printf "Time =  `date`\\n" >> ${{JOBINFO}}
-							printf "SLURM submit directory = ${{SLURM_SUBMIT_DIR}}\\n" >> ${{JOBINFO}}
-							printf "TGCC queue = {2}, user {4}, max time = {5} seconds \\n" >> ${{JOBINFO}}
-							printf "SLURM job ID = ${{SLURM_JOBID}} \\n" >> ${{JOBINFO}}
-							printf "SLURM job name = ${{SLURM_JOB_NAME}} \\n" >> ${{JOBINFO}}
-							printf "This job will run on {3} processors\\n" >> ${{JOBINFO}}
-							printf "List of nodes : ${{SLURM_NODEID}} \\n\\n" >> ${{JOBINFO}}
-							
-							./run_{8}.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_{8}.out
-							du -hs ./*
-							ccc_msub -m work,scratch -q {10}  {9}.ccc_msub
-							
-							echo "===================== END  JOB $SLURM_JOBID =============================== "
-							""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'],
-										TGCC['time_s'], parameter_file, TGCC['mail'],
-										current_job['PROTOCOL'][md_step]['stepType'],
-										current_job['PROTOCOL'][next_step]['stepType'],
-										TGCC['partition'])
-					else:
-						tgcc_file_run = """
-							#! /bin/sh -x
-							#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
-							#MSUB -n {3}      # total number of cores, 48 cores per nodes (in Parameters.cvs, key "ppn")
-							#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s"), default=2h
-							#MSUB -r {0}	  # job name (automatically generated)
-							#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
-							#MSUB -V          # transfer the variable of ENVIRONNEMENT
-							#MSUB -@ {7}:begin,end
-							#MSUB -oe %I.eo   # input and output of JOB
-							
-							# the number of nodes is deduced automatically from the number of cores (fixed nb core/node = 16 on curie noeud fin)
-							# ccc_mprun gives this information to gmx_mpi (seems to work !?)
-							
-							echo "===================== BEGIN JOB $SLURM_JOBID =============================== "
-							
-							printf "Time =  `date`\\n" >> ${{JOBINFO}}
-							printf "SLURM submit directory = ${{SLURM_SUBMIT_DIR}}\\n" >> ${{JOBINFO}}
-							printf "TGCC queue = {2}, user {4}, max time = {5} seconds \\n" >> ${{JOBINFO}}
-							printf "SLURM job ID = ${{SLURM_JOBID}} \\n" >> ${{JOBINFO}}
-							printf "SLURM job name = ${{SLURM_JOB_NAME}} \\n" >> ${{JOBINFO}}
-							printf "This job will run on {3} processors\\n" >> ${{JOBINFO}}
-							printf "List of nodes : ${{SLURM_NODEID}} \\n\\n" >> ${{JOBINFO}}
-							
-							module switch dfldatadir/{4}
-							
-							
-							./run_{8}.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_{8}.out
-							
-							du -hs ./*
-							rsync -r ./* ${{OUTPUTDIR}}/.
-							rm -rf ${{MYTMPDIR}}
-							cd ${{INITIALDIR}}
-							
-							
-							
-							echo "===================== END  JOB $SLURM_JOBID =============================== "
-							""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'],
-										TGCC['time_s'], parameter_file, TGCC['mail'],
-										current_job['PROTOCOL'][md_step]['stepType'])
-							
-					with open('{0}.ccc_msub'.format(current_job['PROTOCOL'][md_step]['stepType']),'w') as tgcc_file:
-						tgcc_file.write( ut.RemoveUnwantedIndent(tgcc_file_run) )
-					
+					if cmd_param.create == 'ada':                      
+						ada_file_run = ""
+						if int(md_step) != (len(current_job['PROTOCOL']) - 1):
+							next_step = str(int(md_step)+1)
+							ada_file_run = """
+								# @ job_name         = {4}-{0}
+								# @ job_type         = mpich
+								# # Nombre de processus MPI demandes
+								# @ total_tasks      = {1}
+								# # Nombre de tâches OpenMP par processus MPI
+								# @ nb_threads       = {2}
+								# @ resources        = ConsumableCpus($(nb_threads))
+								# @ environment      = OMP_NUM_THREADS=$(nb_threads); NB_TASKS=$(total_tasks)
+								# @ wall_clock_limit = {3}
+								# @ output           = $(job_name).$(jobid)_MPI$(total_tasks)_OMP$(nb_threads)
+								# @ error            = $(job_name).$(jobid)_MPI$(total_tasks)_OMP$(nb_threads)
+								### @ class            = debug
+								# @ queue
+								
+								
+								### Echo des commandes ###
+								set -x
+								
+								### Information sur la tache ###
+								echo "LOADL_STEP_ID = ${{LOADL_STEP_ID}}"
+								echo "LOADL_STEP_TYPE = ${{LOADL_STEP_TYPE}}"
+								echo "LOADL_TOTAL_TASKS =  ${{LOADL_TOTAL_TASKS}}"
+								echo "OMP_NUM_THREADS = ${{OMP_NUM_THREADS}}"
+								echo "INITIALDIR = ${{INITIALDIR}}"
+								echo "OUTPUTDIR = ${{OUTPUTDIR}}"
+								
+								### Lancement du calcul ###
+								./run_{4}.sh ${{OUTPUTDIR}}/JOB_${{LOADL_STEP_ID}}_{4}.out
+								
+								du -hs ./*
+								
+								### copie des donnees du calcul ###
+								rsync ./* ${{OUTPUTDIR}}/.
+								
+								### Lancement du calcul suivant ###
+								llsubmit  {5}.llsubmit
+								
+								
+								echo "===================== END  JOB ${{LOADL_STEP_ID}} =============================== "
+								""".format(name, ADA['PPN'],ADA['NBNODES'],
+											ADA['wall_clock_limit'], 
+											current_job['PROTOCOL'][md_step]['stepType'],
+											current_job['PROTOCOL'][next_step]['stepType'],
+											)
+						else:
+							ada_file_run = """
+								# @ job_name         = {4}-{0}
+								# @ job_type         = mpich
+								# # Nombre de processus MPI demandes
+								# @ total_tasks      = {1}
+								# # Nombre de tâches OpenMP par processus MPI
+								# @ nb_threads       = {2}
+								# @ resources        = ConsumableCpus($(nb_threads))
+								# @ environment      = OMP_NUM_THREADS=$(nb_threads); NB_TASKS=$(total_tasks)
+								# @ wall_clock_limit = {3}
+								# @ output           = $(job_name).$(jobid)_MPI$(total_tasks)_OMP$(nb_threads)
+								# @ error            = $(job_name).$(jobid)_MPI$(total_tasks)_OMP$(nb_threads)
+								### @ class            = debug
+								# @ queue
+								
+								### Echo des commandes ###
+								set -x
+ 								
+								echo "LOADL_STEP_ID = ${{LOADL_STEP_ID}}"
+								echo "LOADL_STEP_TYPE = ${{LOADL_STEP_TYPE}}"
+								echo "LOADL_TOTAL_TASKS =  ${{LOADL_TOTAL_TASKS}}"
+								echo "OMP_NUM_THREADS = ${{OMP_NUM_THREADS}}"
+								echo "OUTPUTDIR = ${{OUTPUTDIR}}"
+								echo "INITIALDIR = ${{INITIALDIR}}"
+								
+								### Lancement du calcul ###
+								./run_{4}.sh ${{OUTPUTDIR}}/JOB_${{LOADL_STEP_ID}}_{4}.out
+								
+								du -hs ./*
+								
+								### FIN DES JOBS, PLUS DE llsubmit suivant ###
+								
+								### copie des donnees du calcul ###
+								rsync ./* ${{OUTPUTDIR}}/.
+								
+								echo "===================== END  JOB ${{LOADL_STEP_ID}} =============================== "
+								""".format(name, ADA['PPN'],ADA['NBNODES'],
+											ADA['wall_clock_limit'], 
+											current_job['PROTOCOL'][md_step]['stepType'],
+											)
+						with open('{0}.llsubmit'.format(current_job['PROTOCOL'][md_step]['stepType']),'w') as ada_file:
+							ada_file.write( ut.RemoveUnwantedIndent(ada_file_run) )
+						
+					elif cmd_param.create == 'tgcc':
+						tgcc_file_run = ""
+						if int(md_step) != (len(current_job['PROTOCOL']) - 1):
+							next_step = str(int(md_step)+1)
+							tgcc_file_run = """
+								#! /bin/sh -x
+								#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
+								#MSUB -n {3}      # total number of cores, 48 cores per nodes (2 x 24 CPU each) (in Parameters.cvs, key "ppn")
+								#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s"), default=2h
+								#MSUB -r {0}	  # job name (automatically generated)
+								#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
+								#MSUB -V          # transfer the variable of ENVIRONNEMENT
+								#MSUB -@ {7}:begin,end
+								#MSUB -oe %I.eo   # input and output of JOB
+								
+								# the number of nodes is deduced automatically from the number of cores (fixed nb core/node = 16 on curie noeud fin)
+								# ccc_mprun gives this information to gmx_mpi (seems to work !?)
+								
+								echo "===================== BEGIN JOB $SLURM_JOBID =============================== "
+								
+								module switch dfldatadir/{4}
+								
+								printf "Time =  `date`\\n" >> ${{JOBINFO}}
+								printf "SLURM submit directory = ${{SLURM_SUBMIT_DIR}}\\n" >> ${{JOBINFO}}
+								printf "TGCC queue = {2}, user {4}, max time = {5} seconds \\n" >> ${{JOBINFO}}
+								printf "SLURM job ID = ${{SLURM_JOBID}} \\n" >> ${{JOBINFO}}
+								printf "SLURM job name = ${{SLURM_JOB_NAME}} \\n" >> ${{JOBINFO}}
+								printf "This job will run on {3} processors\\n" >> ${{JOBINFO}}
+								printf "List of nodes : ${{SLURM_NODEID}} \\n\\n" >> ${{JOBINFO}}
+								
+								./run_{8}.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_{8}.out
+								du -hs ./*
+								ccc_msub -m work,scratch -q {10} -A {4} {9}.ccc_msub
+								
+								echo "===================== END  JOB $SLURM_JOBID =============================== "
+								""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'],
+											TGCC['time_s'], parameter_file, TGCC['mail'],
+											current_job['PROTOCOL'][md_step]['stepType'],
+											current_job['PROTOCOL'][next_step]['stepType'],
+											TGCC['partition'])
+						else:
+							tgcc_file_run = """
+								#! /bin/sh -x
+								#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
+								#MSUB -n {3}      # total number of cores, 48 cores per nodes (in Parameters.cvs, key "ppn")
+								#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s"), default=2h
+								#MSUB -r {0}	  # job name (automatically generated)
+								#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
+								#MSUB -V          # transfer the variable of ENVIRONNEMENT
+								#MSUB -@ {7}:begin,end
+								#MSUB -oe %I.eo   # input and output of JOB
+								
+								# the number of nodes is deduced automatically from the number of cores (fixed nb core/node = 16 on curie noeud fin)
+								# ccc_mprun gives this information to gmx_mpi (seems to work !?)
+								
+								echo "===================== BEGIN JOB $SLURM_JOBID =============================== "
+								
+								printf "Time =  `date`\\n" >> ${{JOBINFO}}
+								printf "SLURM submit directory = ${{SLURM_SUBMIT_DIR}}\\n" >> ${{JOBINFO}}
+								printf "TGCC queue = {2}, user {4}, max time = {5} seconds \\n" >> ${{JOBINFO}}
+								printf "SLURM job ID = ${{SLURM_JOBID}} \\n" >> ${{JOBINFO}}
+								printf "SLURM job name = ${{SLURM_JOB_NAME}} \\n" >> ${{JOBINFO}}
+								printf "This job will run on {3} processors\\n" >> ${{JOBINFO}}
+								printf "List of nodes : ${{SLURM_NODEID}} \\n\\n" >> ${{JOBINFO}}
+								
+								module switch dfldatadir/{4}
+								
+								
+								./run_{8}.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_{8}.out
+								
+								du -hs ./*
+								rsync -r ./* ${{OUTPUTDIR}}/.
+								tar cvf  ${{CCCSTOREDIR}}/JOB_${{SLURM_JOBID}}.tar  ${{MYTMPDIR}}
+								#rm -rf ${{MYTMPDIR}}
+								cd ${{INITIALDIR}}
+								
+								
+								
+								echo "===================== END  JOB $SLURM_JOBID =============================== "
+								""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'],
+											TGCC['time_s'], parameter_file, TGCC['mail'],
+											current_job['PROTOCOL'][md_step]['stepType'])
+						with open('{0}.ccc_msub'.format(current_job['PROTOCOL'][md_step]['stepType']),'w') as tgcc_file:
+							tgcc_file.write( ut.RemoveUnwantedIndent(tgcc_file_run) )
+						
 				
 				
 				#============================================================
@@ -1315,6 +1505,53 @@ def main(argv=sys.argv):
 							echo "End of run for {1}"
 							""".format(project_name, name)
 			
+			elif cmd_param.send == 'lynx':
+				end_of_run = """
+							echo "End of run for {1}"
+							cp -r /scratch/{2}/gromacs/{0}/{1} ${{LOCALDIR}}/{1}_OUTPUT
+							#rm -r /scratch/{2}/gromacs/{0}/{1}
+							""".format(project_name, name, LYNX['username'])
+				lynx_name = "{0}_{1}_{2}".format(software_version, project_name, name)
+				lynx_file_content = """
+						#! /bin/sh -x
+						
+						#!/bin/bash -x
+						#SBATCH --job-name={0}
+						#SBATCH -p {2}
+						#SBATCH -A {2}
+						#SBATCH --time='10000:00:00'
+						#SBATCH --nodes={3}
+						#SBATCH --ntasks={4} 
+						#SBATCH --export=ALL
+						
+						JOBINFO="${{SLURM_SUBMIT_DIR}}/${{SLURM_JOB_NAME}}-${{SLURM_JOB_ID}}.jobinfo"
+						
+						printf "Time =  `date`\\n" > $JOBINFO
+						printf "SLURM submit directory = ${{SLURM_SUBMIT_DIR}}\\n" >> $JOBINFO
+						printf "SLURM partition = ${{SLURM_JOB_PARTITION}}\\n" >> $JOBINFO
+						printf "SLURM job ID = ${{SLURM_JOB_ID}}\\n" >> $JOBINFO
+						printf "SLURM job name = ${{SLURM_JOB_NAME}}\\n" >> $JOBINFO
+						printf "SLURM num nodes = ${{SLURM_JOB_NUM_NODES}}\\n" >> $JOBINFO
+						printf "This job will create ${{SLURM_NTASKS}} \\n" >> $JOBINFO
+						printf "Number of CPU per tasks = ${{SLURM_CPUS_PER_TASK}} \\n" >> $JOBINFO
+						printf "List of nodes = ${{SLURM_JOB_NODELIST}}\\n" >> $JOBINFO
+						
+						cd ${{SLURM_SUBMIT_DIR}}
+						echo  "files in ${{SLURM_SUBMIT_DIR}}"
+						ls -ltr
+						echo "============================="
+						
+						echo "Run GMX"
+						date
+						./run.sh  ${{SLURM_JOB_ID}} >>  ${{SLURM_SUBMIT_DIR}}/${{SLURM_JOB_NAME}}-${{SLURM_JOB_ID}}.out
+						echo "End of GMX"
+						date
+						echo "============================="
+						""".format(lynx_name, LYNX['mail'], current_job['NODE'], current_job['NBNODES'], current_job['PPN'])
+								
+				with open(name+'.sbatch','w') as lynx_file:
+					lynx_file.write( ut.RemoveUnwantedIndent(lynx_file_content) )
+							
 			elif cmd_param.send == 'pbs':
 				end_of_run = """
 							echo "End of run for {1}"
@@ -1366,6 +1603,111 @@ def main(argv=sys.argv):
 				with open(name+'.pbs','w') as pbs_file:
 					pbs_file.write( ut.RemoveUnwantedIndent(pbs_file_content) )
 							
+			elif cmd_param.send == 'ada':
+				if 'SEQUENTIAL' not in current_job:
+					ada_file_content = """
+							# @ job_name         = {0}
+							# @ job_type         = mpich
+							# # Nombre de processus MPI demandes
+							# @ total_tasks      = {1}
+							# # Nombre de tâches OpenMP par processus MPI
+							# @ nb_threads       = {2}
+							# @ resources        = ConsumableCpus($(nb_threads))
+							# @ environment      = OMP_NUM_THREADS=$(nb_threads); NB_TASKS=$(total_tasks); COPY_ALL
+							# @ wall_clock_limit = {3}
+							# @ output           = $(job_name).$(jobid)_MPI$(total_tasks)_OMP$(nb_threads)
+							# @ error            = $(job_name).$(jobid)_MPI$(total_tasks)_OMP$(nb_threads)
+							### @ class            = debug
+							# @ queue
+								
+								
+							### Echo des commandes ###
+							set -x
+							echo "===================== BEGIN JOB {{$LOADL_STEP_ID}} =============================== "
+							
+							JOBINFO="${{LOADL_STEP_INITDIR}}/${{LOADL_JOB_NAME}}-${{LOADL_PID}}.jobinfo"
+							export MYTMPDIR="${{TMPDIR}}"
+							export OUTPUTDIR="${{LOADL_STEP_INITDIR}}/JOB_${{LOADL_PID}}_OUTPUT"
+							export INITIALDIR="${{LOADL_STEP_INITDIR}}/"
+							
+							mkdir -p ${{MYTMPDIR}}
+							mkdir -p ${{OUTPUTDIR}}
+								
+							echo "LOADL_JOB_NAME =  ${{LOADL_JOB_NAME}}" >> $JOBINFO
+							echo "LOADL_STEP_ID = ${{LOADL_STEP_ID}}" >> $JOBINFO
+							echo "LOADL_STEP_TYPE = ${{LOADL_STEP_TYPE}}" >> $JOBINFO
+							echo "LOADL_TOTAL_TASKS =  ${{LOADL_TOTAL_TASKS}}" >> $JOBINFO
+							echo "OMP_NUM_THREADS = ${{OMP_NUM_THREADS}}" >> $JOBINFO
+							echo "INITIALDIR = ${{INITIALDIR}}" >> $JOBINFO
+							echo "OUTPUTDIR = ${{OUTPUTDIR}}" >> $JOBINFO
+							echo "MYTMPDIR= ${{MYTMPDIR}}" >> $JOBINFO
+								
+							### Lancement du calcul ###
+							cd ${{MYTMPDIR}}
+							cp ${{INITIALDIR}}/* ${{MYTMPDIR}}/.
+							./run.sh ${{OUTPUTDIR}}/JOB_${{LOADL_PID}}.out
+							du -hs ./*
+								
+							### copie des donnees du calcul ###
+							rsync ./* ${{OUTPUTDIR}}/.
+								
+							echo "===================== END JOB ${{LOADL_STEP_ID}} =============================== "
+							""".format(name, current_job['PPN'],current_job['NBNODES'],ADA['wall_clock_limit'], 
+										)
+				else:
+					ada_file_content = """
+							# @ job_name         = {0}
+							# @ job_type         = mpich
+							# # Nombre de processus MPI demandes
+							# @ total_tasks      = {1}
+							# # Nombre de tâches OpenMP par processus MPI
+							# @ nb_threads       = {2}
+							# @ resources        = ConsumableCpus($(nb_threads))
+							# @ environment      = OMP_NUM_THREADS=$(nb_threads); NB_TASKS=$(total_tasks); COPY_ALL
+							# @ wall_clock_limit = {3}
+							# @ output           = $(job_name).$(jobid)_MPI$(total_tasks)_OMP$(nb_threads)
+							# @ error            = $(job_name).$(jobid)_MPI$(total_tasks)_OMP$(nb_threads)
+							### @ class            = debug
+							# @ queue
+							
+							### Echo des commandes ###
+							set -x
+							echo "===================== BEGIN SEQUENTIAL PREPARATION FOR JOB {0} =============================== "
+							
+							### Definition des variables valables pour toutes les etapes ###
+							JOBINFO="${{LOADL_STEP_INITDIR}}/${{LOADL_JOB_NAME}}-${{LOADL_STEP_ID}}.jobinfo"
+							export MYTMPDIR="${{TMPDIR}}"
+							export OUTPUTDIR="${{LOADL_STEP_INITDIR}}/JOB_${{LOADL_STEP_ID}}_OUTPUT"
+							
+							### Creation des repertoires pour toutes les etapes ###
+							mkdir -p ${{MYTMPDIR}}
+							mkdir -p ${{OUTPUTDIR}}
+							
+							### Output des variables d'environement ###
+							echo "LOADL_JOB_NAME =  ${{LOADL_JOB_NAME}}" >> $JOBINFO
+							echo "LOADL_STEP_ID = ${{LOADL_STEP_ID}}" >> $JOBINFO
+							echo "LOADL_STEP_TYPE = ${{LOADL_STEP_TYPE}}" >> $JOBINFO
+							echo "LOADL_TOTAL_TASKS =  ${{LOADL_TOTAL_TASKS}}" >> $JOBINFO
+							echo "OMP_NUM_THREADS = ${{OMP_NUM_THREADS}}" >> $JOBINFO
+							echo "INITIALDIR = ${{INITIALDIR}}" >> $JOBINFO
+							echo "OUTPUTDIR = ${{OUTPUTDIR}}" >> $JOBINFO
+							echo "MYTMPDIR = ${{MYTMPDIR}}" >> $JOBINFO
+								
+							### Copie des donnes inputs ###
+							cd ${{MYTMPDIR}}
+							cp ${{INITIALDIR}}/* ${{MYTMPDIR}}/.
+							
+							### lancement de la premiere etape du calcul
+							llsubmit {4}.llsubmit
+							
+							echo "===================== END OF SEQUENTIAL PREPARATION FOR JOB {0} =============================== "
+							""".format(name, current_job['PPN'],current_job['NBNODES'],ADA['wall_clock_limit'], 
+										current_job['PROTOCOL']['1']['stepType'],
+										)
+				
+				with open(name+'.llsubmit','w') as ada_file:
+					ada_file.write( ut.RemoveUnwantedIndent(ada_file_content) )
+			
 			elif cmd_param.send == 'tgcc':
 				if 'SEQUENTIAL' not in current_job:
 					tgcc_file_content = """
@@ -1410,7 +1752,7 @@ def main(argv=sys.argv):
 							du -hs ./*
 							rsync -r ./* ${{OUTPUTDIR}}/.
 							cd ${{SLURM_SUBMIT_DIR}}
-							rm -rf ${{MYTMPDIR}}
+							#rm -rf ${{MYTMPDIR}}
 							
 							echo "===================== END  JOB $SLURM_JOBID =============================== "
 							""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'], TGCC['time_s'], parameter_file, TGCC['mail'])
@@ -1452,7 +1794,7 @@ def main(argv=sys.argv):
 						du -hs ./*
 						rsync ${{SLURM_SUBMIT_DIR}}/* ${{MYTMPDIR}} 
 						cd ${{MYTMPDIR}} 
-						ccc_msub -m work,scratch -q {9}  {8}.ccc_msub
+						ccc_msub -m work,scratch -q {9}  -A {4}  {8}.ccc_msub
 						
 						echo "===================== END  JOB $SLURM_JOBID =============================== "
 						""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'],
@@ -1462,7 +1804,6 @@ def main(argv=sys.argv):
 				
 				with open(name+'.ccc_msub','w') as tgcc_file:
 					tgcc_file.write( ut.RemoveUnwantedIndent(tgcc_file_content) )
-					
 			
 			if cmd_param.create == 'local':
 				end_of_create = """
@@ -1521,6 +1862,110 @@ def main(argv=sys.argv):
 				with open(name+'.create_pbs','w') as pbs_file:
 					pbs_file.write( ut.RemoveUnwantedIndent(pbs_file_content) )
 							
+			elif cmd_param.create == 'lynx':
+				end_of_create = """
+							echo "End of create for {1}"
+							cp -r /scratch/{2}/gromacs/{0}/{1} ${{LOCALDIR}}/{1}
+							# rm -r /scratch/{2}/gromacs/{0}
+							""".format(project_name, name, LYNX['username'])
+				
+				lynx_name = "{0}_{1}_{2}".format(software_version, project_name, name)
+				lynx_file_content = """
+						#! /bin/sh -x
+						
+						#!/bin/bash -x
+						#SBATCH --job-name={0}
+						#SBATCH -p {2}
+						#SBATCH -A {2}
+						#SBATCH --time='10000:00:00'
+						#SBATCH --nodes={3}
+						#SBATCH --ntasks={4} 
+						#SBATCH --export=ALL
+						
+						JOBINFO="${{SLURM_SUBMIT_DIR}}/${{SLURM_JOB_NAME}}-${{SLURM_JOB_ID}}.jobinfo"
+						
+						printf "Time =  `date`\\n" > $JOBINFO
+						printf "SLURM submit directory = ${{SLURM_SUBMIT_DIR}}\\n" >> $JOBINFO
+						printf "SLURM partition = ${{SLURM_JOB_PARTITION}}\\n" >> $JOBINFO
+						printf "SLURM job ID = ${{SLURM_JOB_ID}}\\n" >> $JOBINFO
+						printf "SLURM job name = ${{SLURM_JOB_NAME}}\\n" >> $JOBINFO
+						printf "SLURM num nodes = ${{SLURM_JOB_NUM_NODES}}\\n" >> $JOBINFO
+						printf "This job will create ${{SLURM_NTASKS tasks}} \\n" >> $JOBINFO
+						printf "Number of CPU per tasks = ${{SLURM_CPUS_PER_TASK}} \\n" >> $JOBINFO
+						printf "List of nodes = ${{SLURM_JOB_NODELIST}}\\n" >> $JOBINFO
+						
+						cd ${{SLURM_SUBMIT_DIR}}
+						echo  "files in ${{SLURM_SUBMIT_DIR}}"
+						ls -ltr
+						echo "============================="
+						
+						echo "Run GMX"
+						date
+						./run.sh  ${{SLURM_JOB_ID}} >>  ${{SLURM_SUBMIT_DIR}}/${{SLURM_JOB_NAME}}-${{SLURM_JOB_ID}}.out
+						echo "End of GMX"
+						date
+						echo "============================="
+						""".format(lynx_name, LYNX['mail'], current_job['NODE'], current_job['NBNODES'], current_job['PPN'])
+								
+				with open(name+'.create_lynx','w') as lynx_file:
+					lynx_file.write( ut.RemoveUnwantedIndent(lynx_file_content) )
+							
+			elif cmd_param.create == 'ada':
+				ada_file_content = """
+							# @ job_name         = {0}
+							# @ job_type         = mpich
+							# # Nombre de processus MPI demandes
+							# @ total_tasks      = {1}
+							# # Nombre de tâches OpenMP par processus MPI
+							# @ nb_threads       = {2}
+							# @ resources        = ConsumableCpus($(nb_threads))
+							# @ environment      = OMP_NUM_THREADS=$(nb_threads); NB_TASKS=$(total_tasks); COPY_ALL
+							# @ wall_clock_limit = {3}
+							# @ output           = $(job_name).$(jobid)_MPI$(total_tasks)_OMP$(nb_threads)
+							# @ error            = $(job_name).$(jobid)_MPI$(total_tasks)_OMP$(nb_threads)
+							### @ class            = debug
+							# @ queue								
+								
+							### Echo des commandes ###
+							set -x
+							echo "===================== BEGIN CREATING PREPARATION FOR JOB {0} =============================== "
+							
+							### Definition des variables valables pour toutes les etapes ###
+							JOBINFO="${{LOADL_STEP_INITDIR}}/${{LOADL_JOB_NAME}}-${{LOADL_STEP_ID}}.jobinfo"
+							export MYTMPDIR="${{TMPDIR}}"
+							export OUTPUTDIR="${{LOADL_STEP_INITDIR}}/JOB_${{LOADL_STEP_ID}}_OUTPUT"
+							
+							### Creation des repertoires pour toutes les etapes ###
+							mkdir -p ${{MYTMPDIR}}
+							mkdir -p ${{OUTPUTDIR}}
+							
+							### Output des variables d'environement ###
+							echo "LOADL_JOB_NAME =  ${{LOADL_JOB_NAME}}" >> $JOBINFO
+							echo "LOADL_STEP_ID = ${{LOADL_STEP_ID}}" >> $JOBINFO
+							echo "LOADL_STEP_TYPE = ${{LOADL_STEP_TYPE}}" >> $JOBINFO
+							echo "LOADL_TOTAL_TASKS =  ${{LOADL_TOTAL_TASKS}}" >> $JOBINFO
+							echo "OMP_NUM_THREADS = ${{OMP_NUM_THREADS}}" >> $JOBINFO
+							echo "INITIALDIR = ${{INITIALDIR}}" >> $JOBINFO
+							echo "OUTPUTDIR = ${{OUTPUTDIR}}" >> $JOBINFO
+							echo "MYTMPDIR= ${{MYTMPDIR}}" >> $JOBINFO
+								
+							### Copie des donnes inputs ###
+							cd ${{MYTMPDIR}}
+							cp ${{INITIALDIR}}/* ${{MYTMPDIR}}/.
+							cd ${{MYTMPDIR}} 
+							
+							./create.sh  >> ${{OUTPUTDIR}}/JOB_${{LOADL_STEP_ID}}_create.out
+							
+							### lancement de la premiere etape du calcul
+							cd ${{LOADL_STEP_ID}}
+							llsubmit {0}.llsubmit
+							
+							echo "===================== END OF SEQUENTIAL PREPARATION FOR JOB {0} =============================== "
+							""".format(name, current_job['PPN'],current_job['NBNODES'],ADA['wall_clock_limit'], 
+										)
+				with open(name+'.create_llsubmit','w') as ada_file:
+					ada_file.write(ut.RemoveUnwantedIndent(ada_file_content) )
+					
 			elif cmd_param.create == 'tgcc':
 				tgcc_file_content = """
 						#! /bin/sh -x
@@ -1560,8 +2005,8 @@ def main(argv=sys.argv):
 						./create.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_create.out
 						rsync -r ./* ${{OUTPUTDIR}}/.
 						cd ${{SLURM_SUBMIT_DIR}}
-						rm -rf ${{MYTMPDIR}}
-						ccc_msub -m work,scratch -q {8} {0}.ccc_msub
+						# rm -rf ${{MYTMPDIR}}
+						ccc_msub -m work,scratch -q {8} -A {4} {0}.ccc_msub
 						
 						echo "===================== END  JOB $SLURM_JOBID =============================== "
 						""".format(name, TGCC['mail'], TGCC['queue'], current_job['PPN'],TGCC['group'], TGCC['time_s'], parameter_file, TGCC['mail'],TGCC['partition'])
@@ -1570,13 +2015,9 @@ def main(argv=sys.argv):
 					tgcc_file.write( ut.RemoveUnwantedIndent(tgcc_file_content) )
 			
 			
-			
-			
-			
-					
 			script_file_create.write(ut.RemoveUnwantedIndent(end_of_create))
 			script_file_prod.write(ut.RemoveUnwantedIndent(end_of_run))
-
+			
 			sub.call("""chmod a+x run.sh ; if [ -e create.sh ] ; then chmod a+x create.sh;fi """,shell=True)
 			so_far_file.close()
 			
@@ -1617,8 +2058,14 @@ def main(argv=sys.argv):
 			elif cmd_param.send == 'pbs':
 				send_cmd = "cd {0} \n qsub {0}.pbs \n cd .. \n".format(name)
 				
+			elif cmd_param.send == 'lynx':
+				send_cmd = "cd {0} \n sbatch {0}.sbatch \n cd .. \n".format(name)
+				
+			elif cmd_param.send == 'ada':
+				send_cmd = "cd {0} \n llsubmit {0}.llsubmit \n cd .. \n".format(name)
+				
 			elif cmd_param.send == 'tgcc':
-				send_cmd = "cd {0} \n module switch dfldatadir/{1} \n ccc_msub -m work,scratch -q {2}  {0}.ccc_msub \n cd .. \n".format(name,TGCC['group'],TGCC['partition'])
+				send_cmd = "cd {0} \n module switch dfldatadir/{1} \n ccc_msub -m work,scratch -q {2}  -A {1} {0}.ccc_msub \n cd .. \n".format(name,TGCC['group'],TGCC['partition'])
 			
 			if cmd_param.create == 'local':
 				create_cmd = "cd {0} \n ./create.sh \ncd .. \n".format(name)
@@ -1626,8 +2073,14 @@ def main(argv=sys.argv):
 			elif cmd_param.create == 'pbs':
 				create_cmd = "cd {0} \n qsub {0}.create_pbs \n cd .. \n".format(name)
 				
+			elif cmd_param.create == 'lynx':
+				send_cmd = "cd {0} \n sbatch {0}.create_sbatch \n cd .. \n".format(name)
+				
+			elif cmd_param.create == 'ada':
+				send_cmd = "cd {0} \n llsubmit {0}.create_llsubmit \n cd .. \n".format(name)
+				
 			elif cmd_param.create == 'tgcc':
-				create_cmd = "cd {0} \n  module switch dfldatadir/{1} \n ccc_msub -m work,scratch -q {2} {0}.create_ccc_msub \n cd .. \n".format(name,TGCC['group'],TGCC['partition'])
+				create_cmd = "cd {0} \n  module switch dfldatadir/{1} \n ccc_msub -m work,scratch -q {2} -A {1} {0}.create_ccc_msub \n cd .. \n".format(name,TGCC['group'],TGCC['partition'])
 				
 			script_to_send.write(send_cmd)
 			script_to_create.write(create_cmd)
@@ -1637,11 +2090,23 @@ def main(argv=sys.argv):
 		if cmd_param.send == 'pbs':
 			see_jobs_cmd = "qstat -n -u {0}\necho ' To follow your JOBS, type qstat -n -u {0} ' \n".format(PBS['username'])
 		
+		elif cmd_param.send == 'lynx':
+			see_jobs_cmd = "squeue --users={0} \necho ' To follow your JOBS, type squeue -u {0} ' \n".format(LYNX['username'])
+		
+		elif cmd_param.send == 'ada':
+			see_create_cmd = "llq -u {0}\n\necho ' To follow your JOBS, type llq -u {0} ' \n".format(ADA['username'])
+		
 		elif cmd_param.send == 'tgcc':
 			see_jobs_cmd = "ccc_mpp -u {0}\n\necho ' To follow your JOBS, type ccc_mpp -u {0} ' \n".format(TGCC['username'])
 		
 		if cmd_param.create == 'pbs':
 			see_create_cmd = "qstat -n -u {0}\necho ' To follow your JOBS, type qstat -n -u {0} ' \n".format(PBS['username'])
+		
+		elif cmd_param.create == 'lynx':
+			see_create_cmd = "squeue --users={0} \necho ' To follow your JOBS, type squeue -u {0} ' \n".format(LYNX['username'])
+		
+		elif cmd_param.create == 'ada':
+			see_create_cmd = "llq -u {0}\n\necho ' To follow your JOBS, type llq -u {0} ' \n".format(ADA['username'])
 		
 		elif cmd_param.create == 'tgcc':
 			see_create_cmd = "ccc_mpp -u {0}\n\necho ' To follow your JOBS, type ccc_mpp -u {0} ' \n".format(TGCC['username'])
