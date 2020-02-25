@@ -932,7 +932,7 @@ def main(argv=sys.argv):
 								#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
 								#MSUB -n {3}      # total number of cores, 48 cores per nodes (2 x 24 CPU each) (in Parameters.cvs, key "ppn")
 								#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s"), default=2h
-								#MSUB -r {0}	  # job name (automatically generated)
+								#MSUB -r {9}_{0}	  # job name (automatically generated)
 								#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
 								#MSUB -V          # transfer the variable of ENVIRONNEMENT
 								#MSUB -@ {7}:begin,end
@@ -969,13 +969,13 @@ def main(argv=sys.argv):
 								#MSUB -q {2}      # queue = standard, test, long (in {6}, key "node")
 								#MSUB -n {3}      # total number of cores, 48 cores per nodes (in Parameters.cvs, key "ppn")
 								#MSUB -T {5}      # times in seconds (in TGCCinfo.csv, key "time_s"), default=2h
-								#MSUB -r {0}	  # job name (automatically generated)
+								#MSUB -r {8}_{0}	  # job name (automatically generated)
 								#MSUB -A {4} 	  # group for allocation (gen7662) (in TgccInfo.csv, key "group")
 								#MSUB -V          # transfer the variable of ENVIRONNEMENT
 								#MSUB -@ {7}:begin,end
 								#MSUB -oe %I.eo   # input and output of JOB
 								
-								# the number of nodes is deduced automatically from the number of cores (fixed nb core/node = 16 on curie noeud fin)
+								# the number of nodes is deduced automatically from the number of cores (fixed nb core/node = 48 on irene skylake)
 								# ccc_mprun gives this information to gmx_mpi (seems to work !?)
 								
 								echo "===================== BEGIN JOB $SLURM_JOBID =============================== "
