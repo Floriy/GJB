@@ -197,10 +197,18 @@ class BaseProject(object):
 			self.type				= sample['TYPE']
 			
 			self.geometry			= sample['GEOMETRY']
+			
+			if 'PBCSHIFT' in sample['GEOMETRY'] :
+				self.pbcshift = float(sample['GEOMETRY']['PBCSHIFT'])
+			else :
+				self.pbcshift = 5.0
+			
 			self.dimensions			= {'LX': float(sample['GEOMETRY']['LX']),
 										'LY': float(sample['GEOMETRY']['LY']), 
 										'LZ': float(sample['GEOMETRY']['LZ'])}
 			self.bottom_z			= 0.0
+			
+			
 			
 			self.sol_thickness		= None
 			if self.type.startswith('MONO'):
@@ -683,7 +691,7 @@ class BaseProject(object):
 					# Add the pbc
 					if len(split_line) == 3: continue
 					
-					z		= float(line.split()[-4])
+					z	= float(line.split()[-4])
 					name	= line[5:9].strip()
 					serial	= line[0:5].strip()
 					
@@ -842,7 +850,7 @@ class BaseProject(object):
 						y = float(line.split()[-5])
 						z = float(line.split()[-4])
 						
-						if (z < (float(self.su['Thickness']) / 10.) ) and (x < dimensions[0]) and (y < dimensions[0]) :
+						if (z < (float(self.su['Thickness']) / 10.) ) and (x < dimensions[0]) and (y < dimensions[1]) :
 							su_atoms += line
 							self.nb_su += 1
 				
@@ -1537,9 +1545,12 @@ class BaseProject(object):
 			
 			for defo_param, defo_param_value in defo_preset_for_md_step.items():
 				if defo_param not in ('posres','FCX','FCY','FCZ'):
-					if defo_param in self.protocol[md_step]:
+					if defo_param in self.protocol[md_step]  and defo_param not in ('pull-ncoords'):
 						current_value = str(self.protocol[md_step][defo_param])
 						self.protocol[md_step][defo_param] = current_value + ' ' + str(defo_param_value) + ' '
+					elif defo_param in self.protocol[md_step]  and defo_param in ('pull-ncoords'):
+						current_value = str(self.protocol[md_step][defo_param])
+						self.defo_mdp_params += defo_param + '		= '+ str(current_value) + ' \n'                        
 					else:
 						self.defo_mdp_params += defo_param + '		= '+ str(defo_param_value) + ' \n'
 			
@@ -1754,7 +1765,7 @@ class BaseProject(object):
 			defo_su_parameters = ""
 			# Writes parameters related to Su at the end
 			if self.su is not None:
-				parameters_not_to_write = ('posres','FCX','FCY','FCZ','ref-t','tau-t')
+				parameters_not_to_write = ('posres','FCX','FCY','FCZ','ref-t','tau-t','pull-ncoords')
 				
 				if self.defo is not None:
 					
@@ -1770,8 +1781,11 @@ class BaseProject(object):
 						if not line.startswith(';'):
 							for key in su_preset_for_md_step:
 								if key in line:
-									previous_value = line.partition('=')[2]
-									defo_su_parameters += "{0}	={1} {2}\n".format(key, previous_value, str(su_preset_for_md_step[key]))
+									if key.startswith('pull-ncoords') :   
+										defo_su_parameters += "{0}	={1} \n".format(key, previous_value)                                        
+									else :
+										previous_value = line.partition('=')[2]
+										defo_su_parameters += "{0}	={1} {2}\n".format(key, previous_value, str(su_preset_for_md_step[key]))
 									continue
 
 					defo_su_parameters += "\n ;;; Parameters for Defo ;;;  \n"
@@ -3871,13 +3885,13 @@ class Solvent(BaseProject):
 								structure {0}
 									chain {1}
 									number {2:g}
-									inside box 0. 0. {3}  {4} {5} {6}
+									inside box {8} {8} {3}  {4} {5} {6}
 									{7}
 								end structure
 								""".format(pdb_file_list[sol]['name'], chain,
-											self.sample_molecules[sol], self.bottom_z + shift,
+											self.sample_molecules[sol], self.bottom_z + shift + self.pbcshift,
 											self.LX, self.LY, self.LZ/nb_solvent + shift,
-											packmol_instruction_mol)
+											packmol_instruction_mol, self.pbcshift)
 								
 				shift += self.dimensions['LZ'] / nb_solvent
 				
