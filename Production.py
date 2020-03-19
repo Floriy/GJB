@@ -955,6 +955,8 @@ def main(argv=sys.argv):
 								
 								./run_{8}.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_{8}.out
 								du -hs ./*
+								mkdir -p ${{OUTPUTDIR}}_NOTFINISHED
+								rsync  --chmod=Dg+s --chown=:{4}  -r ./* ${{OUTPUTDIR}}_NOTFINISHED/.  
 								ccc_msub -m work,scratch -q {10} -A {4} {9}.ccc_msub
 								
 								echo "===================== END  JOB $SLURM_JOBID =============================== "
@@ -994,7 +996,7 @@ def main(argv=sys.argv):
 								./run_{8}.sh  >> ${{OUTPUTDIR}}/JOB_${{SLURM_JOBID}}_{8}.out
 								
 								du -hs ./*
-								rsync -r ./* ${{OUTPUTDIR}}/.
+								rsync  --chmod=Dg+s --chown=:{4}  -r ./* ${{OUTPUTDIR}}/.  
 								tar cvf  ${{CCCSTOREDIR}}/JOB_${{SLURM_JOBID}}.tar  ${{MYTMPDIR}}
 								#rm -rf ${{MYTMPDIR}}
 								cd ${{INITIALDIR}}
