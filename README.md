@@ -1,6 +1,7 @@
 # Gromacs Job Production/Analysis
 
 This code aims at providing tools to easily generate gromacs simulation protocols and analyse results with parts based on already existing codes.
+It was mainly developped for Lipic layers using the MARTINI model, in particular supported lipid layers. Please contact the developpers for details of the usage and limitation of our approach.
 
 ## Getting Started
 
