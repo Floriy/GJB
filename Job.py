@@ -55,7 +55,63 @@ DSPC_PDB = """
 		ATOM     14  C5B DSPCX   2     108.540  89.120  51.500  0.00  0.00
 		END
 		"""
-
+		
+S1PC_PDB = """
+		CRYST1  125.000  125.000  100.000  90.00  90.00  90.00 P 1           1
+		ATOM      1  NC3 S1PCX   2     105.980  90.400  72.500  0.00  0.00
+		ATOM      2  PO4 S1PCX   2     105.630  90.710  69.500  0.00  0.00
+		ATOM      3  GL1 S1PCX   2     105.780  90.260  66.500  0.00  0.00
+		ATOM      4  GL2 S1PCX   2     107.160  90.030  66.500  0.00  0.00
+		ATOM      5  C1A S1PCX   2     106.230  90.050  63.500  0.00  0.00
+		ATOM      6  C2A S1PCX   2     105.920  90.250  60.500  0.00  0.00
+		ATOM      7  C3A S1PCX   2     106.390  90.500  57.500  0.00  0.00
+		ATOM      8  C4A S1PCX   2     106.320  90.710  54.500  0.00  0.00
+		ATOM      9  C5A S1PCX   2     106.050  90.770  51.500  0.00  0.00
+		ATOM     10  C1B S1PCX   2     108.660  89.710  63.500  0.00  0.00
+		ATOM     11  C2B S1PCX   2     108.450  89.500  60.500  0.00  0.00
+		ATOM     12  C3B S1PCX   2     108.130  88.940  57.500  0.00  0.00
+		ATOM     13  C4B S1PCX   2     108.740  88.990  54.500  0.00  0.00
+		ATOM     14  C5B S1PCX   2     108.540  89.120  51.500  0.00  0.00
+		END
+		"""
+		
+S2PC_PDB = """
+		CRYST1  125.000  125.000  100.000  90.00  90.00  90.00 P 1           1
+		ATOM      1  NC3 S2PCX   2     105.980  90.400  72.500  0.00  0.00
+		ATOM      2  PO4 S2PCX   2     105.630  90.710  69.500  0.00  0.00
+		ATOM      3  GL1 S2PCX   2     105.780  90.260  66.500  0.00  0.00
+		ATOM      4  GL2 S2PCX   2     107.160  90.030  66.500  0.00  0.00
+		ATOM      5  C1A S2PCX   2     106.230  90.050  63.500  0.00  0.00
+		ATOM      6  C2A S2PCX   2     105.920  90.250  60.500  0.00  0.00
+		ATOM      7  C3A S2PCX   2     106.390  90.500  57.500  0.00  0.00
+		ATOM      8  C4A S2PCX   2     106.320  90.710  54.500  0.00  0.00
+		ATOM      9  C5A S2PCX   2     106.050  90.770  51.500  0.00  0.00
+		ATOM     10  C1B S2PCX   2     108.660  89.710  63.500  0.00  0.00
+		ATOM     11  C2B S2PCX   2     108.450  89.500  60.500  0.00  0.00
+		ATOM     12  C3B S2PCX   2     108.130  88.940  57.500  0.00  0.00
+		ATOM     13  C4B S2PCX   2     108.740  88.990  54.500  0.00  0.00
+		ATOM     14  C5B S2PCX   2     108.540  89.120  51.500  0.00  0.00
+		END
+		"""
+		
+D1PC_PDB = """
+		CRYST1  125.000  125.000  100.000  90.00  90.00  90.00 P 1           1
+		ATOM      1  NC3 D1PCX   2     105.980  90.400  72.500  0.00  0.00
+		ATOM      2  PO4 D1PCX   2     105.630  90.710  69.500  0.00  0.00
+		ATOM      3  GL1 D1PCX   2     105.780  90.260  66.500  0.00  0.00
+		ATOM      4  GL2 D1PCX   2     107.160  90.030  66.500  0.00  0.00
+		ATOM      5  C1A D1PCX   2     106.230  90.050  63.500  0.00  0.00
+		ATOM      6  C2A D1PCX   2     105.920  90.250  60.500  0.00  0.00
+		ATOM      7  C3A D1PCX   2     106.390  90.500  57.500  0.00  0.00
+		ATOM      8  C4A D1PCX   2     106.320  90.710  54.500  0.00  0.00
+		ATOM      9  C5A D1PCX   2     106.050  90.770  52.500  0.00  0.00
+		ATOM     10  C1B D1PCX   2     108.660  89.710  63.500  0.00  0.00
+		ATOM     11  C2B D1PCX   2     108.450  89.500  60.500  0.00  0.00
+		ATOM     12  C3B D1PCX   2     108.130  88.940  57.500  0.00  0.00
+		ATOM     13  C4B D1PCX   2     108.740  88.990  54.500  0.00  0.00
+		ATOM     14  C5B D1PCX   2     108.540  89.120  52.500  0.00  0.00
+		END
+		"""
 DPPC_PDB = """
 		TITLE     DPPC sim
 		REMARK    THIS IS A SIMULATION BOX
@@ -104,6 +160,9 @@ pdb_file_list = {'W':{'name':'water_single.pdb','content': W_PDB},
 			   'OCO':{'name':'octanol_single.pdb','content': OCO_PDB},
 			   'PW':{'name':'polwater_single.pdb','content': PW_PDB},
 			   'DSPC':{ 'name':'dspc_single.pdb', 'content':DSPC_PDB},
+			   'S1PC':{ 'name':'s1pc_single.pdb', 'content':S1PC_PDB},
+			   'S2PC':{ 'name':'s2pc_single.pdb', 'content':S2PC_PDB},   
+			   'D1PC':{ 'name':'d1pc_single.pdb', 'content':D1PC_PDB},
 			   'DPPC':{ 'name':'dppc_single.pdb', 'content':DPPC_PDB},
 			   'DLPC':{ 'name':'dlpc_single.pdb', 'content':DPPC_PDB},
 			   'SU':{ 'name':'su_single.pdb', 'content':SU_PDB}}
@@ -138,10 +197,18 @@ class BaseProject(object):
 			self.type				= sample['TYPE']
 			
 			self.geometry			= sample['GEOMETRY']
+			
+			if 'PBCSHIFT' in sample['GEOMETRY'] :
+				self.pbcshift = float(sample['GEOMETRY']['PBCSHIFT'])
+			else :
+				self.pbcshift = 5.0
+			
 			self.dimensions			= {'LX': float(sample['GEOMETRY']['LX']),
 										'LY': float(sample['GEOMETRY']['LY']), 
 										'LZ': float(sample['GEOMETRY']['LZ'])}
 			self.bottom_z			= 0.0
+			
+			
 			
 			self.sol_thickness		= None
 			if self.type.startswith('MONO'):
@@ -150,11 +217,54 @@ class BaseProject(object):
 			self.lz_vaccum			= None
 			if 'LzVac' in sample['GEOMETRY']:
 				self.lz_vaccum	= float(sample['GEOMETRY']['LzVac'])
-						   
+			
 			self.fillmode			= None
 			if 'FILLMODE' in sample['GEOMETRY']:
-				self.fillmode	= sample['GEOMETRY']['FILLMODE']
-			
+				
+				self.fillmode = sample['GEOMETRY']['FILLMODE']
+				
+				if self.fillmode == 'PARTIAL-X':
+					assert(False),"PARTIAL-X not implemented yet"
+					
+					if 'MIN' in sample['GEOMETRY']:
+						
+						self.minsolvent = float(sample['GEOMETRY']['MIN'])
+					else:
+						self.minsolvent = 0.0
+						
+					if 'MAX' in sample['GEOMETRY']:
+						self.maxsolvent = float(sample['GEOMETRY']['MAX'])
+					else:
+						self.maxsolvent = float(self.dimensions['LX'])
+						
+				if self.fillmode == 'PARTIAL-Y':
+					assert(False),"PARTIAL-Y not implemented yet"
+					if 'MIN' in sample['GEOMETRY']:
+						self.minsolvent = float(sample['GEOMETRY']['MIN'])
+					else:
+						self.minsolvent = 0.0
+						
+					if 'MAX' in sample['GEOMETRY']:
+						self.maxsolvent = float(sample['GEOMETRY']['MAX'])
+					else:
+						self.maxsolvent = float(self.dimensions['LY'])
+						
+				if self.fillmode == 'PARTIAL-Z':
+					print("PARTIAL-Z not tested with LIPIDS/DEFO/SU systems ! check bottom_z contraints before use ")
+					
+					if 'MIN' in sample['GEOMETRY']:
+						self.minsolvent = float(sample['GEOMETRY']['MIN'])
+					else:
+						self.minsolvent = 0.0
+						
+					if 'MAX' in sample['GEOMETRY']:
+						self.maxsolvent = float(sample['GEOMETRY']['MAX'])
+					else:
+						self.maxsolvent = float(self.dimensions['LZ'])
+						
+					if self.type.startswith('SOLVENT'):
+						self.bottom_z = self.minsolvent          
+						
 			self.radius				= None
 			if 'Radius' in sample['GEOMETRY']:
 				self.radius		= sample['GEOMETRY']['Radius']
@@ -201,6 +311,7 @@ class BaseProject(object):
 			if 'WALL' in sample:
 				self.wall		= sample['WALL']
 				
+				
 				if self.su is None:
 					self.bottom_z	= 3.0
 				
@@ -215,7 +326,7 @@ class BaseProject(object):
 		except RuntimeError as e:
 			print(e)
 			
-		self.lipid_list				= ['DSPC','DPPC','DLPC']
+		self.lipid_list				= ['DSPC','DPPC','DLPC','S1PC','S2PC','D1PC']
 		self.solvent_list			= ['W','OCO','PW']
 		self.substrate_list			= ['SSUP','SSUN','SSna','SSn0']
 		
@@ -237,10 +348,12 @@ class BaseProject(object):
 								# Packmol seed was set using {0}
 								seed {1:d}
 								tolerance 5.0
+								nloop0   1000
 								filetype pdb\n""".format(sample['SEED'], self.packmol_seed)
 		else:
 			self.packmol_input	= """
 								# Packmol seed was set using default
+								nloop0   1000
 								tolerance 3.0
 								filetype pdb\n"""
 								
@@ -345,6 +458,9 @@ class BaseProject(object):
 		translate = None
 		
 		# Get the dimensions of the box from the input gro file
+		
+		
+		
 		dimensions = str(ut.tail(file_found[0], 1)[0], 'utf-8').replace(repr('\n'),'')
 		dimensions = dimensions.split()
 		dimensions = [float(D) for D in dimensions]
@@ -575,7 +691,7 @@ class BaseProject(object):
 					# Add the pbc
 					if len(split_line) == 3: continue
 					
-					z		= float(line.split()[-4])
+					z	= float(line.split()[-4])
 					name	= line[5:9].strip()
 					serial	= line[0:5].strip()
 					
@@ -730,8 +846,11 @@ class BaseProject(object):
 							continue
 						
 						#Look at the z below the thickness
+						x = float(line.split()[-6])
+						y = float(line.split()[-5])
 						z = float(line.split()[-4])
-						if z < (float(self.su['Thickness']) / 10.):
+						
+						if (z < (float(self.su['Thickness']) / 10.) ) and (x < dimensions[0]) and (y < dimensions[1]) :
 							su_atoms += line
 							self.nb_su += 1
 				
@@ -832,7 +951,7 @@ class BaseProject(object):
 									inside box 0. 0. {3}  {4} {5} {6}
 								end structure
 								""".format(system, pdb_file_list['SU']['name'],
-											self.nb_su, self.bottom_z,
+											self.nb_su, self.bottom_z + shell,
 											dimensions[0]*10 - shell, dimensions[1]*10 - shell, thickness - shell)
 			
 			su_pdb_content = pdb_file_list['SU']['content'].replace("TEMP", su_type)
@@ -867,27 +986,41 @@ class BaseProject(object):
 		if add_monolayer:
 			monolayer_z	= None
 			
-			if 'THRESHOLD-Z' in inputs:
-				monolayer_z = thresholds
-			else:
-				monolayer_z = dimensions[2]
 			
+			print("dimension=",dimensions)
+			
+			print("self.dimension=",self.dimensions)
+			
+			if 'LzM' in self.mono:
+				monolayer_z	= float(self.mono['LzM'])/10.
+				print("LzM = ",self.mono['LzM'])
+				print("monolayer_z = ",monolayer_z)
+			elif 'THRESHOLD-Z' in inputs:
+				monolayer_z = thresholds
+				print("thresholds = ",thresholds)
+				print("monolayer_z = ",monolayer_z)
+			else:
+				monolayer_z = dimensions[2]*10
+				print("monolayer_z = ",monolayer_z)
+				
+
+				
 			grotopdb_cmd = "{0} editconf -f {1}.gro -o {1}.pdb -c no".format(self.softwares['GROMACS_LOC'], self.system)
 			sub.call(grotopdb_cmd, shell=True)
 			
 			if 'APL' in self.mono:
-				self.nb_lipid_monolayer = int( dimensions[0] * dimensions[1] / 100 / float(self.mono['APL']) )
+				self.nb_lipid_monolayer = int( dimensions[0] * dimensions[1] / float(self.mono['APL']) )
 			
 			elif 'NBLIPIDS' in self.mono:
-				self.nb_lipid_monolayer = int(self.mono['APL'])
+				self.nb_lipid_monolayer = int(self.mono['NBLIPIDS'])
 			
 			else:
-				assert(False), "Your forgot to set the area per lipid (APL) or number of lipids in the monolayer to add"
+				assert(False), "Your forgot to set the area per lipid (APL, in nm^2) or number of lipids in the monolayer to add (NBLIPIDS)"
 			
 			self.tmt = None
 			self.dz = None
 			
-			if self.lipid_type == 'DSPC':
+			if self.lipid_type in ('DSPC','S1PC','S2PC','D1PC'):
 				self.tmt = 30.0
 				self.dz = 7.0
 			elif self.lipid_type in ('DPPC','DLPC'):
@@ -897,16 +1030,17 @@ class BaseProject(object):
 			shell = 3.0
 			defo_mono_packmol_input = ""
 			if self.defo is not None:
-				if self.defo['Height'] in ["follow", "box", "mono"]:
+				if self.defo['Height'] in ["followM", "box", "mono"]:
 					defo_mono_packmol_input = """
 								outside cylinder  {0} {1}  0. 0.  0.  1.  {2}  {3}
 								""".format(self.dimensions[0]/2., self.dimensions[1]/2.,
 										self.defo['Radius'], self.dimensions[2])
 								
-			if dimensions[2] < self.tmt + monolayer_z:
-				dimensions[2] += self.tmt
+			if dimensions[2] < (self.tmt + monolayer_z*10)/10:
+				dimensions[2] += self.tmt/10
+
 			
-			system += "MONO{0}{1}".format(self.lipid_type, self.nb_lipid_monolayer)
+			system += "_MONO_{1}{0}".format(self.lipid_type, self.nb_lipid_monolayer)
 			self.packmol_input += """
 								avoid_overlap yes
 								
@@ -929,17 +1063,20 @@ class BaseProject(object):
 								end structure
 								
 								""".format(system, self.system, pdb_file_list[self.lipid_type]['name'],
-				   							self.nb_lipid_monolayer, monolayer_z,
-				   							dimensions[0],dimensions[1],dimensions[2])
+				   							self.nb_lipid_monolayer, monolayer_z*10,
+				   							dimensions[0]*10.,dimensions[1]*10., self.tmt + monolayer_z*10. ,defo_mono_packmol_input)
 								
 			
 			#if 
 								
-			with open("packmol_{0}.input".format(self.system), 'w') as packmol_file:
+			with open("packmol_{0}.input".format(system), 'w') as packmol_file:
 				packmol_file.write(ut.RemoveUnwantedIndent(self.packmol_input))
+				
+			with open(pdb_file_list[self.lipid_type]['name'],'w') as lipid_pdb:
+				lipid_pdb.write( ut.RemoveUnwantedIndent(pdb_file_list[self.lipid_type]['content']) )
 								
 			packmol_cmd = str("{0} < packmol_{1}.input > packmol_{1}.output "
-					).format(self.softwares['PACKMOL'], self.system)
+					).format(self.softwares['PACKMOL'], system)
 			
 			sub.call(packmol_cmd, shell=True)
 			
@@ -948,15 +1085,25 @@ class BaseProject(object):
 																				dimensions[0], dimensions[1], dimensions[2])
 			sub.call(pdbtogro_cmd, shell=True)
 			
-			group_index = [str(i) for i in range(0, self.nb_index-1, 1)]
+			group_index = [str(i) for i in range(0, self.nb_index, 1)]
 			
-			make_ndx_input = """ "r {0}\\nname mono{1} su\\ndel 0\\ndel 0\\n{2}\\nname {3} System\\nq\\n" """.format(self.lipid_type,
+			print("group_index =", group_index)
+			
+			make_ndx_input = """ " \\n r {0} \\n name {3} {0} \\n \\n chain C \\nname {4} monolayer \\n {2} \\n name {5} System \\ndel 0\\ndel 0 \\ndel 0 \\n \\n q\\n" """.format(self.lipid_type,
 																									self.nb_index,
 																									" | ".join(group_index),
-																									int(group_index[-1])+1)
+																									int(group_index[-1])-1,
+																									int(group_index[-1]),
+																									int(group_index[-1])+1
+																									)
 			
-			add_su_ndx_cmd = """printf {3} | {0} make_ndx -f {1}.gro -n {2} -o {1}.ndx""".format(self.softwares['GROMACS_LOC'], system,
+			
+			
+			add_su_ndx_cmd = """printf {3} | {0} make_ndx -f {1}.pdb -n {2} -o {1}.ndx""".format(self.softwares['GROMACS_LOC'], system,
 																				self.system, make_ndx_input)
+			
+			
+			print(" add_su_ndx_cmd=",add_su_ndx_cmd)
 			
 			sub.call(add_su_ndx_cmd, shell=True)
 		
@@ -1398,9 +1545,12 @@ class BaseProject(object):
 			
 			for defo_param, defo_param_value in defo_preset_for_md_step.items():
 				if defo_param not in ('posres','FCX','FCY','FCZ'):
-					if defo_param in self.protocol[md_step]:
+					if defo_param in self.protocol[md_step]  and defo_param not in ('pull-ncoords'):
 						current_value = str(self.protocol[md_step][defo_param])
 						self.protocol[md_step][defo_param] = current_value + ' ' + str(defo_param_value) + ' '
+					elif defo_param in self.protocol[md_step]  and defo_param in ('pull-ncoords'):
+						current_value = str(self.protocol[md_step][defo_param])
+						self.defo_mdp_params += defo_param + '		= '+ str(current_value) + ' \n'                        
 					else:
 						self.defo_mdp_params += defo_param + '		= '+ str(defo_param_value) + ' \n'
 			
@@ -1615,7 +1765,7 @@ class BaseProject(object):
 			defo_su_parameters = ""
 			# Writes parameters related to Su at the end
 			if self.su is not None:
-				parameters_not_to_write = ('posres','FCX','FCY','FCZ','ref-t','tau-t')
+				parameters_not_to_write = ('posres','FCX','FCY','FCZ','ref-t','tau-t','pull-ncoords')
 				
 				if self.defo is not None:
 					
@@ -1631,8 +1781,11 @@ class BaseProject(object):
 						if not line.startswith(';'):
 							for key in su_preset_for_md_step:
 								if key in line:
-									previous_value = line.partition('=')[2]
-									defo_su_parameters += "{0}	={1} {2}\n".format(key, previous_value, str(su_preset_for_md_step[key]))
+									if key.startswith('pull-ncoords') :   
+										defo_su_parameters += "{0}	={1} \n".format(key, previous_value)                                        
+									else :
+										previous_value = line.partition('=')[2]
+										defo_su_parameters += "{0}	={1} {2}\n".format(key, previous_value, str(su_preset_for_md_step[key]))
 									continue
 
 					defo_su_parameters += "\n ;;; Parameters for Defo ;;;  \n"
@@ -1841,6 +1994,209 @@ class BaseProject(object):
 				""")
 			
 		
+		if self.lipid_types:
+			for lipid in self.lipid_types:
+				if lipid == 'D1PC':
+					topology += ut.RemoveUnwantedIndent("""
+						
+						#include "D1PC.itp"
+						
+						""")
+						
+					with open('D1PC.itp','a') as d1pc_itp_file:
+						d1pc_itp = ut.RemoveUnwantedIndent("""
+							;;;;;; DISTEAROYL PHOSPHATIDYLCHOLINE MODIFIED IN TAIL INTERACTIONS
+							;;;;;; the last bead of each tail is changed to SC1 (small C1)
+							;
+							; in general models PCs with saturated tail lengths C18-21
+							
+							[moleculetype]
+							; molname 	nrexcl
+							 D1PC 		1
+							
+							[atoms]
+							; id 	type 	resnr 	residu 	atom 	cgnr 	charge
+							1 	Q0  	1 	D1PC 	NC3 	1 	1.0 
+							2 	Qa  	1 	D1PC  	PO4 	2 	-1.0 
+							3 	Na  	1 	D1PC 	GL1 	3 	0 
+							4 	Na  	1 	D1PC 	GL2 	4 	0 
+							5 	C1  	1 	D1PC 	C1A 	5 	0 
+							6 	C1  	1 	D1PC 	C2A 	6 	0 
+							7 	C1   	1 	D1PC 	C3A 	7 	0 
+							8 	C1   	1 	D1PC 	C4A 	8 	0 
+							9 	SC1  	1 	D1PC 	C5A 	9 	0 
+							10 	C1    	1 	D1PC 	C1B 	10 	0 
+							11 	C1   	1 	D1PC 	C2B 	11 	0 
+							12 	C1   	1 	D1PC 	C3B 	12 	0	 
+							13 	C1   	1 	D1PC 	C4B 	13 	0 
+							14 	SC1  	1 	D1PC 	C5B 	14 	0 
+							
+							[bonds]
+							; i j 	funct 	length 	force.c.
+							1 2 	1 	0.47 	1250
+							2 3 	1 	0.47 	1250
+							3 4 	1 	0.37 	1250
+							3 5 	1 	0.47 	1250
+							5 6 	1 	0.47 	1250
+							6 7 	1 	0.47 	1250
+							7 8 	1 	0.47 	1250
+							8 9 	1 	0.25 	1250
+							4 10 	1 	0.47 	1250
+							10 11 1 	0.47 	1250
+							11 12 1 	0.47 	1250
+							12 13 1 	0.47 	1250
+							13 14 1 	0.25 	1250
+							
+							[angles]
+							; i j k 	funct 	angle 	force.c.
+							2 3 4 	2 	120.0 	25.0 
+							2 3 5 	2 	180.0 	25.0 
+							3 5 6 	2 	180.0 	25.0 
+							5 6 7 	2 	180.0 	25.0 
+							6 7 8 	2 	180.0 	25.0 
+							7 8 9 	2 	180.0 	25.0 
+							4 10 11 	2 	180.0 	25.0 
+							10 11 12 	2 	180.0 	25.0 
+							11 12 13 	2 	180.0 	25.0 
+							12 13 14 	2 	180.0 	25.0 
+							
+								""")                        
+						d1pc_itp_file.write(d1pc_itp)        
+						
+				if lipid == 'S1PC':
+					topology += ut.RemoveUnwantedIndent("""
+						
+						#include "S1PC.itp"
+						
+						""")
+						
+					with open('S1PC.itp','a') as s1pc_itp_file:
+						s1pc_itp = ut.RemoveUnwantedIndent("""
+							;;;;;; DISTEAROYL PHOSPHATIDYLCHOLINE MODIFIED IN TAIL INTERACTIONS
+							;;;;;; the C1 beads are changed to type C11 (only C1-C1 interactions reduced with sigma^3 reduced by 20%)
+							;
+							; in general models PCs with saturated tail lengths C18-21
+							
+							[moleculetype]
+							; molname 	nrexcl
+							 S1PC 		1
+							
+							[atoms]
+							; id 	type 	resnr 	residu 	atom 	cgnr 	charge
+							1 	Q0  	1 	S1PC 	NC3 	1 	1.0 
+							2 	Qa  	1 	S1PC  	PO4 	2 	-1.0 
+							3 	Na  	1 	S1PC 	GL1 	3 	0 
+							4 	Na  	1 	S1PC 	GL2 	4 	0 
+							5 	C11  	1 	S1PC 	C1A 	5 	0 
+							6 	C11 	1 	S1PC 	C2A 	6 	0 
+							7 	C11 	1 	S1PC 	C3A 	7 	0 
+							8 	C11 	1 	S1PC 	C4A 	8 	0 
+							9 	C11 	1 	S1PC 	C5A 	9 	0 
+							10 	C11  	1 	S1PC 	C1B 	10 	0 
+							11 	C11 	1 	S1PC 	C2B 	11 	0 
+							12 	C11 	1 	S1PC 	C3B 	12 	0	 
+							13 	C11 	1 	S1PC 	C4B 	13 	0 
+							14 	C11 	1 	S1PC 	C5B 	14 	0 
+							
+							[bonds]
+							; i j 	funct 	length 	force.c.
+							1 2 	1 	0.47 	1250
+							2 3 	1 	0.47 	1250
+							3 4 	1 	0.37 	1250
+							3 5 	1 	0.47 	1250
+							5 6 	1 	0.436 	1250
+							6 7 	1 	0.436 	1250
+							7 8 	1 	0.436 	1250
+							8 9 	1 	0.436 	1250
+							4 10 	1 	0.47 	1250
+							10 11 1 	0.436 	1250
+							11 12 1 	0.436 	1250
+							12 13 1 	0.436 	1250
+							13 14 1 	0.436 	1250
+							
+							[angles]
+							; i j k 	funct 	angle 	force.c.
+							2 3 4 	2 	120.0 	25.0 
+							2 3 5 	2 	180.0 	25.0 
+							3 5 6 	2 	180.0 	25.0 
+							5 6 7 	2 	180.0 	25.0 
+							6 7 8 	2 	180.0 	25.0 
+							7 8 9 	2 	180.0 	25.0 
+							4 10 11 	2 	180.0 	25.0 
+							10 11 12 	2 	180.0 	25.0 
+							11 12 13 	2 	180.0 	25.0 
+							12 13 14 	2 	180.0 	25.0 
+							
+								""")                        
+						s1pc_itp_file.write(s1pc_itp)                  
+				if lipid == 'S2PC':
+					topology += ut.RemoveUnwantedIndent("""
+						
+						#include "S2PC.itp"
+						
+						""")
+						
+					with open('S2PC.itp','a') as s2pc_itp_file:
+						s2pc_itp = ut.RemoveUnwantedIndent("""
+							;;;;;; DISTEAROYL PHOSPHATIDYLCHOLINE MODIFIED IN TAIL INTERACTIONS
+							;;;;;; the C1 beads are changed to type C12 (only C1-C1 interactions reduced with sigma^3 reduced by 20% and epsilon reduced by 20%)
+							;
+							; in general models PCs with saturated tail lengths C18-21
+							
+							[moleculetype]
+							; molname 	nrexcl
+							 S2PC 		1
+							
+							[atoms]
+							; id 	type 	resnr 	residu 	atom 	cgnr 	charge
+							1 	Q0  	1 	S2PC 	NC3 	1 	1.0 
+							2 	Qa  	1 	S2PC  	PO4 	2 	-1.0 
+							3 	Na  	1 	S2PC 	GL1 	3 	0 
+							4 	Na  	1 	S2PC 	GL2 	4 	0 
+							5 	C11  	1 	S2PC 	C1A 	5 	0 
+							6 	C11 	1 	S2PC 	C2A 	6 	0 
+							7 	C11 	1 	S2PC 	C3A 	7 	0 
+							8 	C11 	1 	S2PC 	C4A 	8 	0 
+							9 	C11 	1 	S2PC 	C5A 	9 	0 
+							10 	C11  	1 	S2PC 	C1B 	10 	0 
+							11 	C11 	1 	S2PC 	C2B 	11 	0 
+							12 	C11 	1 	S2PC 	C3B 	12 	0	 
+							13 	C11 	1 	S2PC 	C4B 	13 	0 
+							14 	C11 	1 	S2PC 	C5B 	14 	0 
+							
+							[bonds]
+							; i j 	funct 	length 	force.c.
+							1 2 	1 	0.47 	1250
+							2 3 	1 	0.47 	1250
+							3 4 	1 	0.37 	1250
+							3 5 	1 	0.47 	1250
+							5 6 	1 	0.40 	1250
+							6 7 	1 	0.40 	1250
+							7 8 	1 	0.40 	1250
+							8 9 	1 	0.40 	1250
+							4 10 	1 	0.47 	1250
+							10 11 1 	0.40 	1250
+							11 12 1 	0.40 	1250
+							12 13 1 	0.40 	1250
+							13 14 1 	0.40 	1250
+							
+							[angles]
+							; i j k 	funct 	angle 	force.c.
+							2 3 4 	2 	120.0 	25.0 
+							2 3 5 	2 	180.0 	25.0 
+							3 5 6 	2 	180.0 	25.0 
+							5 6 7 	2 	180.0 	25.0 
+							6 7 8 	2 	180.0 	25.0 
+							7 8 9 	2 	180.0 	25.0 
+							4 10 11 	2 	180.0 	25.0 
+							10 11 12 	2 	180.0 	25.0 
+							11 12 13 	2 	180.0 	25.0 
+							12 13 14 	2 	180.0 	25.0 
+							
+								""")                        
+						s2pc_itp_file.write(s2pc_itp)                  
+		
+		
 		#Copy the topology files for martini forcefield
 		
 		if self.su is not None:
@@ -1859,10 +2215,6 @@ class BaseProject(object):
 				for lipid in self.lipid_types:
 					print(self.sample_molecules)
 					lipid_number = self.sample_molecules[lipid]
-					
-					if self.mono is not None:
-						lipid_number += float(self.mono['NbLipidsM'])
-						
 					topo_file.write( "{0} {1}\n".format(lipid, lipid_number) )
 				
 			
@@ -1881,20 +2233,16 @@ class BaseProject(object):
 					for su in self.substrate_list:
 						if su in self.sample_molecules:
 							topo_file.write("{0} {1}\n".format(su, self.sample_molecules[su]))
-	
+							
+			if self.mono is not None:
+				for lipid in self.lipid_types:
+					print("WARNING : monolayer adding only possible with a single lipid type ! \n CHECK final .top file")
+					topo_file.write( "{0} {1}\n".format(lipid, int(self.mono['NBLIPIDS']) ))
+				
+				
 	
 	def pass_outputs(self):
 		return self.system, self.output_file, self.index_file
-
-
-
-
-
-
-
-
-
-
 
 
 class Membrane(BaseProject):
@@ -1930,7 +2278,7 @@ class Membrane(BaseProject):
 		self.tmt = None
 		self.dz = None
 		
-		if self.lipid_type == 'DSPC':
+		if self.lipid_type in ('DSPC','S1PC','S2PC','D1PC'):
 			self.tmt = 30.0
 			self.dz = 10.0
 		elif self.lipid_type in ('DPPC','DLPC'):
@@ -2159,12 +2507,10 @@ class Membrane(BaseProject):
 		self.m2_head_max += thickness
 		self.m2_tail_min += thickness
 		self.m2_tail_max += thickness
-		
-		self.mono['LzM'] += thickness
-		
 		self.bottom_z += thickness
 		
 		if self.mono is not None:
+			self.mono['LzM'] += thickness
 			self.m3_head_min += thickness 
 			self.m3_head_max += thickness
 			self.m3_tail_min += thickness
@@ -2188,15 +2534,15 @@ class Membrane(BaseProject):
 			
 		elif self.defo['Height'] == 'bilayer':
 			#Set the Defo height from the substrate to the top of the bilayer
-			length_defo_bi = self.height + self.tmt + self.dz/4.0
+			length_defo_bi = self.height + self.tmt + self.dz
 			
 		elif self.defo['Height'] == 'mono':
 			#Set the Defo height from the substrate to the top of the monolayer
-			length_defo_bi = self.dimensions['LZ'] + self.tmt + self.dz/4.0
+			length_defo_bi = self.dimensions['LZ'] + self.tmt + self.dz
 			
 		elif self.defo['Height'] == 'follow':
 			#Set the Defo height from the bottom of the bilayer to its top
-			length_defo_bi = 2*self.tmt + self.dz/2.0
+			length_defo_bi = 2*self.tmt + 2.0*self.dz
 			
 		
 		defo_per_layer = int(self.defo['DpL']) + 1
@@ -2214,7 +2560,7 @@ class Membrane(BaseProject):
 										'defo inside': [], 'defo total': [], 'xyz file':'defo_mono.xyz',
 										'format defo':"format_DEFM.vmd",'chain':'Y', 'topo':'defo_monolayer_topo.itp'}
 			
-			L_defoMono = self.tmt + self.dz/4.0
+			L_defoMono = self.tmt + self.dz
 			nb_layers_mono = int(L_defoMono/float(self.defo['DzDefo']))
 			defo_dict['DEFM']['length'] = L_defoMono
 			defo_dict['DEFM']['nb layers'] = int(nb_layers_bi/2)
@@ -2792,11 +3138,13 @@ class Membrane(BaseProject):
 									chain D
 									number {1:g}
 									inside box 0. 0. {2}  {3} {4} {5}
+								{7}
+									
 								{6}
 						""".format(pdb_file_list[self.solvent_type]['name'], self.sample_molecules[self.solvent_type] ,
 									self.m1_head_max,
 									self.dimensions['LX'] - shell, self.dimensions['LY'] - shell,
-									self.m2_head_min, packmol_instruction_W_mol)
+									self.m2_head_min, packmol_instruction_W_mol, defo_packmol_input)
 			
 		# A chain for solvent
 		self.nb_index += 1
@@ -2849,15 +3197,17 @@ class Membrane(BaseProject):
 			# for DEF
 			self.nb_index += 1
 						
+
 		if self.su is not None:
+			shell_su = 0.25
 			self.packmol_input += """
 								# Substrate
 								structure {0}
 									chain S
 									number {1:g}
-									inside box 0. 0. 0.  {2} {3} {4}
+									inside box 0. 0. {5}  {2} {3} {4}
 								end structure
-							""".format(pdb_file_list['SU']['name'], self.nb_su, self.dimensions['LX'], self.dimensions['LY'], self.su['Thickness'])
+							""".format(pdb_file_list['SU']['name'], self.nb_su, self.dimensions['LX'], self.dimensions['LY'], self.su['Thickness'],shell_su)
 			
 			# for SU
 			self.nb_index += 1
@@ -3121,12 +3471,13 @@ class Membrane(BaseProject):
 									chain D
 									number {1:g}
 									inside box 0. 0. {2}  {3} {4} {5}
+									{7}
 									{6}
 								end structure
 							""".format(pdb_file_list[self.solvent_type]['name'], self.nb_sol_bottom,
 										self.bottom_z,
 										self.dimensions['LX'], self.dimensions['LY'],
-										self.m1_head_min, packmol_instruction_W_mol)
+										self.m1_head_min, packmol_instruction_W_mol,defo_packmol_input)
 			
 			
 		if self.nb_sol_top:
@@ -3136,12 +3487,13 @@ class Membrane(BaseProject):
 									chain E
 									number {1:g}
 									inside box 0. 0. {2}  {3} {4} {5}
+									{7}
 									{6}
 								end structure
 							""".format(pdb_file_list[self.solvent_type]['name'], self.nb_sol_top,
 										self.m2_head_max,
 										self.dimensions['LX'], self.dimensions['LY'],
-										self.dimensions['LZ'], packmol_instruction_W_mol)
+										self.dimensions['LZ'], packmol_instruction_W_mol,defo_packmol_input)
 			
 
 		
@@ -3213,14 +3565,15 @@ class Membrane(BaseProject):
 			self.nb_index += 1
 						
 		if self.su is not None:
+			shell_su = 0.25
 			self.packmol_input += """
 								# Substrate
 								structure {0}
 									chain S
 									number {1:g}
-									inside box 0. 0. 0.  {2} {3} {4}
+									inside box 0. 0. {5}  {2} {3} {4}
 								end structure
-							""".format(pdb_file_list['SU']['name'], self.nb_su, self.dimensions['LX'], self.dimensions['LY'], self.su['Thickness'])
+							""".format(pdb_file_list['SU']['name'], self.nb_su, self.dimensions['LX'], self.dimensions['LY'], self.su['Thickness'],shell_su)
 			
 			# for SU
 			self.nb_index += 1
@@ -3379,6 +3732,7 @@ class Solvent(BaseProject):
 				
 			elif self.fillmode == 'BOX':
 				self.LX = self.LY = self.LZ = self.dimensions['LX']
+				
 			elif self.fillmode == 'SPHERE':
 				self.center = (self.dimensions['LX']/2., self.dimensions['LY']/2., self.dimensions['LZ']/2.) 
 				
@@ -3396,6 +3750,18 @@ class Solvent(BaseProject):
 				self.LX = self.dimensions['LX']
 				self.LY = self.dimensions['LY']
 				self.LZ = self.dimensions['LZ']/2.0
+			
+			elif self.fillmode == 'PARTIAL-Z':
+				self.LX = self.dimensions['LX']
+				self.LY = self.dimensions['LY']
+				#self.bottom_z= self.minsolvent
+				self.LZ = self.maxsolvent
+				
+			elif self.fillmode == 'PARTIAL-X':
+				assert(False),"PARTIAL-X not implemented yet"
+				
+			elif self.fillmode == 'PARTIAL-Y':
+				assert(False),"PARTIAL-Y not implemented yet"	
 				
 			else:
 				self.LX = self.dimensions['LX']
@@ -3519,28 +3885,29 @@ class Solvent(BaseProject):
 								structure {0}
 									chain {1}
 									number {2:g}
-									inside box 0. 0. {3}  {4} {5} {6}
+									inside box {8} {8} {3}  {4} {5} {6}
 									{7}
 								end structure
 								""".format(pdb_file_list[sol]['name'], chain,
-											self.sample_molecules[sol], self.bottom_z + shift,
+											self.sample_molecules[sol], self.bottom_z + shift + self.pbcshift,
 											self.LX, self.LY, self.LZ/nb_solvent + shift,
-											packmol_instruction_mol)
+											packmol_instruction_mol, self.pbcshift)
 								
 				shift += self.dimensions['LZ'] / nb_solvent
 				
 				self.nb_index += 1
 		
 		if self.su is not None:
+			shell_su = 0.25            
 			self.packmol_input += """
 							# Substrate
 							structure {0}
 								chain S
 								number {1:g}
-								inside box 0. 0. 0.  {2} {3} {4}
+								inside box 0. 0. {5}  {2} {3} {4}
 							end structure
 							""".format(pdb_file_list['SU']['name'], self.nb_su, self.dimensions['LX'],
-										self.dimensions['LY'], self.su['Thickness'])
+										self.dimensions['LY'], self.su['Thickness'],shell_su)
 			
 			# for SU
 			self.nb_index += 1

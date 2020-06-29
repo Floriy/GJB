@@ -17,12 +17,21 @@ DEF  C4   1     0.0 0.0 ;
 DEF  C3   1     0.0 0.0 ; 
 DEF  C2   1     0.0 0.0 ;  
 DEF  C1   1     12.0058 18.0175 ; only repulsive ! epsilon=2.0 kJ/mol;  s = 1.07 nm (so that the cutoff at 1.2nm (for common!) almost corresponds to the minimim of the 6-12 LJ) 
+
+; added by Claire Loison
+DEF  C11  1     12.0058 18.0175 ; only repulsive ! epsilon=2.0 kJ/mol;  s = 1.07 nm (so that the cutoff at 1.2nm (for common!) almost corresponds to the minimim of the 6-12 LJ) 
+
+; added by Claire Loison
+DEF  C12  1     12.0058 18.0175 ; only repulsive ! epsilon=2.0 kJ/mol;  s = 1.07 nm (so that the cutoff at 1.2nm (for common!) almost corresponds to the minimim of the 6-12 LJ) 
+
 DEF  Qda  1     0.0 0.0 ; 
 DEF  Qd   1     0.0 0.0 ;  
 DEF  Q0   1     0.0 0.0 ;
 DEF  Qa   1     0.0 0.0 ;
 DEF  POL  1     0.0 0.0 ;
 DEF  D    1     0.0 0.0 ;
+
+
 #####################################################################
 [ moleculetype ]
 ; molname 	 nrexcl

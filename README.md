@@ -1,6 +1,10 @@
 # Gromacs Job Production/Analysis
 
-This code aims at providing tools to easily generate gromacs simulation protocols and analyse results with parts based on already existing codes.
+This code aims at providing tools to easily generate gromacs simulation protocols and analyse results. 
+It was developped for simulations of phospholipic layers using the MARTINI model, in particular supported lipid layers. 
+Parts are based on already existing codes. Several options are personalized for 
+running jobs on HPC facilities using SLURM manager and would not be adapted for other cases. 
+Please contact the autors for details and limitations.
 
 ## Getting Started
 
@@ -27,8 +31,9 @@ scipy
 mdanalysis
 fatslim
 ```
+We have used an home-made modified version of fatslim and MD analysis for some analysis.
 
-
+Finally, gromacs should be installed.
 
 #### On Debian
 

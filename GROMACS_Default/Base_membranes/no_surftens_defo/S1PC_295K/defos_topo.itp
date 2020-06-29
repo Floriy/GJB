@@ -1,0 +1,39 @@
+;;;;;; DEFOS FOR BILAYER
+[moleculetype]
+;molname    nrexcl
+DEFB 1
+
+[atoms]
+;id     type     resnr    residu  atom    cgnr    charge
+ 1     DEF     1    DEFB    DEF     1     0
+ 2     DEF     1    DEFB    DEF     2     0
+ 3     DEF     1    DEFB    DEF     3     0
+ 4     DEF     1    DEFB    DEF     4     0
+ 5     DEF     1    DEFB    DEF     5     0
+ 6     DEF     1    DEFB    DEF     6     0
+
+[bonds]
+; i j   funct   length  force.c.
+
+;Normal bonds  DEF-DEFAbove
+ 1 2   1       1.0    2000
+ 2 3   1       1.0    2000
+ 3 4   1       1.0    2000
+ 4 5   1       1.0    2000
+ 5 6   1       1.0    2000
+
+#ifdef DEFO_POSRES_NVT1
+	#include "defo_posres_DEFB_NVT1.itp"
+#endif
+#ifdef DEFO_POSRES_NVT2
+	#include "defo_posres_DEFB_NVT2.itp"
+#endif
+#ifdef DEFO_POSRES_NPT1
+	#include "defo_posres_DEFB_NPT1.itp"
+#endif
+#ifdef DEFO_POSRES_NPT2
+	#include "defo_posres_DEFB_NPT2.itp"
+#endif
+;PLACE_FOR_DEFB_POSRES    
+
+

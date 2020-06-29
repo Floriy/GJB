@@ -38,5 +38,8 @@ NVT323_FREEZE,freezegrps,freezedim,ref-t,tau-t,,,,,,
 NVT0_FREEZE,freezegrps,freezedim,ref-t,tau-t,,,,,,
 ,su,Y Y Y,0,1,,,,,,
 
+NVT340_FREEZE,freezegrps,freezedim,ref-t,tau-t,,,,,,
+,su,Y Y Y,340,1,,,,,,
+
 FREEZEXY,freezegrps,freezedim,ref-t,tau-t,,,,,,
 ,su,Y Y N,323,1,,,,,,

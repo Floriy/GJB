@@ -1,0 +1,89 @@
+define =  -DDEFO_POSRES_NPT3 -DPW_NOTEM
+ ; RUN CONTROL PARAMETERS = 
+integrator               = md
+dt			= 0.025
+nsteps			= 80000000
+
+ ; OPTIONS FOR CENTER OF MASS REMOVAL
+comm-grps               = 
+
+ ; OUTPUT CONTROL OPTIONS = 
+  ; Output frequency for coords (x), velocities (v) and forces (f) = 
+nstxout			= 0
+nstvout			= 0
+nstfout			= 0
+nstlog			= 4000
+nstenergy			= 4000
+nstxtcout			= 4000
+xtc-precision			= 100
+xtc-grps			= System
+energygrps			= DPPC W defo 
+
+cutoff-scheme			= group
+nstlist			= 10
+ns-type			= grid
+pbc			= xyz
+verlet-buffer-tolerance			= -1
+
+
+ ; OPTIONS FOR ELECTROSTATICS AND VDW = 
+ ; Method for doing electrostatics = 
+coulombtype			= Shift
+coulomb-modifier			= None
+rcoulomb			= 1.2
+epsilon-r			= 15
+vdwtype			= Shift
+vdw-modifier			= None
+rvdw			= 1.2
+
+
+ ; OPTIONS FOR WEAK COUPLING ALGORITHMS = 
+tcoupl			= v-rescale
+tc-grps			= DPPC W defo 
+tau-t			= 2 2  0.025 
+ref-t			= 290 290  250 
+Pcoupl			= parrinello-rahman
+Pcoupltype			= semiisotropic
+  ; Time constant (ps), compressibility (1\/bar) and reference P (bar) =
+tau-p			= 12
+compressibility			= 3e-4 3e-4
+ref-p			= 1.0 1.0
+refcoord-scaling			= all
+
+
+
+ ; GENERATE VELOCITIES FOR STARTUP RUN = 
+gen-vel			= yes
+gen-temp			= 290
+gen-seed                 = 473529
+
+
+ ;Parameters not in default file : 
+
+rcoulomb-switch			= 0
+rvdw-switch			= 0.9
+nstcomm			= 100
+rlist			= 1.4
+
+ ;;; PARAMETERS FOR SU AND DEFO ;;;  
+
+
+ ;;; Parameters for Defo ;;; 
+
+pull-group2-name		= defo 
+pull-coord1-geometry		= distance 
+pull-coord1-type		= constant-force 
+pull-print-components		= yes 
+pull-ngroups		= 2 
+pull-nstfout		= 50 
+pull-coord1-k		= 1000 
+pull-coord1-dim		= N N Y 
+pull-ncoords		= 1 
+pull-nstxout		= 50 
+pull-group2-pbcatom		= 0 
+pull-print-ref-value		= yes 
+pull-coord1-groups		= 1 2 
+pull-print-com		= yes 
+pull		= yes 
+pull-group1-pbcatom		= 0 
+pull-group1-name		= bilayer 

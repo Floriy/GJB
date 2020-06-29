@@ -1,6 +1,7 @@
-#!/usr/bin/python3
-# -*- coding: utf-8 -*-
+#!/home/cloison/Softwares/ANACONDA/anaconda3/bin/python3
+###  /usr/bin/python3
 
+# -*- coding: utf-8 -*-
 
 import argparse #Argument parser module !
 import sys
@@ -15,6 +16,8 @@ import gc #garbage collector
 import time
 import Utility as ut
 from io import StringIO
+#import threading
+#import multiprocessing
 
 #global variables
 extensions = ['ndx','gro','xtc']
@@ -49,7 +52,7 @@ def padding_grid(grid_x, grid_y, box_x, box_y, pad_x, pad_y):
 	grid_x_el_len = len(grid_x)
 	grid_x = np.insert(grid_x, [grid_x_el_len], padx_end, axis=0)
 	
-	# padd the y axis
+	## padd the y axis
 	grid_y = np.insert(grid_y,[0], pady_begin, axis=1)
 	grid_y_el_len = grid_y[0].size
 	grid_y = np.insert(grid_y, [grid_y_el_len], pady_end, axis=1)
@@ -307,7 +310,7 @@ def plot_grid(grid, prop, name, bdim):
 	plt.savefig(name)
 	plt.close()
 	
-def plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_time, ending_time):
+def plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_time, ending_time,gel):
 	grid_x = mean_list[0]
 	grid_y = mean_list[1]
 	grid_dict = mean_list[2]
@@ -329,13 +332,21 @@ def plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_t
 		colormap = mcm.viridis
 	if prop == 'APL':
 		plot_title = r"$\mathsf{\frac{Area}{lipid} for "
-		bounds = np.linspace(0.60, 0.70, 5)
-		levels = np.linspace(0.60, 0.70, 10)
+		if ( gel ):
+			bounds = np.linspace(0.40, 0.50, 5)
+			levels = np.linspace(0.40, 0.50, 10)
+		else:           
+			bounds = np.linspace(0.60, 0.70, 5)
+			levels = np.linspace(0.60, 0.70, 10)
 		colormap = mcm.plasma
 	if prop == 'THICKNESS':
 		plot_title = r"$\mathsf{Thickness for "
-		bounds = np.linspace(3.0, 5.0, 6)
-		levels = np.linspace(3.0, 5.0, 20)
+		if ( gel ):                       
+			bounds = np.linspace(4.0, 6.0, 10)
+			levels = np.linspace(4.0, 6.0, 20)
+		else:           
+			bounds = np.linspace(3.0, 5.0, 10)
+			levels = np.linspace(3.0, 5.0, 20)
 		colormap = mcm.BuPu_r
 	#figure for plots
 	fig, axs = plt.subplots(nrows=1, ncols=4, figsize=(15,4.9), dpi=96, gridspec_kw = {'width_ratios':[5,5,5,1]})
@@ -427,7 +438,7 @@ def plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_t
 	plt.close()
 
 def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_name, file_name,
-									   beginning_time, ending_time, pad_x, pad_y):
+									   beginning_time, ending_time, pad_x, pad_y,gel):
 	
 	
 	
@@ -678,15 +689,24 @@ def compute_mean_radial_distribution2d(mean_list, radial_increment, prop, graph_
 	if prop == "ORDER":
 		y_name = r"$\mathsf{P_2}$"
 		ax.set_ylabel(y_name,rotation=0)
-		ax.set_yticks([-0.5, 0.25, 0.0, 0.5,0.75, 1.0])
+		if (gel):
+			ax.set_yticks([-0.5, 0.25, 0.0, 0.5,0.75, 1.0])
+		else:           
+			ax.set_yticks([-0.5, 0.25, 0.0, 0.5,0.75, 1.0])
 	elif prop == "APL":
 		y_name = r"$\mathsf{ A_L\ (\SI{}{\nano\metre^2}) } $"
 		ax.set_ylabel(y_name)
-		ax.set_yticks([0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68])
+		if (gel):
+			ax.set_yticks([0.45, 0.46, 0.47, 0.48, 0.49, 0.50, 0.51, 0.52, 0.53, 0.54, 0.55, 0.56, 0.57, 0.58, 0.59, 0.60])
+		else:           
+			ax.set_yticks([0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68])
 	elif prop == "THICKNESS":
 		y_name = r"$\mathsf{T_L (\SI{}{\nano\meter})}$"
 		ax.set_ylabel(y_name)
-		ax.set_yticks([3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5])
+		if (gel):
+			ax.set_yticks([3.75, 4.00, 4.25, 4.50, 4.75, 5.00, 5.25, 5.50, 5.75])
+		else:           
+			ax.set_yticks([3.0, 3.25, 3.5, 3.75, 4.0, 4.25, 4.5])
 		
 	ax.grid('on')
 	#ax.legend()
@@ -743,21 +763,21 @@ def histogram(dataframe, prop, csv_name, svg_name, index, last_histo, time, axs)
 														facecolor='blue')
 	lower_histo.set_title(prop+' for '+'lower leaflet')
 	lower_histo.set_xlabel(prop)
-	lower_histo.set_xlabel('# lipids')
+	lower_histo.set_xlabel('Number of  lipids')
 	lower_histo.grid('on')
 	
 	hist_prop_upp, upp_bins, patches = upper_histo.hist(upp_prop, bins='auto', range=hist_range,
 														facecolor='red')
 	upper_histo.set_title(prop+' for '+'upper leaflet')
 	upper_histo.set_xlabel(prop)
-	upper_histo.set_xlabel('# lipids')
+	upper_histo.set_xlabel('Number of  lipids')
 	upper_histo.grid('on')
 	
 	hist_prop_bil, bil_bins, patches = bilayer_histo.hist(bil_prop, bins='auto', 
 														range=hist_range, facecolor='purple')
 	bilayer_histo.set_title(prop+' in bilayer')
 	bilayer_histo.set_xlabel(prop)
-	bilayer_histo.set_ylabel('# lipids')
+	bilayer_histo.set_ylabel('Number of  lipids')
 	bilayer_histo.grid('on')
 	
 	title = "Histogram of {0} \n at t= {1:d} ps".format(prop, time)
@@ -793,19 +813,19 @@ def histogram(dataframe, prop, csv_name, svg_name, index, last_histo, time, axs)
 def plotting_histo_trace(fig, axs, name, beginning_time, ending_time):
 	axs[0].set_title(prop+' for '+'lower leaflet')
 	axs[0].set_xlabel(prop)
-	axs[0].set_xlabel('# lipids')
+	axs[0].set_xlabel('Number of  lipids')
 	axs[0].grid('on')
 	axs[0].autoscale(axis='x', tight=True)
 	
 	axs[1].set_title(prop+' for '+'upper leaflet')
 	axs[1].set_xlabel(prop)
-	axs[1].set_xlabel('# lipids')
+	axs[1].set_xlabel('Number of  lipids')
 	axs[1].grid('on')
 	axs[1].autoscale(axis='x', tight=True)
 	
 	axs[2].set_title(prop+' in bilayer')
 	axs[2].set_xlabel(prop)
-	axs[2].set_ylabel('# lipids')
+	axs[2].set_ylabel('Number of  lipids')
 	axs[2].grid('on')
 	axs[2].autoscale(axis='x', tight=True)
 	
@@ -1058,6 +1078,16 @@ def map_cmd(data):
 		
 		for prop in data[job_name]:
 			
+			gel = None
+			if ( ('295K' in job_name) or ('280K' in job_name)):
+				gel = True
+				print("====> 295K/280K found in job_name (= " + job_name  + ") : ASSUME GEL PHASE ! \n") 
+				print("gel = " + str(gel))
+			else:
+				gel = False
+				print("====> 295K/280K NOT found in job_name (= " + job_name  + ") : ASSUME LIQUID PHASE ! \n") 
+				print("gel = " + str(gel))               
+                
 			#list containing grid data
 			grid_list = []
 			grid_folder = "{0}/{1}/GRID_data/{2}".format(analysis_folder, job_name, prop)
@@ -1173,13 +1203,13 @@ def map_cmd(data):
 						'upper leaflet': {'grid':grid_upper_leaflet_std, 'plot':1}}
 						, grid_bilayer_std]
 			"""
-			plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_time, ending_time)
+			plot_mean_grid(mean_list, std_list, prop, graph_name, grid_name, beginning_time, ending_time,gel)
 			
 			if RADIAL is not None:
 				graph_name = "{0}/{1}_radial.png".format(grid_graph_folder, prop)
 				file_name = "{0}/{1}.rad".format(grid_folder, prop)
 				compute_mean_radial_distribution2d(mean_list, RADIAL, prop, graph_name, file_name,
-													beginning_time, ending_time, pad_x, pad_y)
+													beginning_time, ending_time, pad_x, pad_y, gel)
 				
 		print( "--- Maps for {0} done in {1:f} seconds ---".format(job_name ,time.time() - start_time) )
 		gc.collect()
@@ -1216,8 +1246,8 @@ def hist_cmd(data):
 		
 		box_dim = box_dim[BEGIN:END+1:STRIDE]
 		
-		beginning_time = int(box_dim[0][0])
-		ending_time = int(box_dim[-1][0])
+		beginning_time = int(float(box_dim[0][0]))
+		ending_time = int(float(box_dim[-1][0]))
 		
 		for prop in data[job_name]:
 			#list containing grid data
@@ -1275,9 +1305,10 @@ def hist_cmd(data):
 
 
 
-
-
-
+###
+### for parallelization using multiprocessors, needs to add the main,
+### in order to use pools of workers
+### each launching a processus
 
 
 
@@ -1353,6 +1384,10 @@ fatslimOpt.add_argument('-e', '--end', dest='end_frame',
 fatslimOpt.add_argument('-n', '--index', dest='index',
 					type=str, default='index.ndx',
                     help='Set the name of MD run to analyse')
+
+#option for interacting group
+fatslimOpt.add_argument('-ni', '--noninteracting', action='store_true', 
+                    help='disable the option of interacting group in the fatslim calculation')
 
 # cutoff options
 fatslimOpt.add_argument('--cutoff', dest='cutoff',
@@ -1544,6 +1579,14 @@ gmxOpt.add_argument('--radius', dest='radius',
 					type=float, default=8.0,
                     help='Set the radius outside which the membrane will be analysed')
 
+gmxOpt.add_argument('--ZmaxGaz', dest='ZmaxGaz',
+					type=float, default=0.0,
+                    help='Set the Zmax (nm) for the box in which the gaz density will be analysed')
+
+gmxOpt.add_argument('--ZminGaz', dest='ZminGaz',
+					type=float, default=0.0,
+                    help='Set the Zmin (nm) for the box in which the gaz density will be analysed')
+
 gmxOpt.add_argument('--density', action='store_true',
                     help='Compute density using gmx density')
 
@@ -1556,9 +1599,11 @@ gmxOpt.add_argument('--loctemp', action='store_true',
 gmxOpt.add_argument('--locpres', action='store_true',
                     help='Compute local pressure in the box')
 
-
 gmxOpt.add_argument('--select', action='store_true',
-                    help='Compute solvent per lipid')
+                    help='Compute solvent per lipid  and other quantities using dynamical gromacs select')
+
+gmxOpt.add_argument('--deleteSelectDat', action='store_true',
+                    help='Delete the files with indexes of the  dynamically selected particles at each timestep')
 
 gmxOpt.add_argument('--order', action='store_true',
                     help='Compute order parameter [2011.11.27, Helgi I. Ingolfsson]')
@@ -1574,6 +1619,8 @@ gmxOpt.add_argument('--linkgroup', dest='linkgroup',
 gmxOpt.add_argument('--tailgroup', dest='tailgroup',
 					type=str, nargs='*', default=None,
                     help='Set the name of tailgroup')
+
+
 
 
 # Adding parser options to MDAanalysis##############################################################
@@ -1680,7 +1727,7 @@ reflectometryOpt.add_argument('-sl', dest='sl_file',
 
 reflectometryOpt.add_argument('-ref', dest='reflectivity',
 					type=str, default=None,
-					help='Set the quantity name to compute reflectivity')
+					help='Set the quantity name to compute reflectivity (see xvg density legend, probably "fittotal")')
 
 reflectometryOpt.add_argument('-f', '--file', dest='xvg_file',
 					type=str, required=True,
@@ -1692,7 +1739,7 @@ reflectometryOpt.add_argument('-m','--molecules', dest='molecules',
 
 reflectometryOpt.add_argument('--limits', dest='limits',
 					type=float, nargs=2, default=None,
-					help='Set the limits for the sld')
+					help='Set the limits for the sld (zmin, zmax, in nm [VERIFY THE UNIT !])')
 
 reflectometryOpt.add_argument('-sub','--sublayers', dest='sublayers',
 					type=str, nargs='*', default=None,
@@ -1704,14 +1751,14 @@ reflectometryOpt.add_argument('-sup','--superlayers', dest='superlayers',
 
 reflectometryOpt.add_argument('-q', dest='qrange',
 					type=float, nargs=3, default=None,
-                    help='Set the Qmin, Qmax and Qgrid size to compute reflectometry curve')
+                    help='Set the Qmin, Qmax and Qgrid size to compute reflectometry curve \n [VERIFY THE UNIT !] \n (Qmin and Qmax in Ang^-1, Qgrid is the number of calculated Q points, typically 100)')
 
 reflectometryOpt.add_argument('--check', action='store_true',
                     help='Show the sld curve before computing reflectometry')
 
 reflectometryOpt.add_argument('-res', dest='resolution',
 					type=int, default=None,
-                    help='Set the number of points for gaussian convolution')
+                    help='Set the number of points for gaussian convolution \n (typically, 1 or 2, but it depends on your resolution in Q !)')
 
 reflectometryOpt.add_argument('-exp', dest='experimental',
 					type=str, default=None,
@@ -1724,6 +1771,14 @@ reflectometryOpt.add_argument('-conv', dest='convolve',
 reflectometryOpt.add_argument('--output', dest='output',
 					type=str, nargs=2, default=None,
                     help='1st param: destination folder \n 2nd param: output plots with selected format [svg, svgz, ps, eps, pdf, png, rgba, raw, emf]')
+
+reflectometryOpt.add_argument('--invbeamdir', action='store_true',
+                    help='Inverse Direction of the arriving Neutron Beam on the sample. \n  DEFAULT : from -Z towards +Z \n with --invbeamdir :  the opposite direction')
+
+reflectometryOpt.add_argument('-wcont', dest='watercontent',
+					type=float, default=0.0,
+                    help='add water to the SLD in the lipidic part with the given proportion')
+
 
 #dlambda/lambda = 0.1 for Koutsioubas
 
@@ -1745,7 +1800,8 @@ if 'compute' in sys.argv:
 	TRAJECTORY		= cmdParam.trajectory
 	BEGIN_FRAME		= cmdParam.begin_frame
 	END_FRAME		= cmdParam.end_frame
-	
+	NON_INTERACTING = cmdParam.noninteracting
+
 	INDEX			= cmdParam.index
 	IDFREQ			= cmdParam.idfreq
 	CUTOFF			= cmdParam.cutoff
@@ -1762,10 +1818,11 @@ if 'compute' in sys.argv:
 		If you want only a peculiar file set it using -c and not -r and -f
 		"""
 		if FOLDER[-1] == '/': FOLDER = FOLDER[:-1]
-		#print(FOLDER)
+		print("FOLDER = " + FOLDER)
 		
 		for Run in MD_RUN_INPUT:
 			for path in glob.glob(FOLDER +'/**/*'+ Run +'*gro', recursive=True):
+				print(f"try to find project name and filesfor gro file {path}\n")	
 				if 'fatslimAnalysis' in path: continue
 			
 				path_test = path.replace(FOLDER,'').split('/')
@@ -1807,6 +1864,11 @@ if 'compute' in sys.argv:
 					else:
 						filesFound[project_name][job_name].append(filename)
 						
+						
+						
+		print("filesFound = " + str(filesFound))
+						
+						
 		if TRAJECTORY is not None:
 			for Traj in TRAJECTORY:
 				for path in glob.glob(FOLDER +'/**/*'+ Traj +'*xtc', recursive=True):
@@ -1840,14 +1902,16 @@ if 'compute' in sys.argv:
 						else:
 							filesFound[project_name][job_name].append(filename)
 		
-		#print(filesFound)
 		#Get the depth of the dictionnary
 		DEPTH = depth(filesFound)
-		print(filesFound)
-		
+		print("filesFound = " + str(filesFound))
+		print ("DEPTH = " + str(DEPTH))
+
 		#Creates the base directory
 		analysisFolder = FOLDER+'/fatslimAnalysis'
-		#print(analysisFolder)
+		print("analysisFolder =  " + str(analysisFolder))
+		
+		
 		if not os.path.isdir(analysisFolder):
 			os.makedirs(analysisFolder, exist_ok=True)
 		else:
@@ -1916,7 +1980,7 @@ if 'compute' in sys.argv:
 					print(file_names)
 					for file_name in file_names:
 						name = file_name.split('/')[-1]
-						print(name)
+						print("Try to analyse file : " + name)
 						
 						#Copying the files
 						destination = analysisFolder+'/'+job_name+'/'+name
@@ -1938,11 +2002,29 @@ if 'compute' in sys.argv:
 							csv_thickness_name = csv_thickness_dir +'/'+ name.replace('.gro','_THICKNESS.csv')
 							
 						else:
+							print("Analyse trajectory associated to file " + str(name))                           
 							if 'gro' in name:
 								gro_file = file_name
 								
 								#File name for fatslim index
 								hg_membrane_ndx = ndx_dir +'/'+ name.replace('.gro','_HG.ndx')
+								
+								#added by Claire========================
+								xtc_file = gro_file.replace('.gro','.xtc')
+								
+								ndx_file = destination.replace('.gro','.ndx')
+								#put a temp name for plot file name
+								plotname = destination.replace('.gro','tmp')
+								#put a temp name for csv file name
+								csvname = destination.replace('.gro','tmp')
+								#put a temp name for plot file name
+								plotname = xvg_dir +'/'+ name.replace('.gro','tmp')
+								#put a temp name for csv file name
+								csv_apl_name = csv_apl_dir +'/'+ name.replace('.gro','_APL.csv')
+								csv_order_name = csv_order_dir +'/'+ name.replace('.gro','_ORDER.csv')
+								csv_thickness_name = csv_thickness_dir +'/'+ name.replace('.gro','_THICKNESS.csv')
+								#added by Claire========================
+								
 								
 							if 'xtc' in name: 
 								##Copying the .edr file for box dimensions
@@ -1950,6 +2032,10 @@ if 'compute' in sys.argv:
 								#shutil.copyfile(edr_file, destination.replace('.xtc', '.edr'))
 								
 								xtc_file = file_name
+								
+								#added by Claire========================
+								gro_file = xtc_file.replace('.xtc','.gro')
+								#added by Claire========================
 								
 								ndx_file = destination.replace('.xtc','.ndx')
 								#put a temp name for plot file name
@@ -1963,7 +2049,7 @@ if 'compute' in sys.argv:
 								csv_apl_name = csv_apl_dir +'/'+ name.replace('.xtc','_APL.csv')
 								csv_order_name = csv_order_dir +'/'+ name.replace('.xtc','_ORDER.csv')
 								csv_thickness_name = csv_thickness_dir +'/'+ name.replace('.xtc','_THICKNESS.csv')
-								
+						
 					
 					#Making the index
 					makeIndexCmd = "{0} make_ndx -f {1} -o {2} << {3}".format(GMX, gro_file, ndx_file,
@@ -2012,7 +2098,7 @@ if 'compute' in sys.argv:
 					interacting_group = None
 					with open(ndx_file,'r') as index:
 						indexStr = index.read()
-						if 'DEF' in indexStr:
+						if 'DEF' in indexStr and NON_INTERACTING is False :
 							interacting_group = 'DEF'
 									
 					
@@ -2052,83 +2138,43 @@ if 'compute' in sys.argv:
 							fatslim_order_cmd += "--main-axis {0} {1} {2} ".format(MAIN_AXIS[0], MAIN_AXIS[1], MAIN_AXIS[2])
 						
 						
-					for command in [fatslim_memb_cmd, fatslim_apl_cmd, fatslim_thick_cmd, fatslim_order_cmd]:
-						if command != "":
-							print(command)
-							if TRAJECTORY is not None: 
-								command += "-t {0} ".format(xtc_file)
+						
+					#for command in [fatslim_memb_cmd, fatslim_apl_cmd, fatslim_thick_cmd, fatslim_order_cmd]:
+						#if command != "":
+							#print(command)
+							#if TRAJECTORY is not None: 
+								#print("Add information on trajectory analysis using : " + str(xtc_file) )
+								#command +=  "-t {0} ".format(xtc_file)
 								
-								if BEGIN_FRAME is not None: 
-									command += "--begin-frame {0} ".format(BEGIN_FRAME)
+								#if BEGIN_FRAME is not None: 
+									#command +=  "--begin-frame {0} ".format(BEGIN_FRAME)
 								
-								if END_FRAME is not None: 
-									command += "--end-frame {0} ".format(END_FRAME)
+								#if END_FRAME is not None: 
+									#command += "--end-frame {0} ".format(END_FRAME)
+							#print(command)
 								
 							
-							#Add interacting group for def found previously
-							if interacting_group is not None:
-								command += "--interacting-group {0} ".format(interacting_group)
+							##Add interacting group for def found previously
+							#if interacting_group is not None:
+								#command += "--interacting-group {0} ".format(interacting_group)
 							
-						
 					
-					# Adding plot for properties
-					if fatslim_apl_cmd != "":
-						fatslim_apl_cmd	+= "--plot-apl {0} --plot-area {1} ".format(plotname.replace('tmp','_APL.xvg'),
-																				plotname.replace('tmp','_AREA.xvg'))
-						fatslim_apl_cmd	+= "--export-apl-raw {0} ".format(csv_apl_name)
-						
 					
-					if fatslim_thick_cmd != "":
-						fatslim_thick_cmd	+= "--plot-thickness {0} ".format(plotname.replace('tmp','_THICKNESS.xvg'))
-						fatslim_thick_cmd	+= "--export-thickness-raw {0} ".format(csv_thickness_name)
 						
-					if fatslim_thick_cmd != "":
-						fatslim_order_cmd += "--plot-order {0} ".format(plotname.replace('tmp','_ORDER.xvg'))
-						fatslim_order_cmd += "--export-order-raw {0} ".format(csv_order_name)
-					
-					#cmd_for_all = "#! /bin/bash -x\n"
-					cmd_for_all = "## Script generated from the following command:\n##"
-					cmd_for_all += "## {0} \n##\n\n".format(' '.join(sys.argv))
-					cmd_for_all += fatslim_memb_cmd+"\n\n"+fatslim_apl_cmd+"\n\n"
-					cmd_for_all += fatslim_thick_cmd+"\n\n"
-					cmd_for_all += fatslim_order_cmd+"\n\n"
-							
-							
-					#if TRAJECTORY is not None: 
-						#fatslim_memb_cmd += "-t {0} ".format(xtc_file)
-						#fatslim_apl_cmd += "-t {0} ".format(xtc_file)
-						#fatslim_thick_cmd += "-t {0} ".format(xtc_file)
-						#fatslim_order_cmd += "-t {0} ".format(xtc_file)
-						
-						#if BEGIN_FRAME is not None: 
-							#fatslim_memb_cmd += "--begin-frame {0} ".format(BEGIN_FRAME)
-							#fatslim_apl_cmd += "--begin-frame {0} ".format(BEGIN_FRAME)
-							#fatslim_thick_cmd += "--begin-frame {0} ".format(BEGIN_FRAME)
-							#fatslim_order_cmd += "--begin-frame {0} ".format(BEGIN_FRAME)
-							
-						#if END_FRAME is not None: 
-							#fatslim_memb_cmd += "--end-frame {0} ".format(END_FRAME)
-							#fatslim_apl_cmd += "--end-frame {0} ".format(END_FRAME)
-							#fatslim_thick_cmd += "--end-frame {0} ".format(END_FRAME)
-							#fatslim_order_cmd += "--end-frame {0} ".format(END_FRAME)
-						
-					##Add interacting group for def found previously
-					#if interacting_group is not None:
-						#fatslim_memb_cmd += "--interacting-group {0} ".format(interacting_group)
-						#fatslim_apl_cmd += "--interacting-group {0} ".format(interacting_group)
-						#fatslim_thick_cmd += "--interacting-group {0} ".format(interacting_group)
-						#fatslim_order_cmd += "--interacting-group {0} ".format(interacting_group)
-						
-					## Adding plot for properties
-					#fatslim_apl_cmd += "--plot-apl {0} --plot-area {1} ".format(plotname.replace('tmp','_APL.xvg'),
-																				#plotname.replace('tmp','_AREA.xvg'))
-					#fatslim_thick_cmd += "--plot-thickness {0} ".format(plotname.replace('tmp','_THICKNESS.xvg'))
-					#fatslim_order_cmd += "--plot-order {0} ".format(plotname.replace('tmp','_ORDER.xvg'))
 					
 					## Adding plot for properties
-					#fatslim_apl_cmd += "--export-apl-raw {0} ".format(csv_apl_name)
-					#fatslim_thick_cmd += "--export-thickness-raw {0} ".format(csv_thickness_name)
-					#fatslim_order_cmd += "--export-order-raw {0} ".format(csv_order_name)
+					#if fatslim_apl_cmd != "":
+						#fatslim_apl_cmd += "--plot-apl {0} --plot-area {1} ".format(plotname.replace('tmp','_APL.xvg'), plotname.replace('tmp','_AREA.xvg'))
+						#fatslim_apl_cmd += "--export-apl-raw {0} ".format(csv_apl_name)
+						
+					
+					#if fatslim_thick_cmd != "":
+						#fatslim_thick_cmd += "--plot-thickness {0} ".format(plotname.replace('tmp','_THICKNESS.xvg'))
+						#fatslim_thick_cmd += "--export-thickness-raw {0} ".format(csv_thickness_name)
+						
+					#if fatslim_thick_cmd != "":
+						#fatslim_order_cmd += "--plot-order {0} ".format(plotname.replace('tmp','_ORDER.xvg'))
+						#fatslim_order_cmd += "--export-order-raw {0} ".format(csv_order_name)
 					
 					##cmd_for_all = "#! /bin/bash -x\n"
 					#cmd_for_all = "## Script generated from the following command:\n##"
@@ -2136,6 +2182,50 @@ if 'compute' in sys.argv:
 					#cmd_for_all += fatslim_memb_cmd+"\n\n"+fatslim_apl_cmd+"\n\n"
 					#cmd_for_all += fatslim_thick_cmd+"\n\n"
 					#cmd_for_all += fatslim_order_cmd+"\n\n"
+							
+							
+					if TRAJECTORY is not None: 
+						fatslim_memb_cmd += "-t {0} ".format(xtc_file)
+						fatslim_apl_cmd += "-t {0} ".format(xtc_file)
+						fatslim_thick_cmd += "-t {0} ".format(xtc_file)
+						fatslim_order_cmd += "-t {0} ".format(xtc_file)
+						
+						if BEGIN_FRAME is not None: 
+							fatslim_memb_cmd += "--begin-frame {0} ".format(BEGIN_FRAME)
+							fatslim_apl_cmd += "--begin-frame {0} ".format(BEGIN_FRAME)
+							fatslim_thick_cmd += "--begin-frame {0} ".format(BEGIN_FRAME)
+							fatslim_order_cmd += "--begin-frame {0} ".format(BEGIN_FRAME)
+							
+						if END_FRAME is not None: 
+							fatslim_memb_cmd += "--end-frame {0} ".format(END_FRAME)
+							fatslim_apl_cmd += "--end-frame {0} ".format(END_FRAME)
+							fatslim_thick_cmd += "--end-frame {0} ".format(END_FRAME)
+							fatslim_order_cmd += "--end-frame {0} ".format(END_FRAME)
+						
+					#Add interacting group for def found previously
+					if interacting_group is not None:
+						fatslim_memb_cmd += "--interacting-group {0} ".format(interacting_group)
+						fatslim_apl_cmd += "--interacting-group {0} ".format(interacting_group)
+						fatslim_thick_cmd += "--interacting-group {0} ".format(interacting_group)
+						fatslim_order_cmd += "--interacting-group {0} ".format(interacting_group)
+						
+					# Adding plot for properties
+					fatslim_apl_cmd += "--plot-apl {0} --plot-area {1} ".format(plotname.replace('tmp','_APL.xvg'),
+																				plotname.replace('tmp','_AREA.xvg'))
+					fatslim_thick_cmd += "--plot-thickness {0} ".format(plotname.replace('tmp','_THICKNESS.xvg'))
+					fatslim_order_cmd += "--plot-order {0} ".format(plotname.replace('tmp','_ORDER.xvg'))
+					
+					# Adding plot for properties
+					fatslim_apl_cmd += "--export-apl-raw {0} ".format(csv_apl_name)
+					fatslim_thick_cmd += "--export-thickness-raw {0} ".format(csv_thickness_name)
+					fatslim_order_cmd += "--export-order-raw {0} ".format(csv_order_name)
+					
+					#cmd_for_all = "#! /bin/bash -x\n"
+					cmd_for_all = "## Script generated from the following command:\n##"
+					cmd_for_all += "## {0} \n##\n\n".format(' '.join(sys.argv))
+					cmd_for_all += fatslim_memb_cmd+"\n\n"+fatslim_apl_cmd+"\n\n"
+					cmd_for_all += fatslim_thick_cmd+"\n\n"
+					cmd_for_all += fatslim_order_cmd+"\n\n"
 					
 					
 					script_file = '/'.join(ndx_file.split('/')[:-1])+"/fatslim-script.sh"
@@ -2371,7 +2461,7 @@ elif 'analyse' in sys.argv:
 		for prop in csv_found[job_name]:
 			frames = [pd.read_csv(csv) for csv in csv_found[job_name][prop][BEGIN:END:STRIDE]]
 			data[job_name][prop] = frames
-	print( "--- gathering data done in {1:f} seconds ---".format(job_name ,time.time() - start_time) )
+		print( "--- gathering data done in {1:f} seconds ---".format(job_name ,time.time() - start_time) )
 	
 	if SCATTER_SWITCH:
 		try:
@@ -2801,11 +2891,15 @@ elif 'gromacs' in sys.argv:
 	END_FRAME	=	cmdParam.end_frame
 	DT			=	cmdParam.dt
 	RADIUS		=	cmdParam.radius
+	ZMINGAZ		=	cmdParam.ZminGaz
+	ZMAXGAZ		=	cmdParam.ZmaxGaz
+	
 	
 	#Options to compute
 	DENSITY		=	cmdParam.density
 	ENERGY		=	cmdParam.energy
 	SELECT		=	cmdParam.select
+	DELETEDAT	=	cmdParam.deleteSelectDat
 	ORDER		=	cmdParam.order
 	LOCAL_TEMP	=	cmdParam.loctemp
 	LOCAL_PRESS	=	cmdParam.locpres
@@ -2865,7 +2959,7 @@ elif 'gromacs' in sys.argv:
 		print(filesFound)
 		
 		#Creates the base directory
-		analysisFolder = FOLDER+'/GMX_Analysis'
+		analysisFolder = FOLDER+'/GMX_Analysis'+str(os.getpid())
 		#print(analysisFolder)
 		if not os.path.isdir(analysisFolder):
 			os.makedirs(analysisFolder, exist_ok=True)
@@ -3003,7 +3097,7 @@ elif 'gromacs' in sys.argv:
 						
 						# To output all quantities
 						variables_for_output = "echo "
-						for i in range(1, 1000):
+						for i in range(1, 100):
 							variables_for_output += repr('{0}\n'.format(i))
 						variables_for_output += repr('\n\n')
 						
@@ -3053,17 +3147,22 @@ elif 'gromacs' in sys.argv:
 						flipflop_xvg_file = job_name + '-' + xtc_file.split('-')[-1].replace('.'+EXTENSION, '_FLIPFLOP.xvg')
 						spl_xvg_file = job_name + '-' + xtc_file.split('-')[-1].replace('.'+EXTENSION, '_SOLPERLEAF.xvg')
 						
+						
+						
 						if 'defo' in  read_index_out:
-							remove_pertubed_membrane = "and (not within {0} of (name DEF))".format(RADIUS)
+							remove_pertubed_membrane = "and (  (x - (x of com of (name DEF)))^2 +(y- (y of com of (name DEF) ))^2 > {0}^2 ) ".format(RADIUS)
 						if 'su' in read_index_out:
-							above_su = " and (z > z of com of group su)"
+#							above_su = " and (z > z of com of group su)"
+							above_su = " "
 						if 'PW' in read_index_out:
 							solvent = "PW"
 							
 						mono = ""
 						if 'mono' in read_index_out:
-							mono = str("and (z < z of com of (resname {2} and (z > z of com of group bilayer)))"
-										"").format(remove_pertubed_membrane, solvent)
+							mono = str("and (z < z of com of (resname {1} and (z > z of com of group bilayer)))"
+									"").format(remove_pertubed_membrane, solvent)
+#mono = str("and (z < z of com of group monolayer))"
+#										"").format(solvent)
 							
 						lower_leaflet_hg_bil = "(name PO4 {0}) and (z < z of com of group bilayer)".format(remove_pertubed_membrane)
 						upper_leaflet_hg_bil = "(name PO4 {0}) and (z > z of com of group bilayer) {2}".format(remove_pertubed_membrane, solvent, mono)
@@ -3072,8 +3171,8 @@ elif 'gromacs' in sys.argv:
 						upper_leaflet_solvent_bil = "(resname {0} {1}) and (z > z of com of group bilayer) {2}".format(solvent, mono, remove_pertubed_membrane)
 						
 						leaflet_hg_mono = "name PO4 {0} and (z > z of com of (resname {1} and (z > z of com of group bilayer)))".format(remove_pertubed_membrane, solvent)
-						leaflet_solvent_mono = str("resname {1} {0} and (z > z of com of group bilayer)"
-													" and (z > z of com of (resname {1} and (z > z of com of group bilayer)))").format(remove_pertubed_membrane, solvent)
+						leaflet_solvent_mono = str("resname {1} {0} and  (z > z of com of group monolayer)").format(remove_pertubed_membrane, solvent, ZMINGAZ,ZMAXGAZ)
+						gaz_solvent = str("resname {0} and (z > {1}) and (z < {2}) ").format(solvent, ZMINGAZ,ZMAXGAZ)
 						
 						## Call gmx select
 						try:
@@ -3100,16 +3199,21 @@ elif 'gromacs' in sys.argv:
 							if 'mono' in read_index_out:
 								select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end_dt, xtc_file, tpr_file,
 																											ndx_file,
-																											job_select_dir+'/'+ 'leaflet_hg_mono.dat',
+																											job_select_dir+'/'+ 'hg_in_monolayer.dat',
 																											leaflet_hg_mono)
 								
 								select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end_dt, xtc_file, tpr_file,
 																											ndx_file,
-																											job_select_dir+'/'+ 'leaflet_solvent_mono.dat',
+																											job_select_dir+'/'+ 'solvent_above_monolayer.dat',
 																											leaflet_solvent_mono)
-							
+								select_cmd += """{0} select {1} -f {2} -s {3} -n {4} -oi {5} -select "{6}" \n""".format(GMX, begin_end_dt, xtc_file, tpr_file,
+																											ndx_file,
+																											job_select_dir+'/'+ 'solvent_gaz_' + str(ZMINGAZ) + '_' + str(ZMAXGAZ) + '.dat',
+																											gaz_solvent)							
 							
 							print(select_cmd)
+							with open(job_select_dir+'/select_cmd.sh','a+') as select_cmd_out: 
+								select_cmd_out.write(ut.RemoveUnwantedIndent(select_cmd)+"\n")
 							sub.call(select_cmd, shell=True)
 						
 						except OSError as e:
@@ -3122,9 +3226,13 @@ elif 'gromacs' in sys.argv:
 						llsb_file = open(job_select_dir+'/'+ 'lower_leaflet_solvent_bil.dat','r')
 						ulsb_file = open(job_select_dir+'/'+ 'upper_leaflet_solvent_bil.dat','r')
 						
+						
+						
 						if 'mono' in read_index_out:
-							lhm_file = open(job_select_dir+'/'+ 'leaflet_hg_mono.dat','r') 
-							lsm_file = open(job_select_dir+'/'+ 'leaflet_solvent_mono.dat','r')
+							lhm_file = open(job_select_dir+'/'+ 'hg_in_monolayer.dat','r') 
+							lsm_file = open(job_select_dir+'/'+ 'solvent_above_monolayer.dat','r')
+							sg_file = open(job_select_dir+'/'+ 'solvent_gaz_' + str(ZMINGAZ) + '_' + str(ZMAXGAZ) + '.dat','r')
+
 						
 						#arrays for data
 						time_arr = []
@@ -3133,6 +3241,12 @@ elif 'gromacs' in sys.argv:
 						llsb_nb = []
 						ulsb_nb = []
 						
+						
+						if 'mono' in read_index_out:
+							lhm_nb = []
+							lsm_nb = []
+							sg_nb = []
+						
 						for line in llhb_file:
 							timestep = float(line.strip().split()[0])
 							number = float(line.strip().split()[1])
@@ -3140,10 +3254,20 @@ elif 'gromacs' in sys.argv:
 							time_arr.append(timestep)
 							llhb_nb.append(number)
 							
-						file_dict = {'ulhb': {'file': ulhb_file, 'array': ulhb_nb},
-										'llsb': {'file': llsb_file, 'array': llsb_nb},
-										'ulsb': {'file': ulsb_file, 'array': ulsb_nb},
-										}
+
+						if 'mono' in read_index_out:
+    							file_dict = {'ulhb': {'file': ulhb_file, 'array': ulhb_nb},
+											'llsb': {'file': llsb_file, 'array': llsb_nb},
+											'ulsb': {'file': ulsb_file, 'array': ulsb_nb},
+											'lhm': {'file': lhm_file, 'array': lhm_nb},
+											'lsm': {'file': lsm_file, 'array': lsm_nb},
+											'sg': {'file': sg_file, 'array': sg_nb},
+											}                        
+						else:
+   							file_dict = {'ulhb': {'file': ulhb_file, 'array': ulhb_nb},
+											'llsb': {'file': llsb_file, 'array': llsb_nb},
+											'ulsb': {'file': ulsb_file, 'array': ulsb_nb},
+											}    
 						
 						for key in file_dict:
 							dat_file = file_dict[key]['file']
@@ -3155,6 +3279,12 @@ elif 'gromacs' in sys.argv:
 						ulhb_nb = file_dict['ulhb']['array']
 						llsb_nb = file_dict['llsb']['array']
 						ulsb_nb = file_dict['ulsb']['array']
+						
+						if 'mono' in read_index_out:
+							lhm_nb =file_dict['lhm']['array']
+							lsm_nb =file_dict['lsm']['array']
+							sg_nb =file_dict['sg']['array']
+							
 						
 						with open(job_select_dir+'/{0}'.format(spl_xvg_file),'a+') as xvg_out:
 							header = """
@@ -3179,15 +3309,26 @@ elif 'gromacs' in sys.argv:
 							if 'mono' in read_index_out:
 								header += """
 									@ s6 legend "mono_hg"
-									@ s7 legend "mono_sol"
-									@ s8 legend "sol_per_mono_hg"
+									@ s7 legend "sol_above_mono"
+									@ s8 legend "sol_in_zmin_zmax"
 									"""
+								xvg_out.write(ut.RemoveUnwantedIndent(header)+"\n")
+								for T, llhb, ulhb, llsb, ulsb, hm, sm, sg in zip(time_arr, llhb_nb, ulhb_nb, llsb_nb, ulsb_nb,lhm_nb,lsm_nb,sg_nb):
+									row = "    {0}    {1}    {2}    {3}    {4}    {5}    {6}    {7}    {8}     {9}\n".format(T, llhb, ulhb, llsb, ulsb, llsb/llhb, ulsb/ulhb, hm, sm, sg)
+									xvg_out.write(row)
+							else:
+								xvg_out.write(ut.RemoveUnwantedIndent(header)+"\n")
+								for T, llhb, ulhb, llsb, ulsb in zip(time_arr, llhb_nb, ulhb_nb, llsb_nb, ulsb_nb):
+									row = "    {0}    {1}    {2}    {3}    {4}    {5}    {6}\n".format(T, llhb, ulhb, llsb, ulsb, llsb/llhb, ulsb/ulhb)
+									xvg_out.write(row)
+									
 							
-							xvg_out.write(ut.RemoveUnwantedIndent(header)+"\n")
-							
-							for T, llhb, ulhb, llsb, ulsb in zip(time_arr, llhb_nb, ulhb_nb, llsb_nb, ulsb_nb):
-								row = "    {0}    {1}    {2}    {3}    {4}    {5}    {6}\n".format(T, llhb, ulhb, llsb, ulsb, llsb/llhb, ulsb/ulhb)
-								xvg_out.write(row)
+								
+								
+								
+								
+								
+								
 						
 						flip_time = []
 						llhb_flip = []
@@ -3248,6 +3389,18 @@ elif 'gromacs' in sys.argv:
 						ulhb_file.close()
 						llsb_file.close()
 						ulsb_file.close()
+						
+						if DELETEDAT:
+							os.remove(job_select_dir+'/'+ 'lower_leaflet_hg_bil.dat')
+							os.remove(job_select_dir+'/'+ 'upper_leaflet_hg_bil.dat')
+							os.remove(job_select_dir+'/'+ 'lower_leaflet_solvent_bil.dat')
+							os.remove(job_select_dir+'/'+ 'upper_leaflet_solvent_bil.dat')
+							
+							if 'mono' in read_index_out:
+								os.remove(job_select_dir+'/'+ 'hg_in_monolayer.dat')
+								os.remove(job_select_dir+'/'+ 'solvent_above_monolayer.dat')
+								os.remove(job_select_dir+'/'+ 'solvent_gaz_' + str(ZMINGAZ) + '_' + str(ZMAXGAZ) + '.dat')
+								
 					
 					
 					#if ORDER is not None:
@@ -3572,6 +3725,13 @@ elif 'mda' in sys.argv:
 					if DENSITY is not None:
 						dens_start_time = time.time()
 						
+
+# I want to parallelize this part !
+# example.. I have to write a function to parallelize first !
+# 
+# then use a pool of workers, as in multipleprocessing 
+						
+						
 						frame_density		= []
 						grid_x_array		= []
 						grid_y_array		= []
@@ -3606,8 +3766,22 @@ elif 'mda' in sys.argv:
 							points = np.empty(shape=(1,3))
 							values = []
 							
-							if RADIUS is not None:
-								slice_volume = (box_xx * box_yy - math.pi*RADIUS**2) * DZ
+							if ((RADIUS is not None) and (RADIUS > 0.0)):
+								if  box_xx == box_yy :
+									lo2 = box_xx/2.0
+									los2 = box_xx/math.sqrt(2.0)
+									
+									if(RADIUS < lo2):
+										slice_volume = (box_xx * box_yy - math.pi*RADIUS**2) * DZ
+									else:
+										if (RADIUS < los2):
+											slice_volume = (lo2*(lo2 - math.sqrt(RADIUS**2-lo2**2)) - ((RADIUS**2)/2.0)*(math.pi/2.0-2.0*math.acos(lo2/RADIUS))) * DZ * 4.0
+											#print("Volume to analyse is =" + str(slice_volume) + "nm^3" )
+										else:
+											raise ValueError("'RADIUS' (" + str(RADIUS) + " nm) should  be smaller than Lxx/sqrt(2) (" + str(los2)  + " nm) to have a volume to analyze ")
+								else :
+									print("ERROR: RADIUS option not implemented if Lxx != Lyy") 
+									raise ValueError("RADIUS option not implemented if Lxx != Lyy")
 								#DEF = coord.select_atoms("name DEF")
 								#DEF_COG = DEF.center_of_geometry()
 								#z_DEF = DEF_COG[2]
@@ -3621,7 +3795,7 @@ elif 'mda' in sys.argv:
 								atom_names.append(atom_type)
 								selection = None
 								if RADIUS is not None and atom_type != 'DEF':
-									selection	= coord.select_atoms("name {0} and not (cyzone {1} {2} -{2} (name DEF))".format(atom_type, RADIUS, box_zz), update=True)
+									selection	= coord.select_atoms("name {0} and not (cyzone {1} {2} -{2} (name DEF))".format(atom_type, RADIUS, (box_zz-0.)/2.0), update=True)
 									#(box_zz-0.5)/2.0, (box_zz)/2.0))
 									
 								else:
@@ -3702,7 +3876,7 @@ elif 'mda' in sys.argv:
 						header = """
 								@    title ""
 								@    xaxis  label "z-coordinate (nm)"
-								@    yaxis  label ""
+								@    yaxis  label "Density (particle/nm^3)"
 								@TYPE xy
 								@ view 0.15, 0.15, 0.75, 0.85
 								@ legend on
@@ -3790,7 +3964,8 @@ elif 'reflectometry' in sys.argv:
 	RESOLUTION		= cmdParam.resolution
 	CONVOLVE		= cmdParam.convolve
 	OUTPUT			= cmdParam.output
-	
+	INVBEAMDIR		= cmdParam.invbeamdir
+	WATERCONTENT	= cmdParam.watercontent
 	CHECK			= cmdParam.check
 	sl_data = {}
 	
@@ -3849,10 +4024,14 @@ elif 'reflectometry' in sys.argv:
 	
 	density_data = pd.DataFrame(density_data)
 	
+	print("sl_data['W']['W'] = "  + str(sl_data['W']['W']))
+	print('WATERCONTENT = ' + str(WATERCONTENT) )
+	
 	for mol in MOLECULES:
 		for atom_name in  sl_data[mol]:
 			# converting to (10^-6 A^-2) with 1e-8
-			density_data[atom_name] = density_data[atom_name]* sl_data[mol][atom_name]*1e-8 
+			density_data[atom_name] = density_data[atom_name]* (sl_data[mol][atom_name]*(1.0-WATERCONTENT)+ (sl_data['W']['W'])*WATERCONTENT)*1e-8 
+			
 	
 	all_atoms = []
 	for mol in MOLECULES:
@@ -3868,7 +4047,7 @@ elif 'reflectometry' in sys.argv:
 	# use ix to reorder
 	density_data = density_data.ix[:, cols]
 
-	if CONVOLVE is not None:
+	if (CONVOLVE is not None) and (CONVOLVE > 0):
 		# Formula from DOI: 10.1021/acs.jpcb.6b05433#
 		p = CONVOLVE
 		
@@ -3898,8 +4077,7 @@ elif 'reflectometry' in sys.argv:
 	if LIMITS is not None:
 		lower_limit = density_data['z'] >= LIMITS[0]
 		upper_limit = density_data['z'] <= LIMITS[1]
-	
-	density_data = density_data[lower_limit & upper_limit]
+		density_data = density_data[lower_limit & upper_limit]
 	
 	dz = None
 	if SUBLAYERS is not None or SUPLAYERS is not None:
@@ -3908,7 +4086,7 @@ elif 'reflectometry' in sys.argv:
 	sub_layers_dict = {}
 	sup_layers_dict = {}
 	
-	print(density_data)
+	#print(density_data)
 	
 
 	
@@ -4019,7 +4197,7 @@ elif 'reflectometry' in sys.argv:
 		#Create a new total with the added layers
 		extract_total = density_data[['z','total']]
 		new_total = pd.DataFrame({'z': total_new_z_bin, 'total': total_new_sld})
-		new_total = pd.concat([new_total, extract_total], ignore_index=True)
+		new_total = pd.concat([new_total, extract_total], ignore_index=True,sort=True)
 		new_total = new_total.rename(columns={'total' : 'fittotal'})
 		
 		val_to_add = new_total.shape[0] - density_data.shape[0]
@@ -4027,7 +4205,7 @@ elif 'reflectometry' in sys.argv:
 		density_data = density_data.shift(periods=val_to_add)
 		density_data = density_data.assign(fittotal=new_total.fittotal, z=new_total.z)
 	
-	print(density_data)
+	#print(density_data)
 	#density_data.plot(x='z', y='fittotal')
 	#plt.show()
 	
@@ -4137,7 +4315,7 @@ elif 'reflectometry' in sys.argv:
 		if SUBLAYERS is not None:
 			extract_total	= density_data[['z','fittotal']]
 			new_total		= pd.DataFrame({'z': total_new_z_bin, 'fittotal': total_new_sld})
-			new_total		= pd.concat([extract_total, new_total], ignore_index=True)
+			new_total		= pd.concat([extract_total, new_total], ignore_index=True,sort=True)
 			
 			val_to_add = new_total.shape[0] - density_data.shape[0]
 			density_data = density_data.append(pd.DataFrame([0.0]*val_to_add), ignore_index=True)
@@ -4154,21 +4332,37 @@ elif 'reflectometry' in sys.argv:
 		
 		density_data = density_data.assign(fittotal=new_total.fittotal, z=new_total.z).drop(0,1)
 	
-	with pd.option_context('display.max_rows', None):
-		print(density_data)
-	#print(density_data)
-	#density_data.plot(x='z', y='fittotal')
-	#density_data.plot(x='z', y='total')
-	#plt.show()
 	
+	#with pd.option_context('display.max_rows', None):
+	#	print(density_data)
+		#print(density_data)
+		#density_data.plot(x='z', y='fittotal')
+		#density_data.plot(x='z', y='total')
+		#plt.show()
+		
 	# get a list of columns
 	cols = list(density_data)
+
 	# move the column to head of list using index, pop and insert
 	cols.insert(0, cols.pop(cols.index('z')))
+	
 	# use ix to reorder
 	density_data = density_data.ix[:, cols]
 	
-	
+	if INVBEAMDIR:
+		print('====================>> Inverting the neutron beam direction !')
+		density_data['z'] = -1.0 * density_data['z'] + max(density_data['z'])
+		
+		for col in cols:
+			#print(' col = ' + str(col))
+			#print(density_data[col])
+			#print(' reversed col = ' + str(col))
+			density_data[col] = list(reversed(density_data[col]))
+			#print(density_data[col])
+		
+	#with pd.option_context('display.max_rows', None):
+	#	print(density_data)
+		
 	#density_data.fillna(0.0, inplace=True)
 	header = """
 			@    title ""
@@ -4185,7 +4379,7 @@ elif 'reflectometry' in sys.argv:
 	
 	if SUPLAYERS is not None:
 		adding_to_header = """
-			#SLD fittotal was made using the following parameters for sub layers:
+			#SLD fittotal was made using the following parameters for sup layers:
 			# {0}
 			#""".format(str(SUPLAYERS))
 		
@@ -4193,7 +4387,7 @@ elif 'reflectometry' in sys.argv:
 	
 	if SUBLAYERS is not None:
 		adding_to_header = """
-			#SLD fittotal was made using the following parameters for super layers:
+			#SLD fittotal was made using the following parameters for sub layers:
 			# {0}
 			#""".format(str(SUBLAYERS))
 		
@@ -4389,7 +4583,7 @@ elif 'reflectometry' in sys.argv:
 			Chi			= np.sqrt(Chi_sqrd)
 			
 		
-		if RESOLUTION is not None:
+		if RESOLUTION is not None :
 			# Formula from DOI: 10.1021/acs.jpcb.6b05433#
 			p = RESOLUTION
 			
@@ -4450,8 +4644,8 @@ elif 'reflectometry' in sys.argv:
 			
 		
 		if CHECK:
-			with pd.option_context('display.max_rows', None):
-				print(reflectivity_data)
+			#with pd.option_context('display.max_rows', None):
+			#	print(reflectivity_data)
 			
 			if EXPERIMENTAL is not None:
 				
@@ -4485,7 +4679,7 @@ elif 'reflectometry' in sys.argv:
 			plt.tight_layout()
 			
 			if OUTPUT is not None:
-				name = None
+				name    = None
 				name	= None
 				dest	= OUTPUT[0]
 				ext		= OUTPUT[1]
@@ -4542,7 +4736,13 @@ elif 'reflectometry' in sys.argv:
 			
 			header = adding_to_header + header
 			
-		
+		if EXPERIMENTAL is not None:
+			adding_to_header = """
+				# Exp/Simul chi is {0}
+				#""".format(str(round(Chi,2)))
+			print("{1} => Exp/Simul chi {0}".format(str(round(Chi,2)),XVG_FILE))	
+			header = adding_to_header + header
+			
 		header = ut.RemoveUnwantedIndent(header)
 		
 		xvg_out = None
